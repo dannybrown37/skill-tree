@@ -6,7 +6,7 @@
 # `install.sh` just has to put this file on PATH.
 set -euo pipefail
 
-_script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+_script_dir="$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")"
 
 _queue_py() {
     uv run python "${_script_dir}/queue_cli.py" "$@"
