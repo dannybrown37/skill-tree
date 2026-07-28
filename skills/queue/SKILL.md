@@ -25,8 +25,8 @@ More details. No repo tag -- that's fine, it just shows up everywhere.
 The leading `[repo]` is an optional tag naming which repo the item is for. Untagged items are
 repo-agnostic and always visible; tagged items are filtered by default (see below).
 
-`queue` (sourced from `dotfiles`' `bin/queue.sh`, backed by this repo's `scripts/queue_cli.py`)
-is the CLI:
+`queue` (this skill's own `scripts/queue` -- an executable fzf wrapper, put on PATH by
+`scripts/install.sh` -- backed by `scripts/queue_cli.py`) is the CLI:
 
 - `queue list` — preview the next items (title + first line), scoped to items tagged for the
   **current repo** (by cwd) plus every untagged item. Prints a `(N hidden for other repos —
@@ -53,11 +53,11 @@ With no `--item-title`, `queue claim`/`complete`/`tag` all open fzf over the cur
 `--item-title` matches regardless of whether it includes the `[in-progress]` suffix or a
 `[repo]` tag. `--end-time` defaults to now if omitted.
 
-`bin/` is sourced only by interactive shells, so `queue` is often **not** on `PATH` in a tool
-call. Call the script directly instead of assuming the function exists:
+`queue` also needs a real terminal for its fzf pickers, and a tool call's `PATH` may not
+include `~/.local/bin` anyway. Call the script directly instead of assuming `queue` is on `PATH`:
 
 ```bash
-uv run python "${SKILL_TREE_DIR:-$HOME/projects/skill-tree}/scripts/queue_cli.py" <action> ...
+uv run python "${CLAUDE_PLUGIN_ROOT:-${SKILL_TREE_DIR:-$HOME/projects/skill-tree}}/skills/queue/scripts/queue_cli.py" <action> ...
 ```
 
 Paths default to `~/.claude/queue/{queue,queue-complete}` (or `$QUEUE_HOME`) — no need to pass
@@ -115,6 +115,6 @@ Paths default to `~/.claude/queue/{queue,queue-complete}` (or `$QUEUE_HOME`) —
 - Nothing trims the active queue while an item is active, so step 1's full read can be large if
   someone pasted a big log in. That's expected.
 
-- `.claude/references/queue-sync-model.md` — how the password-store merge works:
-  tombstones, merge ordering, stale `[in-progress]` markers, the 50-line completion trim.
-  Read it when a sync looks wrong; it is not needed for a normal queue pull.
+- `references/queue-sync-model.md` (alongside this file) — how the password-store merge
+  works: tombstones, merge ordering, stale `[in-progress]` markers, the 50-line completion
+  trim. Read it when a sync looks wrong; it is not needed for a normal queue pull.

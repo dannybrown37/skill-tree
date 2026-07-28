@@ -3,10 +3,13 @@
 ## What this repo is
 
 A shared home for the *implementation* behind Claude Code skills — the CLI, tests, and
-mechanism a skill's `SKILL.md` playbook calls into. Consuming repos (`dotfiles`, etc.) symlink
-`.claude/skills/<name>` out of here and invoke the CLI via an absolute path
-(`$SKILL_TREE_DIR`-qualified), so nothing here should assume it's being run from inside another
-repo, or that another repo is even cloned.
+mechanism a skill's `SKILL.md` playbook calls into. This repo is itself an installable Claude
+Code plugin and marketplace (`.claude-plugin/`); each skill lives at `skills/<name>/`, with its
+own `SKILL.md`, `scripts/`, and `references/` colocated rather than split into a shared
+top-level directory. Consumers either install it via `/plugin marketplace add` or symlink
+`skills/<name>` directly (e.g. `dotfiles`, historically) and invoke the CLI via an absolute
+path (`$SKILL_TREE_DIR`-qualified), so nothing here should assume it's being run from inside
+another repo, or that another repo is even cloned.
 
 ## General Approach
 

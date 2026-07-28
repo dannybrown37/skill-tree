@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Validate the structure of every skill under .claude/skills/.
+"""Validate the structure of every skill under skills/.
 
 Complements check-claude-symlinks.sh: that one checks the .github mirror
 exists, this one checks the skill content the mirror points at is sound.
@@ -73,7 +73,9 @@ def validate_bundled_scripts(skill_dir: Path) -> list[str]:
 
     errors = []
     for script in sorted(scripts_dir.iterdir()):
-        if not script.is_file():
+        # pytest modules are validated by the test suite, not invoked
+        # directly, so the executable/shebang rule doesn't apply to them.
+        if not script.is_file() or script.name.startswith('test_'):
             continue
 
         relative = f'{skill_dir.name}/scripts/{script.name}'
@@ -99,7 +101,7 @@ def validate_skill(skill_dir: Path) -> list[str]:
 
 
 def find_skill_dirs(root: Path) -> list[Path]:
-    skills_root = root / '.claude' / 'skills'
+    skills_root = root / 'skills'
     if not skills_root.is_dir():
         return []
     return sorted(d for d in skills_root.iterdir() if d.is_dir())
