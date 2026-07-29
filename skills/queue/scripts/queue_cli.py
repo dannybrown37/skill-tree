@@ -128,6 +128,18 @@ def filter_items_for_repo(
     return (visible, len(items) - len(visible))
 
 
+def filter_untagged_items(
+    items: list[QueueItem],
+) -> tuple[list[QueueItem], int]:
+    """Keep items with no `[repo]` tag; also count what was hidden.
+
+    Used by the tag picker's default view, so retagging doesn't accidentally
+    land on something that's already tagged for a repo.
+    """
+    visible = [item for item in items if item.repo is None]
+    return (visible, len(items) - len(visible))
+
+
 def find_item(items: list[QueueItem], title: str) -> QueueItem | None:
     """Find an item by title, ignoring whether it's marked in-progress."""
     target = strip_in_progress_marker(title)
@@ -416,9 +428,13 @@ def show_item(item: QueueItem) -> None:
     print(f'{"=" * 70}\n')
 
 
-def hidden_note(hidden: int, action: str) -> str:
-    """Say what the repo filter left out, so nothing vanishes silently."""
-    return f'({hidden} hidden for other repos — `queue {action} --all`)'
+def hidden_note(
+    hidden: int,
+    action: str,
+    reason: str = 'for other repos',
+) -> str:
+    """Say what a filter left out, so nothing vanishes silently."""
+    return f'({hidden} hidden {reason} — `queue {action} --all`)'
 
 
 def action_next(queue_path: Path, repo: str | None = None) -> None:
@@ -452,14 +468,29 @@ def action_list(queue_path: Path, repo: str | None = None) -> None:
         print(hidden_note(hidden, 'list'))
 
 
-def action_titles(queue_path: Path, repo: str | None = None) -> None:
-    """Print bare titles, one per line, for piping into fzf."""
-    items, hidden = visible_items(queue_path, repo)
+def action_titles(
+    queue_path: Path,
+    repo: str | None = None,
+    *,
+    untagged_only: bool = False,
+) -> None:
+    """Print bare titles, one per line, for piping into fzf.
+
+    `untagged_only` is a different filter dimension than `repo` scoping --
+    it's what the tag picker uses by default, so retagging an already-tagged
+    item takes an explicit `--all` rather than happening by accident.
+    """
+    if untagged_only:
+        items, hidden = filter_untagged_items(parse_queue_file(queue_path))
+        reason = 'already tagged'
+    else:
+        items, hidden = visible_items(queue_path, repo)
+        reason = 'for other repos'
     for item in items:
         print(item.title)
     if hidden:
         # stdout is the picker's input; a note there would be selectable.
-        print(hidden_note(hidden, 'titles'), file=sys.stderr)
+        print(hidden_note(hidden, 'titles', reason), file=sys.stderr)
 
 
 def prompt_for_title() -> str:
@@ -483,6 +514,19 @@ def open_editor_for_content() -> str:
         return Path(temp_path).read_text().strip()
     finally:
         Path(temp_path).unlink(missing_ok=True)
+
+
+def action_edit(queue_path: Path) -> None:
+    """Open the queue file directly in $EDITOR.
+
+    For hand-fixing something the picker-driven actions can't reach --
+    reordering, rewording, or untangling a bad merge. Prints the resolved
+    path first since it lives outside every repo and is easy to lose track
+    of.
+    """
+    editor = os.environ.get('EDITOR', 'vim')
+    print(f'Opening {queue_path} in {editor}...')
+    subprocess.run([editor, str(queue_path)], check=True)  # noqa: S603
 
 
 def action_insert(
@@ -665,6 +709,7 @@ def main() -> None:
             'next',
             'list',
             'titles',
+            'edit',
             'insert',
             'claim',
             'complete',
@@ -700,8 +745,14 @@ def main() -> None:
     )
     parser.add_argument(
         '--all',
+        '-a',
         action='store_true',
         help='List every item, including ones tagged for other repos',
+    )
+    parser.add_argument(
+        '--untagged-only',
+        action='store_true',
+        help='For titles: list only items with no [repo] tag yet',
     )
     parser.add_argument(
         '--end-time',
@@ -748,7 +799,9 @@ def main() -> None:
     elif args.action == 'list':
         action_list(queue_path, repo)
     elif args.action == 'titles':
-        action_titles(queue_path, repo)
+        action_titles(queue_path, repo, untagged_only=args.untagged_only)
+    elif args.action == 'edit':
+        action_edit(queue_path)
     elif args.action == 'insert':
         action_insert(queue_path, args.title, args.content)
     elif args.action in ('merge-queue', 'merge-completed'):

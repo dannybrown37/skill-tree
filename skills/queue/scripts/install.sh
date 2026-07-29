@@ -18,7 +18,11 @@ _link() {
 
     if [[ -L "${link_path}" ]]; then
         [[ "$(readlink "${link_path}")" == "${target}" ]] && return 0
-        ln -sf "${target}" "${link_path}"
+        # -n: link_path may itself be a symlink to a directory (e.g. an
+        # earlier install pointed it at the plugin cache) -- plain `ln -sf`
+        # would then dereference it and create the link *inside* that
+        # directory instead of replacing it.
+        ln -sfn "${target}" "${link_path}"
         echo "Updated ${link_path} -> ${target}"
         return 0
     fi

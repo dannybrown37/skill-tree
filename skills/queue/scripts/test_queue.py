@@ -11,6 +11,7 @@ from queue_cli import (
     MAX_COMPLETED_CONTENT_LINES,
     action_claim,
     action_complete,
+    action_edit,
     action_insert,
     action_list,
     action_merge_completed,
@@ -22,6 +23,7 @@ from queue_cli import (
     default_complete_path,
     default_queue_path,
     filter_items_for_repo,
+    filter_untagged_items,
     list_titles,
     merge_completed_text,
     merge_queue_text,
@@ -631,6 +633,23 @@ def test_action_merge_queue_drops_items_completed_on_the_other_machine(
     assert list_titles(queue_path) == ['Open']
 
 
+def test_action_edit_opens_editor_on_the_queue_file(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    queue_path = _write_queue(tmp_path, _queue('Existing'))
+    monkeypatch.setenv('EDITOR', 'my-editor')
+    calls = []
+    monkeypatch.setattr(
+        'queue_cli.subprocess.run',
+        lambda args, **kwargs: calls.append((args, kwargs)),
+    )
+
+    action_edit(queue_path)
+
+    assert calls == [(['my-editor', str(queue_path)], {'check': True})]
+
+
 def test_action_insert_adds_item_to_empty_queue(tmp_path: Path) -> None:
     queue_path = _write_queue(tmp_path, '# Queue\n')
 
@@ -735,6 +754,27 @@ def test_filter_items_for_repo_matches_case_insensitively(repo: str) -> None:
     assert hidden == 0
 
 
+def test_filter_untagged_items_keeps_only_items_without_a_repo_tag() -> None:
+    items = parse_queue_text(
+        _queue('[dotfiles] Tagged Here', 'Untagged', '[gtd] Tagged There'),
+    )
+
+    visible, hidden = filter_untagged_items(items)
+    expected_hidden = 2
+
+    assert [item.title for item in visible] == ['Untagged']
+    assert hidden == expected_hidden
+
+
+def test_filter_untagged_items_hides_nothing_when_all_are_untagged() -> None:
+    items = parse_queue_text(_queue('First', 'Second'))
+
+    visible, hidden = filter_untagged_items(items)
+
+    assert [item.title for item in visible] == ['First', 'Second']
+    assert hidden == 0
+
+
 def test_current_repo_name_walks_up_to_the_repo_root(tmp_path: Path) -> None:
     (tmp_path / 'myrepo' / '.git').mkdir(parents=True)
     nested = tmp_path / 'myrepo' / 'src' / 'deep'
@@ -798,6 +838,39 @@ def test_action_titles_prints_only_titles_on_stdout(
     captured = capsys.readouterr()
     assert captured.out.split('\n')[:-1] == ['[dotfiles] Here', 'Untagged']
     assert '1' in captured.err
+
+
+def test_action_titles_untagged_only_hides_already_tagged_items(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """The tag picker's default view -- don't offer already-tagged items."""
+    queue_path = _write_queue(
+        tmp_path,
+        _queue('[dotfiles] Here', 'Untagged', '[gtd] Elsewhere'),
+    )
+
+    action_titles(queue_path, untagged_only=True)
+
+    captured = capsys.readouterr()
+    assert captured.out.split('\n')[:-1] == ['Untagged']
+    assert 'already tagged' in captured.err
+    assert '--all' in captured.err
+
+
+def test_action_titles_untagged_only_ignores_repo_scoping(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """Untagged-only is a different filter dimension than repo scoping."""
+    queue_path = _write_queue(
+        tmp_path,
+        _queue('[dotfiles] Here', 'Untagged'),
+    )
+
+    action_titles(queue_path, repo='gtd', untagged_only=True)
+
+    assert capsys.readouterr().out.split('\n')[:-1] == ['Untagged']
 
 
 def test_action_list_reports_how_many_items_are_hidden(

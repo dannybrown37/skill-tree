@@ -42,12 +42,17 @@ repo-agnostic and always visible; tagged items are filtered by default (see belo
   log, stamped with the time it was completed. If the item's body is over 50 lines (e.g. a
   pasted CI log), it's capped at 50 lines with a `_[Trimmed from N to 50 lines]_` note appended
   — the active queue itself is never modified, only what lands in the completed log.
-- `queue tag [--item-title "..."] [--repo "<name>"]` — set, replace, or remove an item's
-  `[repo]` tag. Pass `--repo ""` to remove a tag entirely. With no `--item-title`, fzf offers
-  **every** item regardless of tag (retagging a mistagged item is the point). With no
-  `--repo`, fzf offers git repos found under `$PROJECTS_DIR` (default `~/projects`), falling
-  back to whatever was typed if it doesn't match one — for tagging an item to a repo only
-  cloned on another machine.
+- `queue tag [--item-title "..."] [--repo "<name>"] [-a|--all]` — set, replace, or remove an
+  item's `[repo]` tag. Pass `--repo ""` to remove a tag entirely. With no `--item-title`, fzf
+  offers only **untagged** items by default, so you can't accidentally retag something that's
+  already tagged; pass `-a`/`--all` to offer every item regardless of tag (for the deliberate
+  case of retagging a mistagged item). With no `--repo`, fzf offers git repos found under
+  `$PROJECTS_DIR` (default `~/projects`) plus a `greenfield` option for an item that's for a
+  brand-new project with no repo to tag yet, falling back to whatever was typed if it doesn't
+  match one — for tagging an item to a repo only cloned on another machine.
+- `queue edit` — open the active `.queue` file directly in `$EDITOR`, printing its resolved
+  path first. For hand-fixing something the picker-driven actions can't reach (reordering,
+  rewording, untangling a bad merge) — not part of the normal claim/discuss/complete flow.
 
 With no `--item-title`, `queue claim`/`complete`/`tag` all open fzf over the current titles.
 `--item-title` matches regardless of whether it includes the `[in-progress]` suffix or a

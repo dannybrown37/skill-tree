@@ -12,11 +12,20 @@ _queue_py() {
     uv run python "${_script_dir}/queue_cli.py" "$@"
 }
 
-# Repo names the tag picker offers: git repos directly under $PROJECTS_DIR.
+# Repo names the tag picker offers: git repos directly under $PROJECTS_DIR,
+# plus "greenfield" for an item that's for a brand-new project with no repo
+# to tag yet.
 _queue_repo_candidates() {
     local projects_dir="${PROJECTS_DIR:-${HOME}/projects}" dir
+    printf '%s\n' greenfield
     for dir in "${projects_dir}"/*/; do
-        [[ -e "${dir}.git" ]] && basename "${dir}"
+        # `if`, not `[[ ]] &&` -- under `set -e`, a bare `&&` as the loop's
+        # last command makes the *function's* exit status track whichever
+        # directory happened to sort last, which poisons the pipe this feeds
+        # into and silently kills the caller for any repo lacking a `.git`.
+        if [[ -e "${dir}.git" ]]; then
+            basename "${dir}"
+        fi
     done
 }
 
@@ -31,15 +40,30 @@ _queue_pick_or_type() {
     printf '%s\n' "${choice:-${query}}"
 }
 
+# True if -a/--all is among the given args.
+_queue_has_all_flag() {
+    local arg
+    for arg in "$@"; do
+        [[ "${arg}" == "--all" || "${arg}" == "-a" ]] && return 0
+    done
+    return 1
+}
+
 action="${1:-}"
 
-# Titles have to match exactly, so offer them instead of retyping one. A tag
-# picker sees every item (--all), since retagging a mistagged item is the
-# point; claim/complete stay scoped to the current repo.
+# Titles have to match exactly, so offer them instead of retyping one. The
+# tag picker defaults to only untagged items, so retagging a mistagged item
+# needs an explicit -a/--all; claim/complete stay scoped to the current repo.
 if [[ ("${action}" == "complete" || "${action}" == "claim" || "${action}" == "tag") &&
     "$*" != *--item-title* ]]; then
     title_extra=()
-    [[ "${action}" == "tag" ]] && title_extra=(--all)
+    if [[ "${action}" == "tag" ]]; then
+        if _queue_has_all_flag "$@"; then
+            title_extra=(--all)
+        else
+            title_extra=(--untagged-only)
+        fi
+    fi
 
     title="$(_queue_py titles "${title_extra[@]}" |
         fzf --prompt="${action^} which item? " --height=40% --reverse)"
