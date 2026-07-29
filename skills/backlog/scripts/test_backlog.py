@@ -987,7 +987,7 @@ def test_action_list_reports_how_many_items_are_hidden(
     out = capsys.readouterr().out
     assert '[gtd] Elsewhere' not in out
     assert '1 hidden' in out
-    assert '--all' in out
+    assert '--repo-only' in out
 
 
 def test_action_list_says_nothing_about_hiding_when_nothing_is_hidden(

@@ -28,12 +28,13 @@ repo-agnostic and always visible; tagged items are filtered by default (see belo
 `backlog` (this skill's own `scripts/backlog` -- an executable fzf wrapper, put on PATH by
 `scripts/install.sh` -- backed by `scripts/backlog_cli.py`) is the CLI:
 
-- `backlog list` — preview the next items (title + first line), scoped to items tagged for the
-  **current repo** (by cwd) plus every untagged item. Prints a `(N hidden for other repos —
-  \`backlog list --all\`)` note if anything was filtered out. `--all` shows everything.
+- `backlog list` — preview the next items (title + first line). Shows everything by default —
+  every item, tagged or not. `--repo-only` (or `--repo <name>`) narrows to items tagged for the
+  **current repo** (by cwd, or the named one) plus every untagged item, and prints a `(N hidden
+  for other repos — drop --repo-only to see them)` note so nothing vanishes silently.
 - `backlog next` — show the full first visible item, same scoping as `list`.
 - `backlog titles` — bare titles, one per line (what the picker reads), same scoping; an
-  in-progress item's title carries a literal `[in-progress]` suffix. `--all` shows everything.
+  in-progress item's title carries a literal `[in-progress]` suffix.
 - `backlog claim [--item-title "..."]` — mark an item in-progress by appending `[in-progress]`
   to its `##` header, so a concurrent agent reading the file (or `backlog titles`/`list`/`next`)
   can see it's taken. Errors (exit 1) if the item is already marked. **Lookup is never
@@ -82,9 +83,10 @@ testing).
 1. Read the backlog file directly (not just `backlog list`) so you have the full text of every
    in-scope item, not just previews. **Scope to the current repo**: items tagged `[repo]` for
    a different repo than the one you're in are out of scope — don't discuss or claim them
-   unless the user explicitly asks to look across repos (`backlog list --all` first, to confirm
-   what's out there). Skip any item whose header already carries `[in-progress]` — another
-   agent has it — and surface that to the user rather than silently ignoring it.
+   unless the user explicitly asks to look across repos (`backlog list` shows everything by
+   default; use `--repo-only` first, to confirm what's specific to this repo). Skip any item
+   whose header already carries `[in-progress]` — another agent has it — and surface that to
+   the user rather than silently ignoring it.
 2. If there's more than one eligible item, **ask which one to work on** — use `AskUserQuestion`
    listing the item titles. Don't assume the first item is wanted; the user has explicitly said
    they might not want to start with it.

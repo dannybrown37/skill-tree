@@ -440,6 +440,8 @@ def hidden_note(
     reason: str = 'for other repos',
 ) -> str:
     """Say what a filter left out, so nothing vanishes silently."""
+    if reason == 'for other repos':
+        return f'({hidden} hidden {reason} — drop --repo-only to see them)'
     return f'({hidden} hidden {reason} — `backlog {action} --all`)'
 
 
@@ -779,16 +781,25 @@ def main() -> None:
         type=str,
         default=None,
         help=(
-            'For list/next/titles: repo to show (default: the repo the cwd '
-            'is in). For tag: repo to tag the item with (pass "" to untag). '
+            'For list/next/titles: repo to filter to (implies --repo-only). '
+            'For tag: repo to tag the item with (pass "" to untag). '
             'For stack/queue: repo to tag the new item with.'
+        ),
+    )
+    parser.add_argument(
+        '--repo-only',
+        action='store_true',
+        help=(
+            'For list/next/titles: only show items tagged for the current '
+            '(or --repo) repo, plus untagged ones. Default is to show '
+            'everything.'
         ),
     )
     parser.add_argument(
         '--all',
         '-a',
         action='store_true',
-        help='List every item, including ones tagged for other repos',
+        help='For tag: offer every item in the picker, not just untagged ones',
     )
     parser.add_argument(
         '--untagged-only',
@@ -836,7 +847,7 @@ def main() -> None:
 
     backlog_path = args.backlog_path or default_backlog_path()
     complete_path = args.complete_path or default_complete_path()
-    repo = None if args.all else (args.repo or current_repo_name())
+    repo = args.repo or (current_repo_name() if args.repo_only else None)
 
     if args.action == 'next':
         action_next(backlog_path, repo)
