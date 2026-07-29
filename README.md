@@ -18,6 +18,8 @@ top-level directory.
 | Skill | What it does |
 | --- | --- |
 | `backlog` | A cross-repo work-item backlog (`~/.claude/backlog/`), with an optional `[repo]` tag and an fzf-driven claim/complete/tag CLI. |
+| `debug-ci` | Diagnoses a failed GitHub Actions run from its real `gh` logs and fixes it locally. Never commits or pushes. |
+| `verify` | Forces a falsifiable check (real command, real output) behind any "it works now" / "it's gone" claim, instead of an inference from the diff. |
 
 `scripts/` at the repo root (outside any skill) is separate: repo-level dev tooling like
 `check_skill_structure.py`, not part of any skill's own bundle.
@@ -31,17 +33,17 @@ top-level directory.
 /plugin install skill-tree@skill-tree
 ```
 
-This also registers a `SessionStart` hook that runs `skills/backlog/scripts/install.sh`
-automatically the next time a session starts, which symlinks the skill into
-`~/.claude/skills/backlog` (personal scope, so it's invoked as bare `/backlog` — a
-plugin-installed skill is otherwise always namespaced, e.g. `/skill-tree:backlog`) and puts the
-interactive `backlog` CLI on `PATH` (`~/.local/bin/backlog`).
+This also registers a `SessionStart` hook that runs `scripts/install.sh` automatically the next
+time a session starts, which symlinks every skill in this plugin into `~/.claude/skills/<name>`
+(personal scope, so each is invoked bare — `/backlog`, `/debug-ci`, `/verify` — instead of
+namespaced, e.g. `/skill-tree:backlog`) and puts the interactive `backlog` CLI on `PATH`
+(`~/.local/bin/backlog`).
 
 **Manual clone**, or to (re-)run setup yourself:
 
 ```bash
 git clone <this repo> ~/projects/skill-tree
-~/projects/skill-tree/skills/backlog/scripts/install.sh
+~/projects/skill-tree/scripts/install.sh
 ```
 
 `install.sh` is idempotent and safe to re-run — it never overwrites a file or symlink it

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# One-time setup: make the backlog skill and CLI available outside this repo.
+# One-time setup: make this plugin's skills and CLIs available outside this repo.
 #
 # Runs standalone after a manual clone, or automatically via this plugin's
 # SessionStart hook after `/plugin install`. Safe to re-run -- every step is
@@ -7,7 +7,7 @@
 set -euo pipefail
 
 _script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-_repo_root="$(cd "${_script_dir}/../../.." && pwd)"
+_repo_root="$(cd "${_script_dir}/.." && pwd)"
 
 # Symlink `target` at `link_path`, but only if `link_path` is unoccupied or
 # already a symlink this script manages -- never clobber a real file/dir a
@@ -36,11 +36,14 @@ _link() {
     echo "Linked ${link_path} -> ${target}"
 }
 
-# Personal-scope skill dir, so `/backlog` is invoked bare (a plugin-installed
-# skill would otherwise always be namespaced, e.g. `/skill-tree:backlog`).
-_link "${_repo_root}/skills/backlog" "${HOME}/.claude/skills/backlog"
+# Personal-scope skill dirs, so e.g. `/backlog` is invoked bare (a
+# plugin-installed skill would otherwise always be namespaced, e.g.
+# `/skill-tree:backlog`).
+for _skill in backlog debug-ci verify; do
+    _link "${_repo_root}/skills/${_skill}" "${HOME}/.claude/skills/${_skill}"
+done
 
-# Interactive CLI on PATH.
+# Interactive backlog CLI on PATH.
 _link "${_repo_root}/skills/backlog/scripts/backlog" "${HOME}/.local/bin/backlog"
 
 if [[ "${_repo_root}" != "${HOME}/projects/skill-tree" && "${SKILL_TREE_DIR:-}" != "${_repo_root}" ]]; then
