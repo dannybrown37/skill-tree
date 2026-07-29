@@ -12,10 +12,11 @@ from backlog_cli import (
     action_claim,
     action_complete,
     action_edit,
-    action_insert,
     action_list,
     action_merge_backlog,
     action_merge_completed,
+    action_queue,
+    action_stack,
     action_tag,
     action_titles,
     completed_titles,
@@ -664,38 +665,76 @@ def test_action_edit_opens_editor_on_the_backlog_file(
     assert calls == [(['my-editor', str(backlog_path)], {'check': True})]
 
 
-def test_action_insert_adds_item_to_empty_backlog(tmp_path: Path) -> None:
+def test_action_stack_adds_item_to_empty_backlog(tmp_path: Path) -> None:
     backlog_path = _write_backlog(tmp_path, '# Backlog\n')
 
-    action_insert(backlog_path, 'New Item', '')
+    action_stack(backlog_path, 'New Item', '')
 
     assert list_titles(backlog_path) == ['New Item']
 
 
-def test_action_insert_places_new_item_at_top(tmp_path: Path) -> None:
+def test_action_stack_places_new_item_at_top(tmp_path: Path) -> None:
     backlog_path = _write_backlog(tmp_path, _backlog('First', 'Second'))
 
-    action_insert(backlog_path, 'New Top Item', '')
+    action_stack(backlog_path, 'New Top Item', '')
 
     assert list_titles(backlog_path) == ['New Top Item', 'First', 'Second']
 
 
-def test_action_insert_includes_content(tmp_path: Path) -> None:
+def test_action_stack_includes_content(tmp_path: Path) -> None:
     backlog_path = _write_backlog(tmp_path, _backlog('Existing'))
 
-    action_insert(backlog_path, 'New Item', 'Item description here.')
+    action_stack(backlog_path, 'New Item', 'Item description here.')
 
     items = parse_backlog_file(backlog_path)
     new_item = next(item for item in items if item.title == 'New Item')
     assert new_item.content == 'Item description here.'
 
 
-def test_action_insert_with_empty_content_creates_item_with_no_body(
+def test_action_stack_with_empty_content_creates_item_with_no_body(
     tmp_path: Path,
 ) -> None:
     backlog_path = _write_backlog(tmp_path, _backlog('Existing'))
 
-    action_insert(backlog_path, 'New Item', '')
+    action_stack(backlog_path, 'New Item', '')
+
+    items = parse_backlog_file(backlog_path)
+    new_item = next(item for item in items if item.title == 'New Item')
+    assert new_item.content == ''
+
+
+def test_action_queue_adds_item_to_empty_backlog(tmp_path: Path) -> None:
+    backlog_path = _write_backlog(tmp_path, '# Backlog\n')
+
+    action_queue(backlog_path, 'New Item', '')
+
+    assert list_titles(backlog_path) == ['New Item']
+
+
+def test_action_queue_places_new_item_at_bottom(tmp_path: Path) -> None:
+    backlog_path = _write_backlog(tmp_path, _backlog('First', 'Second'))
+
+    action_queue(backlog_path, 'New Bottom Item', '')
+
+    assert list_titles(backlog_path) == ['First', 'Second', 'New Bottom Item']
+
+
+def test_action_queue_includes_content(tmp_path: Path) -> None:
+    backlog_path = _write_backlog(tmp_path, _backlog('Existing'))
+
+    action_queue(backlog_path, 'New Item', 'Item description here.')
+
+    items = parse_backlog_file(backlog_path)
+    new_item = next(item for item in items if item.title == 'New Item')
+    assert new_item.content == 'Item description here.'
+
+
+def test_action_queue_with_empty_content_creates_item_with_no_body(
+    tmp_path: Path,
+) -> None:
+    backlog_path = _write_backlog(tmp_path, _backlog('Existing'))
+
+    action_queue(backlog_path, 'New Item', '')
 
     items = parse_backlog_file(backlog_path)
     new_item = next(item for item in items if item.title == 'New Item')

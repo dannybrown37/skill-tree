@@ -53,6 +53,10 @@ repo-agnostic and always visible; tagged items are filtered by default (see belo
 - `backlog edit` — open the active `.backlog` file directly in `$EDITOR`, printing its resolved
   path first. For hand-fixing something the picker-driven actions can't reach (reordering,
   rewording, untangling a bad merge) — not part of the normal claim/discuss/complete flow.
+- `backlog stack [--title "..."] [--content "..."]` — add a new item to the **top** of the
+  backlog (do this next). Prompts for title/opens `$EDITOR` for content if either is omitted.
+- `backlog queue [--title "..."] [--content "..."]` — add a new item to the **bottom** of the
+  backlog (do this eventually). Same title/content behavior as `stack`.
 
 With no `--item-title`, `backlog claim`/`complete`/`tag` all open fzf over the current titles.
 `--item-title` matches regardless of whether it includes the `[in-progress]` suffix or a

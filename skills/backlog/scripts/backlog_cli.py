@@ -537,12 +537,11 @@ def action_edit(backlog_path: Path) -> None:
     subprocess.run([editor, str(backlog_path)], check=True)  # noqa: S603
 
 
-def action_insert(
-    backlog_path: Path,
-    title: str | None = None,
-    content: str | None = None,
-) -> None:
-    """Insert a new item at the top of the backlog.
+def resolve_new_item(
+    title: str | None,
+    content: str | None,
+) -> tuple[str, str]:
+    """Fill in a new item's title/content, prompting for whichever is unset.
 
     If title is not provided, prompt for it.
     If content is not provided, open $EDITOR.
@@ -556,11 +555,33 @@ def action_insert(
     if content is None:
         content = open_editor_for_content()
 
+    return title, content
+
+
+def action_stack(
+    backlog_path: Path,
+    title: str | None = None,
+    content: str | None = None,
+) -> None:
+    """Insert a new item at the top of the backlog -- do this next."""
+    title, content = resolve_new_item(title, content)
     items = parse_backlog_file(backlog_path)
-    new_item = BacklogItem(title, content)
-    items.insert(0, new_item)
+    items.insert(0, BacklogItem(title, content))
     backlog_path.write_text(render_backlog(items))
-    print(f'✓ Inserted: {title}')
+    print(f'✓ Stacked: {title}')
+
+
+def action_queue(
+    backlog_path: Path,
+    title: str | None = None,
+    content: str | None = None,
+) -> None:
+    """Insert a new item at the bottom of the backlog -- do this eventually."""
+    title, content = resolve_new_item(title, content)
+    items = parse_backlog_file(backlog_path)
+    items.append(BacklogItem(title, content))
+    backlog_path.write_text(render_backlog(items))
+    print(f'✓ Queued: {title}')
 
 
 def action_claim(backlog_path: Path, item_title: str) -> None:
@@ -718,7 +739,8 @@ def main() -> None:
             'list',
             'titles',
             'edit',
-            'insert',
+            'stack',
+            'queue',
             'claim',
             'complete',
             'tag',
@@ -787,13 +809,16 @@ def main() -> None:
         '--title',
         type=str,
         default=None,
-        help='Title of item to insert (if omitted, will prompt)',
+        help='Title of item to stack/queue (if omitted, will prompt)',
     )
     parser.add_argument(
         '--content',
         type=str,
         default=None,
-        help='Content for the inserted item (if omitted, will open $EDITOR)',
+        help=(
+            'Content for the stacked/queued item (if omitted, will open '
+            '$EDITOR)'
+        ),
     )
 
     args = parser.parse_args()
@@ -810,8 +835,10 @@ def main() -> None:
         action_titles(backlog_path, repo, untagged_only=args.untagged_only)
     elif args.action == 'edit':
         action_edit(backlog_path)
-    elif args.action == 'insert':
-        action_insert(backlog_path, args.title, args.content)
+    elif args.action == 'stack':
+        action_stack(backlog_path, args.title, args.content)
+    elif args.action == 'queue':
+        action_queue(backlog_path, args.title, args.content)
     elif args.action in ('merge-backlog', 'merge-completed'):
         dispatch_merge(args, backlog_path, complete_path)
     elif args.action in ('claim', 'complete', 'tag'):
