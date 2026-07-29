@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Queue management for AI-assisted work items."""
+"""Backlog management for AI-assisted work items."""
 
 import os
 import re
@@ -15,11 +15,11 @@ if TYPE_CHECKING:
 
 IN_PROGRESS_MARKER = ' [in-progress]'
 MAX_COMPLETED_CONTENT_LINES = 50
-QUEUE_HEADER = '# Queue'
+BACKLOG_HEADER = '# Backlog'
 COMPLETE_HEADER = '# Completed'
 
-# One queue serves every repo, so it lives outside all of them.
-DEFAULT_QUEUE_HOME = Path.home() / '.claude' / 'queue'
+# One backlog serves every repo, so it lives outside all of them.
+DEFAULT_BACKLOG_HOME = Path.home() / '.claude' / 'backlog'
 
 REPO_TAG_PATTERN = re.compile(r'^\[([^\[\]]+)\]\s*(\S.*)$')
 WORKTREE_GITDIR_PATTERN = re.compile(r'^gitdir:\s*(.+?)/\.git/worktrees/')
@@ -27,18 +27,18 @@ WORKTREE_GITDIR_PATTERN = re.compile(r'^gitdir:\s*(.+?)/\.git/worktrees/')
 MergePreference = Literal['local', 'incoming']
 
 
-def queue_home() -> Path:
-    """Directory holding the shared queue files."""
-    override = os.environ.get('QUEUE_HOME')
-    return Path(override).expanduser() if override else DEFAULT_QUEUE_HOME
+def backlog_home() -> Path:
+    """Directory holding the shared backlog files."""
+    override = os.environ.get('BACKLOG_HOME')
+    return Path(override).expanduser() if override else DEFAULT_BACKLOG_HOME
 
 
-def default_queue_path() -> Path:
-    return queue_home() / 'queue'
+def default_backlog_path() -> Path:
+    return backlog_home() / 'backlog'
 
 
 def default_complete_path() -> Path:
-    return queue_home() / 'queue-complete'
+    return backlog_home() / 'backlog-complete'
 
 
 def parse_repo_tag(title: str) -> tuple[str | None, str]:
@@ -72,8 +72,8 @@ def current_repo_name(start: Path | None = None) -> str | None:
     return None
 
 
-class QueueItem:
-    """A single work item from the queue."""
+class BacklogItem:
+    """A single work item from the backlog."""
 
     def __init__(
         self,
@@ -109,9 +109,9 @@ def strip_in_progress_marker(title: str) -> str:
 
 
 def filter_items_for_repo(
-    items: list[QueueItem],
+    items: list[BacklogItem],
     repo: str | None,
-) -> tuple[list[QueueItem], int]:
+) -> tuple[list[BacklogItem], int]:
     """Keep items for `repo` plus untagged ones; also count what was hidden.
 
     An untagged item is work that isn't tied to a repo, so it stays visible
@@ -129,8 +129,8 @@ def filter_items_for_repo(
 
 
 def filter_untagged_items(
-    items: list[QueueItem],
-) -> tuple[list[QueueItem], int]:
+    items: list[BacklogItem],
+) -> tuple[list[BacklogItem], int]:
     """Keep items with no `[repo]` tag; also count what was hidden.
 
     Used by the tag picker's default view, so retagging doesn't accidentally
@@ -140,7 +140,7 @@ def filter_untagged_items(
     return (visible, len(items) - len(visible))
 
 
-def find_item(items: list[QueueItem], title: str) -> QueueItem | None:
+def find_item(items: list[BacklogItem], title: str) -> BacklogItem | None:
     """Find an item by title, ignoring whether it's marked in-progress."""
     target = strip_in_progress_marker(title)
     return next(
@@ -153,16 +153,16 @@ def find_item(items: list[QueueItem], title: str) -> QueueItem | None:
     )
 
 
-def parse_queue_file(file_path: Path) -> list[QueueItem]:
-    """Parse .queue markdown file and extract items under ## headers."""
+def parse_backlog_file(file_path: Path) -> list[BacklogItem]:
+    """Parse .backlog markdown file and extract items under ## headers."""
     if not file_path.exists():
         return []
 
-    return parse_queue_text(file_path.read_text())
+    return parse_backlog_text(file_path.read_text())
 
 
-def parse_queue_text(content: str) -> list[QueueItem]:
-    """Extract items under ## headers from queue-formatted markdown."""
+def parse_backlog_text(content: str) -> list[BacklogItem]:
+    """Extract items under ## headers from backlog-formatted markdown."""
     lines = content.split('\n')
 
     items = []
@@ -173,7 +173,7 @@ def parse_queue_text(content: str) -> list[QueueItem]:
     def finalize_current_item() -> None:
         item_content = '\n'.join(current_content).strip()
         raw_section = '\n'.join(current_raw_lines)
-        items.append(QueueItem(current_title, item_content, raw_section))
+        items.append(BacklogItem(current_title, item_content, raw_section))
 
     for line in lines:
         if line.startswith('## '):
@@ -192,8 +192,8 @@ def parse_queue_text(content: str) -> list[QueueItem]:
     return items
 
 
-def render_queue(items: list[QueueItem]) -> str:
-    """Rebuild a .queue file from items, dropping merge-time whitespace."""
+def render_backlog(items: list[BacklogItem]) -> str:
+    """Rebuild a .backlog file from items, dropping merge-time whitespace."""
     sections = []
     for item in items:
         content = item.content.strip()
@@ -203,12 +203,12 @@ def render_queue(items: list[QueueItem]) -> str:
         )
 
     if not sections:
-        return f'{QUEUE_HEADER}\n'
-    return f'{QUEUE_HEADER}\n\n' + '\n'.join(sections)
+        return f'{BACKLOG_HEADER}\n'
+    return f'{BACKLOG_HEADER}\n\n' + '\n'.join(sections)
 
 
-def render_completed(items: list[QueueItem]) -> str:
-    """Rebuild a .queue-complete file; content already holds its own rules."""
+def render_completed(items: list[BacklogItem]) -> str:
+    """Rebuild a .backlog-complete file; content already has its own rules."""
     if not items:
         return f'{COMPLETE_HEADER}\n\n'
 
@@ -216,15 +216,15 @@ def render_completed(items: list[QueueItem]) -> str:
     return f'{COMPLETE_HEADER}\n\n' + '\n'.join(sections)
 
 
-def index_by_title(items: list[QueueItem]) -> dict[str, QueueItem]:
+def index_by_title(items: list[BacklogItem]) -> dict[str, BacklogItem]:
     """Map normalized title to item, keeping the first of any duplicates."""
-    indexed: dict[str, QueueItem] = {}
+    indexed: dict[str, BacklogItem] = {}
     for item in items:
         indexed.setdefault(strip_in_progress_marker(item.title), item)
     return indexed
 
 
-def merge_queue_text(
+def merge_backlog_text(
     local_text: str,
     incoming_text: str,
     tombstones: set[str],
@@ -237,8 +237,8 @@ def merge_queue_text(
     same pair of files land on byte-identical output and stop churning the
     password-store.
     """
-    local = index_by_title(parse_queue_text(local_text))
-    incoming = index_by_title(parse_queue_text(incoming_text))
+    local = index_by_title(parse_backlog_text(local_text))
+    incoming = index_by_title(parse_backlog_text(incoming_text))
     primary, secondary = (
         (local, incoming) if prefer == 'local' else (incoming, local)
     )
@@ -261,13 +261,13 @@ def merge_queue_text(
             if title in side
         )
         header = f'{title}{IN_PROGRESS_MARKER}' if claimed else title
-        merged.append(QueueItem(header, source.content))
+        merged.append(BacklogItem(header, source.content))
 
-    return render_queue(merged)
+    return render_backlog(merged)
 
 
-def completed_record_key(item: QueueItem) -> tuple[str, str]:
-    """Identify a completion by title plus the stamp queue_cli.py wrote."""
+def completed_record_key(item: BacklogItem) -> tuple[str, str]:
+    """Identify a completion by title plus the stamp backlog_cli.py wrote."""
     match = re.search(r'^- Completed: (.+)$', item.content, re.MULTILINE)
     stamp = match.group(1).strip() if match else ''
     return (strip_in_progress_marker(item.title), stamp)
@@ -275,8 +275,10 @@ def completed_record_key(item: QueueItem) -> tuple[str, str]:
 
 def merge_completed_text(local_text: str, incoming_text: str) -> str:
     """Union the two completion logs, ordered by when work finished."""
-    records: dict[tuple[str, str], QueueItem] = {}
-    for item in parse_queue_text(local_text) + parse_queue_text(incoming_text):
+    records: dict[tuple[str, str], BacklogItem] = {}
+    for item in parse_backlog_text(local_text) + parse_backlog_text(
+        incoming_text,
+    ):
         records.setdefault(completed_record_key(item), item)
 
     ordered = sorted(records, key=lambda key: (key[1], key[0]))
@@ -287,7 +289,7 @@ def completed_titles(complete_path: Path) -> set[str]:
     """Titles that have been completed anywhere -- the merge's tombstones."""
     return {
         strip_in_progress_marker(item.title)
-        for item in parse_queue_file(complete_path)
+        for item in parse_backlog_file(complete_path)
     }
 
 
@@ -296,15 +298,15 @@ def read_if_present(file_path: Path) -> str:
     return file_path.read_text() if file_path.exists() else ''
 
 
-def remove_item_from_queue(queue_path: Path, item: QueueItem) -> None:
-    """Remove an item from the queue file."""
-    if not queue_path.exists():
+def remove_item_from_backlog(backlog_path: Path, item: BacklogItem) -> None:
+    """Remove an item from the backlog file."""
+    if not backlog_path.exists():
         return
 
-    content = queue_path.read_text()
+    content = backlog_path.read_text()
     updated = content.replace(item.raw_section, '', 1)
     updated = re.sub(r'\n{3,}', '\n\n', updated).strip()
-    queue_path.write_text(updated + '\n')
+    backlog_path.write_text(updated + '\n')
 
 
 def trim_content(
@@ -323,10 +325,10 @@ def trim_content(
 
 def add_to_completed(
     complete_path: Path,
-    item: QueueItem,
+    item: BacklogItem,
     end_time: datetime,
 ) -> None:
-    """Add completed item to .queue-complete with a completion timestamp."""
+    """Add completed item to .backlog-complete with a completion timestamp."""
     if not complete_path.exists():
         complete_path.write_text('# Completed\n\n')
 
@@ -349,27 +351,31 @@ def add_to_completed(
 
 
 def replace_item_header(
-    queue_path: Path,
-    item: QueueItem,
+    backlog_path: Path,
+    item: BacklogItem,
     new_title: str,
 ) -> None:
     """Swap an item's `## title` line for a new title; body stays untouched."""
-    content = queue_path.read_text()
+    content = backlog_path.read_text()
     old_header = f'## {item.title}'
     new_header = f'## {new_title}'
     new_raw_section = new_header + item.raw_section[len(old_header) :]
     updated = content.replace(item.raw_section, new_raw_section, 1)
-    queue_path.write_text(updated)
+    backlog_path.write_text(updated)
 
 
-def mark_item_in_progress(queue_path: Path, item: QueueItem) -> None:
-    """Append the in-progress marker to an item's header in .queue."""
-    replace_item_header(queue_path, item, f'{item.title}{IN_PROGRESS_MARKER}')
+def mark_item_in_progress(backlog_path: Path, item: BacklogItem) -> None:
+    """Append the in-progress marker to an item's header in .backlog."""
+    replace_item_header(
+        backlog_path,
+        item,
+        f'{item.title}{IN_PROGRESS_MARKER}',
+    )
 
 
 def set_item_repo_tag(
-    queue_path: Path,
-    item: QueueItem,
+    backlog_path: Path,
+    item: BacklogItem,
     repo: str | None,
 ) -> str:
     """Set, replace, or (if repo is None) remove an item's `[repo]` tag.
@@ -381,45 +387,45 @@ def set_item_repo_tag(
     prefix = f'[{repo}] ' if repo else ''
     new_title = f'{prefix}{bare_title}{suffix}'
 
-    replace_item_header(queue_path, item, new_title)
+    replace_item_header(backlog_path, item, new_title)
     return new_title
 
 
 def visible_items(
-    queue_path: Path | None,
+    backlog_path: Path | None,
     repo: str | None,
-) -> tuple[list[QueueItem], int]:
-    """Queued items the given repo should see, plus the hidden count."""
-    items = parse_queue_file(queue_path or default_queue_path())
+) -> tuple[list[BacklogItem], int]:
+    """Backlog items the given repo should see, plus the hidden count."""
+    items = parse_backlog_file(backlog_path or default_backlog_path())
     return filter_items_for_repo(items, repo)
 
 
 def get_next_item(
-    queue_path: Path | None = None,
+    backlog_path: Path | None = None,
     repo: str | None = None,
-) -> QueueItem | None:
+) -> BacklogItem | None:
     """Get the first item the given repo should see."""
-    items, _ = visible_items(queue_path, repo)
+    items, _ = visible_items(backlog_path, repo)
     return items[0] if items else None
 
 
 def list_items(
-    queue_path: Path | None = None,
+    backlog_path: Path | None = None,
     limit: int = 5,
     repo: str | None = None,
-) -> list[QueueItem]:
+) -> list[BacklogItem]:
     """Get first N items the given repo should see."""
-    items, _ = visible_items(queue_path, repo)
+    items, _ = visible_items(backlog_path, repo)
     return items[:limit]
 
 
-def list_titles(queue_path: Path, repo: str | None = None) -> list[str]:
+def list_titles(backlog_path: Path, repo: str | None = None) -> list[str]:
     """Every visible title, one per item, for an external picker to offer."""
-    items, _ = visible_items(queue_path, repo)
+    items, _ = visible_items(backlog_path, repo)
     return [item.title for item in items]
 
 
-def show_item(item: QueueItem) -> None:
+def show_item(item: BacklogItem) -> None:
     """Display an item for review."""
     print(f'\n{"=" * 70}')
     print(f'📋 {item.title}')
@@ -434,27 +440,27 @@ def hidden_note(
     reason: str = 'for other repos',
 ) -> str:
     """Say what a filter left out, so nothing vanishes silently."""
-    return f'({hidden} hidden {reason} — `queue {action} --all`)'
+    return f'({hidden} hidden {reason} — `backlog {action} --all`)'
 
 
-def action_next(queue_path: Path, repo: str | None = None) -> None:
+def action_next(backlog_path: Path, repo: str | None = None) -> None:
     """Show next item for discussion."""
-    items, hidden = visible_items(queue_path, repo)
+    items, hidden = visible_items(backlog_path, repo)
     if items:
         show_item(items[0])
         print(f'Proceed with: {items[0].title}? (y/n)')
     else:
-        print('✓ Queue is empty!')
+        print('✓ Backlog is empty!')
     if hidden:
         print(hidden_note(hidden, 'next'))
 
 
-def action_list(queue_path: Path, repo: str | None = None) -> None:
+def action_list(backlog_path: Path, repo: str | None = None) -> None:
     """List next items."""
-    items, hidden = visible_items(queue_path, repo)
+    items, hidden = visible_items(backlog_path, repo)
     items = items[:10]
     if not items:
-        print('✓ Queue is empty!')
+        print('✓ Backlog is empty!')
     else:
         print(f'\n📋 Next {len(items)} items:\n')
         for i, item in enumerate(items, 1):
@@ -469,7 +475,7 @@ def action_list(queue_path: Path, repo: str | None = None) -> None:
 
 
 def action_titles(
-    queue_path: Path,
+    backlog_path: Path,
     repo: str | None = None,
     *,
     untagged_only: bool = False,
@@ -481,10 +487,12 @@ def action_titles(
     item takes an explicit `--all` rather than happening by accident.
     """
     if untagged_only:
-        items, hidden = filter_untagged_items(parse_queue_file(queue_path))
+        items, hidden = filter_untagged_items(
+            parse_backlog_file(backlog_path),
+        )
         reason = 'already tagged'
     else:
-        items, hidden = visible_items(queue_path, repo)
+        items, hidden = visible_items(backlog_path, repo)
         reason = 'for other repos'
     for item in items:
         print(item.title)
@@ -516,8 +524,8 @@ def open_editor_for_content() -> str:
         Path(temp_path).unlink(missing_ok=True)
 
 
-def action_edit(queue_path: Path) -> None:
-    """Open the queue file directly in $EDITOR.
+def action_edit(backlog_path: Path) -> None:
+    """Open the backlog file directly in $EDITOR.
 
     For hand-fixing something the picker-driven actions can't reach --
     reordering, rewording, or untangling a bad merge. Prints the resolved
@@ -525,16 +533,16 @@ def action_edit(queue_path: Path) -> None:
     of.
     """
     editor = os.environ.get('EDITOR', 'vim')
-    print(f'Opening {queue_path} in {editor}...')
-    subprocess.run([editor, str(queue_path)], check=True)  # noqa: S603
+    print(f'Opening {backlog_path} in {editor}...')
+    subprocess.run([editor, str(backlog_path)], check=True)  # noqa: S603
 
 
 def action_insert(
-    queue_path: Path,
+    backlog_path: Path,
     title: str | None = None,
     content: str | None = None,
 ) -> None:
-    """Insert a new item at the top of the queue.
+    """Insert a new item at the top of the backlog.
 
     If title is not provided, prompt for it.
     If content is not provided, open $EDITOR.
@@ -548,16 +556,16 @@ def action_insert(
     if content is None:
         content = open_editor_for_content()
 
-    items = parse_queue_file(queue_path)
-    new_item = QueueItem(title, content)
+    items = parse_backlog_file(backlog_path)
+    new_item = BacklogItem(title, content)
     items.insert(0, new_item)
-    queue_path.write_text(render_queue(items))
+    backlog_path.write_text(render_backlog(items))
     print(f'✓ Inserted: {title}')
 
 
-def action_claim(queue_path: Path, item_title: str) -> None:
+def action_claim(backlog_path: Path, item_title: str) -> None:
     """Mark an item in-progress so other agents know it's taken."""
-    items = parse_queue_file(queue_path)
+    items = parse_backlog_file(backlog_path)
     item = find_item(items, item_title)
     if not item:
         msg = f"Error: Item '{item_title}' not found"
@@ -570,18 +578,18 @@ def action_claim(queue_path: Path, item_title: str) -> None:
         print(msg, file=sys.stderr)
         sys.exit(1)
 
-    mark_item_in_progress(queue_path, item)
+    mark_item_in_progress(backlog_path, item)
     print(f'→ Claimed: {item.title}')
 
 
 def action_complete(
-    queue_path: Path,
+    backlog_path: Path,
     complete_path: Path,
     item_title: str,
     end_time: str | None = None,
 ) -> None:
-    """Mark item complete and move to .queue-complete."""
-    items = parse_queue_file(queue_path)
+    """Mark item complete and move to .backlog-complete."""
+    items = parse_backlog_file(backlog_path)
     item = find_item(items, item_title)
     if not item:
         msg = f"Error: Item '{item_title}' not found"
@@ -591,24 +599,24 @@ def action_complete(
     end_dt = datetime.fromisoformat(end_time) if end_time else datetime.now()
 
     add_to_completed(complete_path, item, end_dt)
-    remove_item_from_queue(queue_path, item)
+    remove_item_from_backlog(backlog_path, item)
     print(f'✓ Completed: {strip_in_progress_marker(item.title)}')
 
 
 def action_tag(
-    queue_path: Path,
+    backlog_path: Path,
     item_title: str,
     repo: str | None,
 ) -> None:
     """Set, replace, or remove an item's `[repo]` tag."""
-    items = parse_queue_file(queue_path)
+    items = parse_backlog_file(backlog_path)
     item = find_item(items, item_title)
     if not item:
         msg = f"Error: Item '{item_title}' not found"
         print(msg, file=sys.stderr)
         sys.exit(1)
 
-    new_title = set_item_repo_tag(queue_path, item, repo)
+    new_title = set_item_repo_tag(backlog_path, item, repo)
     if repo:
         print(f'→ Tagged [{repo}]: {new_title}')
     else:
@@ -616,37 +624,37 @@ def action_tag(
 
 
 def action_merge_completed(complete_path: Path, incoming_path: Path) -> None:
-    """Reconcile .queue-complete with the copy from the password-store."""
+    """Reconcile .backlog-complete with the copy from the password-store."""
     merged = merge_completed_text(
         read_if_present(complete_path),
         read_if_present(incoming_path),
     )
     complete_path.write_text(merged)
-    count = len(parse_queue_text(merged))
+    count = len(parse_backlog_text(merged))
     print(f'  merged {complete_path.name} ({count} completed)')
 
 
-def action_merge_queue(
-    queue_path: Path,
+def action_merge_backlog(
+    backlog_path: Path,
     complete_path: Path,
     incoming_path: Path,
     prefer: MergePreference,
 ) -> None:
-    """Reconcile .queue with the copy from the password-store."""
-    merged = merge_queue_text(
-        read_if_present(queue_path),
+    """Reconcile .backlog with the copy from the password-store."""
+    merged = merge_backlog_text(
+        read_if_present(backlog_path),
         read_if_present(incoming_path),
         completed_titles(complete_path),
         prefer,
     )
-    queue_path.write_text(merged)
-    count = len(parse_queue_text(merged))
-    print(f'  merged {queue_path.name} ({count} open)')
+    backlog_path.write_text(merged)
+    count = len(parse_backlog_text(merged))
+    print(f'  merged {backlog_path.name} ({count} open)')
 
 
 def dispatch_merge(
     args: 'argparse.Namespace',
-    queue_path: Path,
+    backlog_path: Path,
     complete_path: Path,
 ) -> None:
     """Route the two merge actions, both of which need --incoming."""
@@ -654,9 +662,9 @@ def dispatch_merge(
         print('Error: --incoming required', file=sys.stderr)
         sys.exit(1)
 
-    if args.action == 'merge-queue':
-        action_merge_queue(
-            queue_path,
+    if args.action == 'merge-backlog':
+        action_merge_backlog(
+            backlog_path,
             complete_path,
             args.incoming,
             args.prefer,
@@ -667,7 +675,7 @@ def dispatch_merge(
 
 def dispatch_item_action(
     args: 'argparse.Namespace',
-    queue_path: Path,
+    backlog_path: Path,
     complete_path: Path,
 ) -> None:
     """Route claim/complete/tag, which all need --item-title to find one."""
@@ -675,15 +683,15 @@ def dispatch_item_action(
         # The shell wrapper picks a title with fzf; anything else gets the
         # list so the exact string is easy to copy.
         print('Error: --item-title required', file=sys.stderr)
-        for title in list_titles(queue_path):
+        for title in list_titles(backlog_path):
             print(f'  {title}', file=sys.stderr)
         sys.exit(1)
 
     if args.action == 'claim':
-        action_claim(queue_path, args.item_title)
+        action_claim(backlog_path, args.item_title)
     elif args.action == 'complete':
         action_complete(
-            queue_path,
+            backlog_path,
             complete_path,
             args.item_title,
             args.end_time,
@@ -693,7 +701,7 @@ def dispatch_item_action(
             msg = 'Error: --repo required (pass --repo "" to untag)'
             print(msg, file=sys.stderr)
             sys.exit(1)
-        action_tag(queue_path, args.item_title, args.repo or None)
+        action_tag(backlog_path, args.item_title, args.repo or None)
 
 
 def main() -> None:
@@ -701,7 +709,7 @@ def main() -> None:
     import argparse
 
     parser = argparse.ArgumentParser(
-        description='Queue management for Claude Code',
+        description='Backlog management for Claude Code',
     )
     parser.add_argument(
         'action',
@@ -714,16 +722,16 @@ def main() -> None:
             'claim',
             'complete',
             'tag',
-            'merge-queue',
+            'merge-backlog',
             'merge-completed',
         ],
-        help='Queue action to perform',
+        help='Backlog action to perform',
     )
     parser.add_argument(
-        '--queue-path',
+        '--backlog-path',
         type=Path,
         default=None,
-        help=f'Path to the queue file (default: {default_queue_path()})',
+        help=f'Path to the backlog file (default: {default_backlog_path()})',
     )
     parser.add_argument(
         '--complete-path',
@@ -790,24 +798,24 @@ def main() -> None:
 
     args = parser.parse_args()
 
-    queue_path = args.queue_path or default_queue_path()
+    backlog_path = args.backlog_path or default_backlog_path()
     complete_path = args.complete_path or default_complete_path()
     repo = None if args.all else (args.repo or current_repo_name())
 
     if args.action == 'next':
-        action_next(queue_path, repo)
+        action_next(backlog_path, repo)
     elif args.action == 'list':
-        action_list(queue_path, repo)
+        action_list(backlog_path, repo)
     elif args.action == 'titles':
-        action_titles(queue_path, repo, untagged_only=args.untagged_only)
+        action_titles(backlog_path, repo, untagged_only=args.untagged_only)
     elif args.action == 'edit':
-        action_edit(queue_path)
+        action_edit(backlog_path)
     elif args.action == 'insert':
-        action_insert(queue_path, args.title, args.content)
-    elif args.action in ('merge-queue', 'merge-completed'):
-        dispatch_merge(args, queue_path, complete_path)
+        action_insert(backlog_path, args.title, args.content)
+    elif args.action in ('merge-backlog', 'merge-completed'):
+        dispatch_merge(args, backlog_path, complete_path)
     elif args.action in ('claim', 'complete', 'tag'):
-        dispatch_item_action(args, queue_path, complete_path)
+        dispatch_item_action(args, backlog_path, complete_path)
 
 
 if __name__ == '__main__':

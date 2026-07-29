@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# One-time setup: make the queue skill and CLI available outside this repo.
+# One-time setup: make the backlog skill and CLI available outside this repo.
 #
 # Runs standalone after a manual clone, or automatically via this plugin's
 # SessionStart hook after `/plugin install`. Safe to re-run -- every step is
@@ -36,24 +36,24 @@ _link() {
     echo "Linked ${link_path} -> ${target}"
 }
 
-# Personal-scope skill dir, so `/queue` is invoked bare (a plugin-installed
-# skill would otherwise always be namespaced, e.g. `/skill-tree:queue`).
-_link "${_repo_root}/skills/queue" "${HOME}/.claude/skills/queue"
+# Personal-scope skill dir, so `/backlog` is invoked bare (a plugin-installed
+# skill would otherwise always be namespaced, e.g. `/skill-tree:backlog`).
+_link "${_repo_root}/skills/backlog" "${HOME}/.claude/skills/backlog"
 
 # Interactive CLI on PATH.
-_link "${_repo_root}/skills/queue/scripts/queue" "${HOME}/.local/bin/queue"
+_link "${_repo_root}/skills/backlog/scripts/backlog" "${HOME}/.local/bin/backlog"
 
 if [[ "${_repo_root}" != "${HOME}/projects/skill-tree" && "${SKILL_TREE_DIR:-}" != "${_repo_root}" ]]; then
     cat >&2 <<EOF
 Note: skill-tree is running from ${_repo_root}, not the default
 ~/projects/skill-tree. Export SKILL_TREE_DIR=${_repo_root} in your shell rc
-so the queue skill's Claude-driven flow can find queue_cli.py.
+so the backlog skill's Claude-driven flow can find backlog_cli.py.
 EOF
 fi
 
 case ":${PATH}:" in
 *":${HOME}/.local/bin:"*) ;;
 *)
-    echo "Note: ~/.local/bin isn't on PATH -- add it to use 'queue' directly." >&2
+    echo "Note: ~/.local/bin isn't on PATH -- add it to use 'backlog' directly." >&2
     ;;
 esac

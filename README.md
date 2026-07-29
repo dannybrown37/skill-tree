@@ -17,7 +17,7 @@ top-level directory.
 
 | Skill | What it does |
 | --- | --- |
-| `queue` | A cross-repo work-item queue (`~/.claude/queue/`), with an optional `[repo]` tag and an fzf-driven claim/complete/tag CLI. |
+| `backlog` | A cross-repo work-item backlog (`~/.claude/backlog/`), with an optional `[repo]` tag and an fzf-driven claim/complete/tag CLI. |
 
 `scripts/` at the repo root (outside any skill) is separate: repo-level dev tooling like
 `check_skill_structure.py`, not part of any skill's own bundle.
@@ -31,17 +31,17 @@ top-level directory.
 /plugin install skill-tree@skill-tree
 ```
 
-This also registers a `SessionStart` hook that runs `skills/queue/scripts/install.sh`
+This also registers a `SessionStart` hook that runs `skills/backlog/scripts/install.sh`
 automatically the next time a session starts, which symlinks the skill into
-`~/.claude/skills/queue` (personal scope, so it's invoked as bare `/queue` — a
-plugin-installed skill is otherwise always namespaced, e.g. `/skill-tree:queue`) and puts the
-interactive `queue` CLI on `PATH` (`~/.local/bin/queue`).
+`~/.claude/skills/backlog` (personal scope, so it's invoked as bare `/backlog` — a
+plugin-installed skill is otherwise always namespaced, e.g. `/skill-tree:backlog`) and puts the
+interactive `backlog` CLI on `PATH` (`~/.local/bin/backlog`).
 
 **Manual clone**, or to (re-)run setup yourself:
 
 ```bash
 git clone <this repo> ~/projects/skill-tree
-~/projects/skill-tree/skills/queue/scripts/install.sh
+~/projects/skill-tree/skills/backlog/scripts/install.sh
 ```
 
 `install.sh` is idempotent and safe to re-run — it never overwrites a file or symlink it

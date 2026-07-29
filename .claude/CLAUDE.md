@@ -27,7 +27,7 @@ another repo, or that another repo is even cloned.
 
 ## Security
 
-- `queue_cli.py` reads/writes a work-item file that can contain anything a user pastes in, and
+- `backlog_cli.py` reads/writes a work-item file that can contain anything a user pastes in, and
   is synced by another repo's password-store mechanism — treat changes to it with the same
   care as auth/secrets code. For anything touching parsing, merging, or file writes, a red-team
   pass (construct a real failing case, not checklist review) is worth it before shipping —

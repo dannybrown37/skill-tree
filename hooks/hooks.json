@@ -5,7 +5,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "\"${CLAUDE_PLUGIN_ROOT}\"/skills/queue/scripts/install.sh"
+            "command": "\"${CLAUDE_PLUGIN_ROOT}\"/skills/backlog/scripts/install.sh"
           }
         ]
       }

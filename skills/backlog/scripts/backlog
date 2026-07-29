@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Interactive `queue` CLI: fzf pickers around queue_cli.py.
+# Interactive `backlog` CLI: fzf pickers around backlog_cli.py.
 #
 # Ported from dotfiles' bin/queue.sh (a sourced shell function) into a
 # standalone executable, so skill-tree is installable without dotfiles --
@@ -8,14 +8,14 @@ set -euo pipefail
 
 _script_dir="$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")"
 
-_queue_py() {
-    uv run python "${_script_dir}/queue_cli.py" "$@"
+_backlog_py() {
+    uv run python "${_script_dir}/backlog_cli.py" "$@"
 }
 
 # Repo names the tag picker offers: git repos directly under $PROJECTS_DIR,
 # plus "greenfield" for an item that's for a brand-new project with no repo
 # to tag yet.
-_queue_repo_candidates() {
+_backlog_repo_candidates() {
     local projects_dir="${PROJECTS_DIR:-${HOME}/projects}" dir
     printf '%s\n' greenfield
     for dir in "${projects_dir}"/*/; do
@@ -32,7 +32,7 @@ _queue_repo_candidates() {
 # fzf a value from stdin, falling back to the typed query if nothing was
 # selected -- lets a repo be picked from the list or typed fresh (e.g. one
 # only cloned on another machine).
-_queue_pick_or_type() {
+_backlog_pick_or_type() {
     local prompt="$1" result query choice
     result="$(fzf --prompt="${prompt} " --height=40% --reverse --print-query)"
     query="$(head -n1 <<<"${result}")"
@@ -41,7 +41,7 @@ _queue_pick_or_type() {
 }
 
 # True if -a/--all is among the given args.
-_queue_has_all_flag() {
+_backlog_has_all_flag() {
     local arg
     for arg in "$@"; do
         [[ "${arg}" == "--all" || "${arg}" == "-a" ]] && return 0
@@ -58,18 +58,18 @@ if [[ ("${action}" == "complete" || "${action}" == "claim" || "${action}" == "ta
     "$*" != *--item-title* ]]; then
     title_extra=()
     if [[ "${action}" == "tag" ]]; then
-        if _queue_has_all_flag "$@"; then
+        if _backlog_has_all_flag "$@"; then
             title_extra=(--all)
         else
             title_extra=(--untagged-only)
         fi
     fi
 
-    title="$(_queue_py titles "${title_extra[@]}" |
+    title="$(_backlog_py titles "${title_extra[@]}" |
         fzf --prompt="${action^} which item? " --height=40% --reverse)"
 
     if [[ -z "${title}" ]]; then
-        echo "queue: nothing selected" >&2
+        echo "backlog: nothing selected" >&2
         exit 1
     fi
 
@@ -80,14 +80,14 @@ fi
 # Untagging (--repo "") has to be passed explicitly -- an empty fzf query
 # still matches everything, so it can't mean "no repo" here.
 if [[ "${action}" == "tag" && "$*" != *--repo* ]]; then
-    repo="$(_queue_repo_candidates | _queue_pick_or_type "Tag with which repo?")"
+    repo="$(_backlog_repo_candidates | _backlog_pick_or_type "Tag with which repo?")"
 
     if [[ -z "${repo}" ]]; then
-        echo "queue: nothing selected" >&2
+        echo "backlog: nothing selected" >&2
         exit 1
     fi
 
     set -- "$@" --repo "${repo}"
 fi
 
-_queue_py "$@"
+_backlog_py "$@"
