@@ -558,13 +558,21 @@ def resolve_new_item(
     return title, content
 
 
+def apply_repo_tag(title: str, repo: str | None) -> str:
+    """Prefix a bare title with `[repo]`, replacing any tag it already has."""
+    bare_title = parse_repo_tag(title)[1]
+    return f'[{repo}] {bare_title}' if repo else bare_title
+
+
 def action_stack(
     backlog_path: Path,
     title: str | None = None,
     content: str | None = None,
+    repo: str | None = None,
 ) -> None:
     """Insert a new item at the top of the backlog -- do this next."""
     title, content = resolve_new_item(title, content)
+    title = apply_repo_tag(title, repo)
     items = parse_backlog_file(backlog_path)
     items.insert(0, BacklogItem(title, content))
     backlog_path.write_text(render_backlog(items))
@@ -575,9 +583,11 @@ def action_queue(
     backlog_path: Path,
     title: str | None = None,
     content: str | None = None,
+    repo: str | None = None,
 ) -> None:
     """Insert a new item at the bottom of the backlog -- do this eventually."""
     title, content = resolve_new_item(title, content)
+    title = apply_repo_tag(title, repo)
     items = parse_backlog_file(backlog_path)
     items.append(BacklogItem(title, content))
     backlog_path.write_text(render_backlog(items))
@@ -770,7 +780,8 @@ def main() -> None:
         default=None,
         help=(
             'For list/next/titles: repo to show (default: the repo the cwd '
-            'is in). For tag: repo to tag the item with (pass "" to untag).'
+            'is in). For tag: repo to tag the item with (pass "" to untag). '
+            'For stack/queue: repo to tag the new item with.'
         ),
     )
     parser.add_argument(
@@ -836,9 +847,9 @@ def main() -> None:
     elif args.action == 'edit':
         action_edit(backlog_path)
     elif args.action == 'stack':
-        action_stack(backlog_path, args.title, args.content)
+        action_stack(backlog_path, args.title, args.content, args.repo)
     elif args.action == 'queue':
-        action_queue(backlog_path, args.title, args.content)
+        action_queue(backlog_path, args.title, args.content, args.repo)
     elif args.action in ('merge-backlog', 'merge-completed'):
         dispatch_merge(args, backlog_path, complete_path)
     elif args.action in ('claim', 'complete', 'tag'):

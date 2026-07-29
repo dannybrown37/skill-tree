@@ -741,6 +741,50 @@ def test_action_queue_with_empty_content_creates_item_with_no_body(
     assert new_item.content == ''
 
 
+def test_action_stack_applies_a_repo_tag_when_given(tmp_path: Path) -> None:
+    backlog_path = _write_backlog(tmp_path, '# Backlog\n')
+
+    action_stack(backlog_path, 'New Item', '', repo='dotfiles')
+
+    items = parse_backlog_file(backlog_path)
+    assert items[0].title == '[dotfiles] New Item'
+    assert items[0].repo == 'dotfiles'
+
+
+def test_action_stack_leaves_item_untagged_when_repo_is_none(
+    tmp_path: Path,
+) -> None:
+    backlog_path = _write_backlog(tmp_path, '# Backlog\n')
+
+    action_stack(backlog_path, 'New Item', '', repo=None)
+
+    items = parse_backlog_file(backlog_path)
+    assert items[0].title == 'New Item'
+    assert items[0].repo is None
+
+
+def test_action_queue_applies_a_repo_tag_when_given(tmp_path: Path) -> None:
+    backlog_path = _write_backlog(tmp_path, '# Backlog\n')
+
+    action_queue(backlog_path, 'New Item', '', repo='dotfiles')
+
+    items = parse_backlog_file(backlog_path)
+    assert items[0].title == '[dotfiles] New Item'
+    assert items[0].repo == 'dotfiles'
+
+
+def test_action_queue_leaves_item_untagged_when_repo_is_none(
+    tmp_path: Path,
+) -> None:
+    backlog_path = _write_backlog(tmp_path, '# Backlog\n')
+
+    action_queue(backlog_path, 'New Item', '', repo=None)
+
+    items = parse_backlog_file(backlog_path)
+    assert items[0].title == 'New Item'
+    assert items[0].repo is None
+
+
 @pytest.mark.parametrize(
     ('title', 'expected'),
     [

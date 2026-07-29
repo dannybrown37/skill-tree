@@ -90,4 +90,14 @@ if [[ "${action}" == "tag" && "$*" != *--repo* ]]; then
     set -- "$@" --repo "${repo}"
 fi
 
+# stack/queue offer the same repo picker, but unlike `tag` an empty pick just
+# means the new item stays untagged -- nothing to error out over.
+if [[ ("${action}" == "stack" || "${action}" == "queue") && "$*" != *--repo* ]]; then
+    repo="$(_backlog_repo_candidates | _backlog_pick_or_type "Tag with which repo (blank for none)?")"
+
+    if [[ -n "${repo}" ]]; then
+        set -- "$@" --repo "${repo}"
+    fi
+fi
+
 _backlog_py "$@"
