@@ -458,9 +458,8 @@ def action_next(backlog_path: Path, repo: str | None = None) -> None:
 
 
 def action_list(backlog_path: Path, repo: str | None = None) -> None:
-    """List next items."""
+    """List every visible item."""
     items, hidden = visible_items(backlog_path, repo)
-    items = items[:10]
     if not items:
         print('✓ Backlog is empty!')
     else:

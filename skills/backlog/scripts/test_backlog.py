@@ -1004,6 +1004,21 @@ def test_action_list_says_nothing_about_hiding_when_nothing_is_hidden(
     assert 'hidden' not in capsys.readouterr().out
 
 
+def test_action_list_shows_more_than_ten_items(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """Nothing truncates the list -- every visible item should print."""
+    titles = [f'Item {i}' for i in range(15)]
+    backlog_path = _write_backlog(tmp_path, _backlog(*titles))
+
+    action_list(backlog_path)
+
+    out = capsys.readouterr().out
+    for title in titles:
+        assert title in out
+
+
 def test_action_claim_reaches_an_item_tagged_for_another_repo(
     tmp_path: Path,
 ) -> None:
