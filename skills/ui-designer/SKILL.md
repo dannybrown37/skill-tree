@@ -28,3 +28,34 @@ as a `data:` URI there). A system stack may appear only as the fallback tail.
 
 **Check:** grep for `system-ui`, `-apple-system`, `Arial`, bare `sans-serif` as the *primary*
 family. Each hit is a lesson not yet applied.
+
+### 2. Spacing is a scale, not a guess.
+
+`padding: 13px` next to `margin: 22px` is how a page reads as assembled rather than designed.
+Pick one scale up front — a 4px base, or a modular ratio — declare it as custom properties
+(`--space-1` … `--space-8`), and use nothing else for margin, padding, and gap.
+
+**Check:** grep length values in `margin`/`padding`/`gap`. Anything off the scale, or any raw
+px where a token exists, is a guess.
+
+### 3. One hue with intent. Never pure black on pure white.
+
+`#000` on `#fff` is the visual equivalent of `system-ui`. Use a near-black with a hue cast, a
+slightly tinted surface, and one accent that carries meaning — not the framework default blue.
+Name them as semantic tokens (`--surface`, `--text-muted`, `--accent`) so use sites never
+reference raw hex.
+
+For chart and data-viz palettes, defer to the `dataviz` skill — it owns categorical,
+sequential, and diverging color, and this skill must not contradict it.
+
+**Check:** grep `#000`, `#fff`, `#007bff`/`#337ab7`. Then count distinct hex literals — more
+than about a dozen means there's no system, just accumulation.
+
+### 4. Default to the boring layout. Earn the fancy one.
+
+Most pages want one column, generous whitespace, and a hierarchy strong enough to skim. The
+specific shape to avoid — because it's the unprompted default output, not just a bad choice —
+is *hero + three feature cards with icons + gradient*. A multi-column grid, a carousel, or a
+sticky sidebar has to be justified by the content, not reached for to fill space.
+
+**Check:** if a card grid holds three items that are really just a list, it's a list.
