@@ -61,6 +61,10 @@ done
 # Interactive backlog CLI on PATH.
 _link "${_repo_root}/skills/backlog/scripts/backlog" "${HOME}/.local/bin/backlog"
 
+# Screenshot locator on PATH -- used interactively (`screenshot pick`) as
+# much as by the skill, so it earns a bare name like `backlog` does.
+_link "${_repo_root}/skills/screenshot/scripts/screenshot" "${HOME}/.local/bin/screenshot"
+
 if [[ "${_repo_root}" != "${HOME}/projects/skill-tree" && "${SKILL_TREE_DIR:-}" != "${_repo_root}" ]]; then
     cat >&2 <<EOF
 Note: skill-tree is running from ${_repo_root}, not the default

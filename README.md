@@ -18,6 +18,7 @@ top-level directory.
 | Skill | What it does |
 | --- | --- |
 | `backlog` | A cross-repo work-item backlog (`~/.claude/backlog/`), with an optional `[repo]` tag and an fzf-driven claim/complete/tag CLI. |
+| `screenshot` | Resolves the newest Windows screenshot's path from WSL, so one can be read without attaching it. Includes an fzf picker with inline image previews. |
 | `debug-ci` | Diagnoses a failed GitHub Actions run from its real `gh` logs and fixes it locally. Never commits or pushes. |
 | `verify` | Forces a falsifiable check (real command, real output) behind any "it works now" / "it's gone" claim, instead of an inference from the diff. |
 
@@ -36,8 +37,8 @@ top-level directory.
 This also registers a `SessionStart` hook that runs `scripts/install.sh` automatically the next
 time a session starts, which symlinks every skill in this plugin into `~/.claude/skills/<name>`
 (personal scope, so each is invoked bare — `/backlog`, `/debug-ci`, `/verify` — instead of
-namespaced, e.g. `/skill-tree:backlog`) and puts the interactive `backlog` CLI on `PATH`
-(`~/.local/bin/backlog`).
+namespaced, e.g. `/skill-tree:backlog`) and puts the interactive `backlog` and `screenshot`
+CLIs on `PATH` (`~/.local/bin/`).
 
 **Manual clone**, or to (re-)run setup yourself:
 

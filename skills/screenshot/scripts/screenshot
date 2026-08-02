@@ -1,0 +1,57 @@
+#!/usr/bin/env bash
+# Windows screenshots, from WSL. Bare invocation prints the newest one's
+# path -- that's what an agent asked to "look at the screenshot" needs, and
+# it's the overwhelmingly common use. `pick` is the interactive escape
+# hatch: fzf over the recent ones with an inline image preview.
+set -euo pipefail
+
+_script_dir="$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")"
+
+_screenshot_py() {
+    uv run python "${_script_dir}/screenshot_cli.py" "$@"
+}
+
+# How many screenshots the picker offers. Enough to reach back a few days
+# without making the list unscannable.
+PICK_LIMIT="${SCREENSHOT_PICK_LIMIT:-40}"
+
+# chafa renders into plain ANSI, which survives tmux -- unlike sixel or the
+# kitty/iTerm graphics protocols, which tmux mangles or drops. Without it
+# the preview degrades to metadata rather than breaking the picker.
+_preview_command() {
+    if command -v chafa >/dev/null 2>&1; then
+        # shellcheck disable=SC2016  # fzf expands these in the preview shell
+        printf '%s' 'chafa --format=symbols --size="${FZF_PREVIEW_COLUMNS}x${FZF_PREVIEW_LINES}" -- {}'
+    else
+        printf '%s' 'echo "install chafa for image previews"; ls -lh -- {}'
+    fi
+}
+
+_pick() {
+    local paths selected
+    paths="$(_screenshot_py list -n "${PICK_LIMIT}")"
+
+    # --with-nth/-d show just the filename while the full path stays the
+    # selected value, so preview and stdout both get something usable.
+    selected="$(
+        fzf --prompt='screenshot ' \
+            --delimiter=/ \
+            --with-nth=-1 \
+            --height=90% \
+            --reverse \
+            --preview="$(_preview_command)" \
+            --preview-window=right,60% \
+            <<<"${paths}"
+    )"
+
+    printf '%s\n' "${selected}"
+}
+
+case "${1:-}" in
+pick)
+    _pick
+    ;;
+*)
+    _screenshot_py "$@"
+    ;;
+esac
