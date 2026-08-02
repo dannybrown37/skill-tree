@@ -7,11 +7,18 @@ repos:
   # changelog and tag on push (see [tool.commitizen] in .cz.toml for what it
   # rewrites). Both live in git-a-grip so this repo and gtd share one copy.
   - repo: https://github.com/dannybrown37/git-a-grip
-    rev: v0.1.0
+    rev: v0.2.0
     hooks:
       - id: commitizen-early
         fail_fast: true
       - id: bump-on-push
+      - id: ruff-check
+        args: [--config, .ruff.toml]
+      - id: ruff-format
+        args: [--config, .ruff.toml]
+      - id: pytest
+        args: ['--runner=uv run --with pytest pytest', scripts/, skills/, -q]
+        files: ^(scripts|skills)/.*\.py$
 
   - repo: https://github.com/commitizen-tools/commitizen
     rev: v4.17.0
@@ -46,31 +53,9 @@ repos:
 
   - repo: local
     hooks:
-      - id: ruff-check
-        name: Ruff check
-        entry: ruff check --fix --config .ruff.toml
-        language: system
-        types: [python]
-        pass_filenames: true
-
-      - id: ruff-format
-        name: Ruff format
-        entry: bash -c 'ruff format --config .ruff.toml "$@" && git add "$@"' --
-        language: system
-        types: [python]
-        pass_filenames: true
-        require_serial: true
-
       - id: check-skill-structure
         name: Check skill frontmatter and bundled resources
         entry: bash -c 'cd "$(git rev-parse --show-toplevel)" && python3 scripts/check_skill_structure.py'
         language: system
         always_run: true
-        pass_filenames: false
-
-      - id: scripts-tests
-        name: scripts/ and skills/ tests
-        entry: bash -c 'cd "$(git rev-parse --show-toplevel)" && uv run --with pytest pytest scripts/ skills/ -q'
-        language: system
-        files: ^(scripts|skills)/.*\.py$
         pass_filenames: false
