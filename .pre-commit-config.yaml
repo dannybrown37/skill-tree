@@ -2,36 +2,22 @@ default_install_hook_types: [pre-commit, commit-msg, pre-push]
 default_stages: [pre-commit]
 
 repos:
-  # Git runs the whole pre-commit stage before it ever reaches commit-msg, so
-  # the commitizen hook below can only reject a bad message *after* the tests.
-  # This one recovers the `git commit -m` message from git's argv and checks it
-  # first, so a malformed message fails immediately instead of after the suite.
-  - repo: local
+  # commitizen-early rejects a bad message during the pre-commit stage, before
+  # the slow hooks; bump-on-push turns conventional commits into a version,
+  # changelog and tag on push (see [tool.commitizen] in .cz.toml for what it
+  # rewrites). Both live in git-a-grip so this repo and gtd share one copy.
+  - repo: https://github.com/dannybrown37/git-a-grip
+    rev: v0.1.0
     hooks:
       - id: commitizen-early
-        name: Commitizen check (early)
-        entry: python3 scripts/check_commit_msg_early.py
-        language: system
-        stages: [pre-commit]
-        always_run: true
-        pass_filenames: false
         fail_fast: true
+      - id: bump-on-push
 
   - repo: https://github.com/commitizen-tools/commitizen
     rev: v4.17.0
     hooks:
       - id: commitizen
         stages: [commit-msg]
-
-  - repo: local
-    hooks:
-      - id: bump-on-push
-        name: Bump version and push
-        entry: scripts/bump_on_push.sh
-        language: system
-        stages: [pre-push]
-        always_run: true
-        pass_filenames: false
 
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v4.6.0
