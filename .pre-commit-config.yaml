@@ -1,17 +1,14 @@
-default_install_hook_types: [pre-commit, commit-msg, pre-push]
+default_install_hook_types: [pre-commit, commit-msg]
 default_stages: [pre-commit]
 
 repos:
-  # commitizen-early rejects a bad message during the pre-commit stage, before
-  # the slow hooks; bump-on-push turns conventional commits into a version,
-  # changelog and tag on push (see [tool.commitizen] in .cz.toml for what it
-  # rewrites). Both live in git-a-grip so this repo and gtd share one copy.
+  # These live in git-a-grip so every repo shares one copy. Releasing is no
+  # longer a hook: run `git-release` (aliased to gp) to bump, tag and push.
   - repo: https://github.com/dannybrown37/git-a-grip
-    rev: v0.2.0
+    rev: v0.3.0
     hooks:
       - id: commitizen-early
         fail_fast: true
-      - id: bump-on-push
       - id: ruff-check
         args: [--config, .ruff.toml]
       - id: ruff-format
