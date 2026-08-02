@@ -1,0 +1,14 @@
+[tool.commitizen]
+name = "cz_conventional_commits"
+tag_format = "v$version"
+major_version_zero = true
+update_changelog_on_bump = true
+annotated_tag = true
+
+# This repo has no pyproject.toml to hang a version off, so git tags are the
+# source of truth and the plugin manifest is a derived artifact. `cz bump`
+# reads the current version from the latest v* tag and rewrites the manifest
+# to match, which keeps the two from silently drifting the way they did at
+# 0.1.1 (manifest bumped, tag never created, install stuck on 0.1.0).
+version_provider = "scm"
+version_files = [".claude-plugin/plugin.json:version"]

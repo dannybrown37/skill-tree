@@ -39,8 +39,23 @@ _link() {
 # Personal-scope skill dirs, so e.g. `/backlog` is invoked bare (a
 # plugin-installed skill would otherwise always be namespaced, e.g.
 # `/skill-tree:backlog`).
-for _skill in backlog debug-ci verify; do
-    _link "${_repo_root}/skills/${_skill}" "${HOME}/.claude/skills/${_skill}"
+#
+# Deliberately only the skills worth a shortcut. A bare symlink is not free:
+# the harness collapses a same-named plugin skill into just the unscoped
+# alias, so anything listed here disappears from `skill-tree:`-prefixed
+# lookups -- and from subagents that browse skills by that prefix.
+_link "${_repo_root}/skills/backlog" "${HOME}/.claude/skills/backlog"
+
+# Retire shortcuts earlier versions created, so a machine that ran those
+# installs heals itself. Only ever removes a symlink pointing back into a
+# skill-tree checkout -- never a real directory or someone else's link.
+for _skill in debug-ci verify; do
+    _stale="${HOME}/.claude/skills/${_skill}"
+    if [[ -L "${_stale}" && "$(readlink "${_stale}")" == *"/skills/${_skill}" ]] &&
+        [[ "$(readlink "${_stale}")" == *skill-tree* ]]; then
+        rm "${_stale}"
+        echo "Removed redundant ${_stale} (use skill-tree:${_skill})"
+    fi
 done
 
 # Interactive backlog CLI on PATH.
