@@ -1,6 +1,8 @@
 """Regression tests for scripts/backlog_cli.py."""
 
+import os
 import re
+import subprocess
 from datetime import datetime
 from pathlib import Path
 
@@ -1140,3 +1142,49 @@ def test_a_completed_tagged_item_stays_completed_through_a_merge(
     )
 
     assert _titles(merged) == ['Still Open']
+
+
+def _run_wrapper(tmp_path: Path, *args: str) -> list[str]:
+    """Run the `backlog` wrapper with stubbed `uv`/`fzf`, returning uv's argv.
+
+    The wrapper shells out to `uv run python backlog_cli.py ...` and to `fzf`
+    for its pickers; neither is usable non-interactively, so both are stubbed
+    on PATH and the resulting `uv` argv is what we assert against.
+    """
+    bin_dir = tmp_path / 'bin'
+    bin_dir.mkdir()
+    argv_log = tmp_path / 'uv-argv'
+    (bin_dir / 'uv').write_text(
+        f'#!/usr/bin/env bash\nprintf "%s\\n" "$@" >> "{argv_log}"\n',
+    )
+    (bin_dir / 'fzf').write_text('#!/usr/bin/env bash\nexit 0\n')
+    for stub in ('uv', 'fzf'):
+        (bin_dir / stub).chmod(0o755)
+
+    wrapper = Path(__file__).parent / 'backlog'
+    env = {**os.environ, 'PATH': f'{bin_dir}:{os.environ["PATH"]}'}
+    subprocess.run([str(wrapper), *args], env=env, check=True)  # noqa: S603
+
+    return argv_log.read_text().splitlines()
+
+
+def test_wrapper_with_no_arguments_defaults_to_queue(tmp_path: Path) -> None:
+    """Bare `backlog` is quick capture -- it must not jump the queue."""
+    argv = _run_wrapper(tmp_path)
+    assert 'queue' in argv
+    assert 'stack' not in argv
+
+
+def test_wrapper_passes_an_explicit_action_through(tmp_path: Path) -> None:
+    assert 'queue' not in _run_wrapper(tmp_path, 'list')
+
+
+def test_wrapper_defaults_to_queue_when_only_flags_are_given(
+    tmp_path: Path,
+) -> None:
+    """`backlog --title x` has no action either -- argparse would reject it."""
+    assert 'queue' in _run_wrapper(tmp_path, '--title', 'x')
+
+
+def test_wrapper_leaves_help_alone(tmp_path: Path) -> None:
+    assert 'queue' not in _run_wrapper(tmp_path, '--help')

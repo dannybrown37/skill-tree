@@ -49,6 +49,19 @@ _backlog_has_all_flag() {
     return 1
 }
 
+# Bare `backlog` means "drop something in the backlog" -- that's the
+# overwhelmingly common interactive use, and typing the action every time is
+# friction. It maps to `queue`, not `stack`: an unattended quick capture
+# shouldn't jump ahead of items already deliberately prioritized. Every other
+# action still has to be named explicitly.
+# A leading flag counts as "no action given" too (`backlog --title x`), but
+# -h/--help must reach argparse as-is so it prints real usage.
+if [[ $# -eq 0 ]]; then
+    set -- queue
+elif [[ "$1" == -* && "$1" != "-h" && "$1" != "--help" ]]; then
+    set -- queue "$@"
+fi
+
 action="${1:-}"
 
 # Titles have to match exactly, so offer them instead of retyping one. The

@@ -61,6 +61,10 @@ repo-agnostic and always visible; tagged items are filtered by default (see belo
   the item is just created untagged.
 - `backlog queue [--title "..."] [--content "..."] [--repo "<name>"]` — add a new item to the
   **bottom** of the backlog (do this eventually). Same title/content/repo behavior as `stack`.
+  **A bare `backlog` with no arguments is `backlog queue`** — the common quick-capture path,
+  deliberately not `stack`, so a drop-in doesn't jump ahead of already-prioritized items. (That
+  default lives in the `backlog` wrapper script; `backlog_cli.py` still requires an explicit
+  action.)
 
 With no `--item-title`, `backlog claim`/`complete`/`tag` all open fzf over the current titles.
 `--item-title` matches regardless of whether it includes the `[in-progress]` suffix or a
