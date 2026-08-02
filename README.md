@@ -59,3 +59,7 @@ uv run --with pytest pytest scripts/ skills/ -q
 
 Pre-commit runs ruff (`.ruff.toml`) + the same test suite + `scripts/check_skill_structure.py`
 (validates every skill's frontmatter and any bundled scripts).
+
+## License
+
+MIT — see [LICENSE](LICENSE).
