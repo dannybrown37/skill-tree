@@ -201,6 +201,22 @@ def _dev_mode(root: Path) -> str:
     return result.stdout.strip() or result.stderr.strip() or 'unknown'
 
 
+def _dev_mode_flag(root: Path) -> str:
+    """`[dev mode ON]`-style tag for the overview, '' when unknowable.
+
+    Dev mode silently changes which copy of the repo Claude loads, so
+    leaving it to `doctor` means noticing far too late.
+    """
+    if not (root / 'scripts' / 'dev_link.sh').is_file():
+        return ''
+
+    status = _dev_mode(root)
+    for state in ('ON', 'OFF'):
+        if status.startswith(f'Dev mode {state}'):
+            return f'  [dev mode {state}]'
+    return '  [dev mode ?]'
+
+
 def cmd_doctor(root: Path, _args: list[str]) -> int:
     skills = find_skills(root)
     print(f'Checkout   {root}')
@@ -253,7 +269,8 @@ def cmd_help(root: Path, _args: list[str]) -> int:
     print("  show <skill>      A skill's playbook (--raw keeps frontmatter)")
     print('  doctor            Where this checkout is and what it wired up')
     for name, (_, blurb) in DELEGATED.items():
-        print(f'  {name.ljust(16)}  {blurb}')
+        tag = _dev_mode_flag(root) if name == 'dev' else ''
+        print(f'  {name.ljust(16)}  {blurb}{tag}')
     print('  test [args]       Run the test suite')
     print('  help              This screen (also the bare `skill-tree`)')
 

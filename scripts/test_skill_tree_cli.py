@@ -273,6 +273,50 @@ class TestRun:
         assert 'nonsense' in err
 
 
+def _fake_dev_link(root: Path, status: str) -> None:
+    """Stand in for dev_link.sh, which needs a real plugin install."""
+    scripts = root / 'scripts'
+    scripts.mkdir(exist_ok=True)
+    script = scripts / 'dev_link.sh'
+    script.write_text(f'#!/usr/bin/env bash\necho "{status}"\n')
+    script.chmod(0o755)
+
+
+class TestDevModeIndicator:
+    """Dev mode changes which copy of the repo Claude runs -- say so."""
+
+    @pytest.mark.parametrize(
+        ('status', 'expected'),
+        [
+            ('Dev mode ON  (/x -> /y)', 'ON'),
+            ('Dev mode OFF (real install at /x)', 'OFF'),
+            ('something unexpected', '?'),
+        ],
+    )
+    def test_overview_flags_the_dev_command(
+        self,
+        fake_root: Path,
+        status: str,
+        expected: str,
+    ) -> None:
+        _fake_dev_link(fake_root, status)
+
+        _, out, _ = run_cli(root=fake_root)
+
+        dev_line = next(
+            line for line in out.splitlines() if line.strip().startswith('dev')
+        )
+        assert f'[dev mode {expected}]' in dev_line
+
+    def test_overview_stays_quiet_without_dev_link(
+        self,
+        fake_root: Path,
+    ) -> None:
+        _, out, _ = run_cli(root=fake_root)
+
+        assert 'dev mode' not in out
+
+
 class TestDoctor:
     def test_reports_the_checkout_and_each_skill_cli(
         self,

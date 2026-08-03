@@ -99,7 +99,9 @@ skill-tree dev           # --status, the default with no arguments
 skill-tree dev --off     # restore the real install
 ```
 
-Restart Claude after `--on` or `--off` for it to take effect.
+Restart Claude after `--on` or `--off` for it to take effect. A bare `skill-tree` tags the
+`dev` line with `[dev mode ON]`/`[dev mode OFF]`, so a forgotten link is visible without
+asking; `skill-tree doctor` shows the full link target.
 
 `--on` never deletes anything: the real install is moved aside to `<install-path>.real` and
 restored by `--off`. If a `/plugin install` re-downloads the plugin while the link is in place,
