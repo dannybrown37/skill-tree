@@ -18,7 +18,7 @@ top-level directory.
 | Skill | What it does |
 | --- | --- |
 | `backlog` | A cross-repo work-item backlog (`~/.claude/backlog/`), with an optional `[repo]` tag and an fzf-driven claim/complete/tag CLI. |
-| `screenshot` | Resolves the newest Windows screenshot's path from WSL, so one can be read without attaching it. Includes an fzf picker with inline image previews, and can move the picked ones somewhere else. |
+| `screenshot` | Resolves the newest screenshot's path, so one the user took but didn't attach can be read directly. Detects the standard location on WSL, macOS or Linux, with `screenshot set <path>` to override it. |
 | `debug-ci` | Diagnoses a failed GitHub Actions run from its real `gh` logs and fixes it locally. Never commits or pushes. |
 | `verify` | Forces a falsifiable check (real command, real output) behind any "it works now" / "it's gone" claim, instead of an inference from the diff. |
 
@@ -47,12 +47,15 @@ skill-tree test            # the test suite
 ```
 
 Skills that ship their own CLI are reachable by name, with arguments passed straight through
-(`skill-tree screenshot --help` is the screenshot CLI's help, not the dispatcher's):
+(`skill-tree backlog --help` is the backlog CLI's help, not the dispatcher's):
 
 ```bash
 skill-tree backlog claim
-skill-tree screenshot pick
+skill-tree screenshot latest
 ```
+
+Not every skill has one — `verify` and `ui-designer` are pure playbook. Those tell you so and
+point at `skill-tree show <name>`.
 
 It's a dispatcher, not a reimplementation — each sub-command delegates to the script that
 already does the job, and propagates its exit code. `install.sh` puts it on `PATH` at
@@ -71,7 +74,7 @@ This also registers a `SessionStart` hook that runs `scripts/install.sh` automat
 time a session starts, which symlinks every skill in this plugin into `~/.claude/skills/<name>`
 (personal scope, so each is invoked bare — `/backlog`, `/debug-ci`, `/verify` — instead of
 namespaced, e.g. `/skill-tree:backlog`) and puts the `skill-tree` entry point plus the
-interactive `backlog` and `screenshot` CLIs on `PATH` (`~/.local/bin/`).
+interactive `backlog` CLI on `PATH` (`~/.local/bin/`).
 
 **Manual clone**, or to (re-)run setup yourself:
 

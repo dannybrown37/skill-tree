@@ -1,404 +1,230 @@
-"""Regression tests for scripts/screenshot_cli.py."""
+"""Tests for the screenshot path resolver."""
 
 import os
 import subprocess
-import sys
+import time
 from pathlib import Path
 
 import pytest
 
-from screenshot_cli import (
-    IMAGE_SUFFIXES,
-    SKIPPED_WINDOWS_USERS,
-    ScreenshotError,
-    free_destination,
-    latest_screenshot,
-    move_screenshots,
-    resolve_screenshot_dir,
-    screenshot_paths,
-)
-
-CLI = Path(__file__).parent / 'screenshot_cli.py'
+SCRIPT = Path(__file__).parent / 'screenshot'
 
 
-def make_image(directory: Path, name: str, mtime: float) -> Path:
-    """Create a stub image file with a controlled modification time."""
-    directory.mkdir(parents=True, exist_ok=True)
-    path = directory / name
-    path.write_bytes(b'stub')
-    os.utime(path, (mtime, mtime))
+def touch(path: Path, age_seconds: float = 0) -> Path:
+    """An image file with a controllable mtime."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_bytes(b'not really a png')
+    when = time.time() - age_seconds
+    os.utime(path, (when, when))
     return path
 
 
-@pytest.fixture
-def users_root(tmp_path: Path) -> Path:
-    return tmp_path / 'mnt' / 'c' / 'Users'
-
-
-def resolve(users_root: Path, **kwargs: object) -> Path:
-    defaults: dict[str, object] = {
-        'override': None,
-        'users_root': users_root,
-        'windows_username': None,
-    }
-    defaults.update(kwargs)
-    return resolve_screenshot_dir(**defaults)  # type: ignore[arg-type]
-
-
-class TestResolveScreenshotDir:
-    def test_override_wins_over_everything(
-        self,
-        users_root: Path,
-        tmp_path: Path,
-    ) -> None:
-        explicit = tmp_path / 'elsewhere'
-        explicit.mkdir()
-        make_image(
-            users_root / 'danny' / 'Pictures' / 'Screenshots',
-            'a.png',
-            1,
-        )
-
-        assert resolve(users_root, override=str(explicit)) == explicit
-
-    def test_override_that_does_not_exist_is_an_error(
-        self,
-        users_root: Path,
-        tmp_path: Path,
-    ) -> None:
-        missing = tmp_path / 'nope'
-
-        with pytest.raises(ScreenshotError, match='nope'):
-            resolve(users_root, override=str(missing))
-
-    @pytest.mark.parametrize(
-        'subpath',
-        [
-            'OneDrive/Pictures/Screenshots',
-            'Pictures/Screenshots',
-        ],
+def run(
+    tmp_path: Path,
+    *args: str,
+    **env: str,
+) -> subprocess.CompletedProcess[str]:
+    """Invoke the script with every default pointed somewhere disposable."""
+    return subprocess.run(  # noqa: S603
+        ['bash', str(SCRIPT), *args],  # noqa: S607
+        capture_output=True,
+        text=True,
+        env={
+            'PATH': os.environ['PATH'],
+            'HOME': str(tmp_path / 'home'),
+            'SCREENSHOT_CONFIG': str(tmp_path / 'config' / 'screenshot-dir'),
+            # Not /mnt/c, so a real WSL host doesn't leak into the tests.
+            'WINDOWS_USERS_ROOT': str(tmp_path / 'no-windows-here'),
+            **env,
+        },
+        check=False,
     )
-    def test_finds_either_onedrive_or_plain_pictures(
-        self,
-        users_root: Path,
-        subpath: str,
-    ) -> None:
-        expected = users_root / 'danny' / subpath
-        make_image(expected, 'a.png', 1)
-
-        assert resolve(users_root, windows_username='danny') == expected
-
-    def test_prefers_the_directory_holding_the_newest_screenshot(
-        self,
-        users_root: Path,
-    ) -> None:
-        """A OneDrive migration leaves a stale local dir behind."""
-        stale = users_root / 'danny' / 'Pictures' / 'Screenshots'
-        fresh = users_root / 'danny' / 'OneDrive' / 'Pictures' / 'Screenshots'
-        make_image(stale, 'old.png', 1_000)
-        make_image(fresh, 'new.png', 2_000)
-
-        assert resolve(users_root, windows_username='danny') == fresh
-
-    def test_discovers_the_user_when_username_is_unset(
-        self,
-        users_root: Path,
-    ) -> None:
-        expected = users_root / 'danny' / 'Pictures' / 'Screenshots'
-        make_image(expected, 'a.png', 1)
-
-        assert resolve(users_root) == expected
-
-    @pytest.mark.parametrize('skipped', sorted(SKIPPED_WINDOWS_USERS))
-    def test_skips_windows_system_profiles(
-        self,
-        users_root: Path,
-        skipped: str,
-    ) -> None:
-        make_image(
-            users_root / skipped / 'Pictures' / 'Screenshots',
-            'a.png',
-            2_000,
-        )
-        real = users_root / 'danny' / 'Pictures' / 'Screenshots'
-        make_image(real, 'a.png', 1_000)
-
-        assert resolve(users_root) == real
-
-    def test_named_username_is_not_overridden_by_another_profile(
-        self,
-        users_root: Path,
-    ) -> None:
-        make_image(
-            users_root / 'other' / 'Pictures' / 'Screenshots',
-            'newer.png',
-            2_000,
-        )
-        mine = users_root / 'danny' / 'Pictures' / 'Screenshots'
-        make_image(mine, 'older.png', 1_000)
-
-        assert resolve(users_root, windows_username='danny') == mine
-
-    def test_empty_but_existing_directory_still_resolves(
-        self,
-        users_root: Path,
-    ) -> None:
-        expected = users_root / 'danny' / 'Pictures' / 'Screenshots'
-        expected.mkdir(parents=True)
-
-        assert resolve(users_root, windows_username='danny') == expected
-
-    def test_no_candidate_directory_is_an_error(
-        self,
-        users_root: Path,
-    ) -> None:
-        users_root.mkdir(parents=True)
-
-        with pytest.raises(ScreenshotError, match='No screenshots directory'):
-            resolve(users_root)
 
 
-class TestScreenshotPaths:
-    def test_returns_newest_first(self, tmp_path: Path) -> None:
-        make_image(tmp_path, 'old.png', 1_000)
-        make_image(tmp_path, 'new.png', 3_000)
-        make_image(tmp_path, 'mid.png', 2_000)
+class TestLatest:
+    def test_prints_the_newest_image_absolute(self, tmp_path: Path) -> None:
+        shots = tmp_path / 'shots'
+        touch(shots / 'old.png', age_seconds=600)
+        newest = touch(shots / 'new.png')
 
-        names = [path.name for path in screenshot_paths(tmp_path)]
-
-        assert names == ['new.png', 'mid.png', 'old.png']
-
-    def test_ties_break_on_name_for_determinism(self, tmp_path: Path) -> None:
-        make_image(tmp_path, 'b.png', 1_000)
-        make_image(tmp_path, 'a.png', 1_000)
-
-        names = [path.name for path in screenshot_paths(tmp_path)]
-
-        assert names == ['b.png', 'a.png']
-
-    @pytest.mark.parametrize('suffix', sorted(IMAGE_SUFFIXES))
-    def test_accepts_every_supported_suffix(
-        self,
-        tmp_path: Path,
-        suffix: str,
-    ) -> None:
-        make_image(tmp_path, f'shot{suffix}', 1_000)
-
-        assert len(screenshot_paths(tmp_path)) == 1
-
-    def test_suffix_match_is_case_insensitive(self, tmp_path: Path) -> None:
-        make_image(tmp_path, 'shot.PNG', 1_000)
-
-        assert len(screenshot_paths(tmp_path)) == 1
-
-    def test_ignores_non_images_and_subdirectories(
-        self,
-        tmp_path: Path,
-    ) -> None:
-        make_image(tmp_path, 'shot.png', 1_000)
-        (tmp_path / 'notes.txt').write_text('nope')
-        (tmp_path / 'nested').mkdir()
-
-        names = [path.name for path in screenshot_paths(tmp_path)]
-
-        assert names == ['shot.png']
-
-    def test_limit_truncates_to_the_newest_n(self, tmp_path: Path) -> None:
-        for index in range(5):
-            make_image(tmp_path, f'{index}.png', 1_000 + index)
-
-        names = [path.name for path in screenshot_paths(tmp_path, limit=2)]
-
-        assert names == ['4.png', '3.png']
-
-
-class TestLatestScreenshot:
-    def test_returns_the_newest_file(self, tmp_path: Path) -> None:
-        make_image(tmp_path, 'old.png', 1_000)
-        newest = make_image(tmp_path, 'new.png', 2_000)
-
-        assert latest_screenshot(tmp_path) == newest
-
-    def test_empty_directory_is_an_error(self, tmp_path: Path) -> None:
-        with pytest.raises(ScreenshotError, match='No screenshots found'):
-            latest_screenshot(tmp_path)
-
-
-class TestFreeDestination:
-    def test_unused_name_is_returned_unchanged(self, tmp_path: Path) -> None:
-        target = tmp_path / 'shot.png'
-
-        assert free_destination(target) == target
-
-    def test_taken_name_gets_a_suffix(self, tmp_path: Path) -> None:
-        make_image(tmp_path, 'shot.png', 1_000)
-
-        assert free_destination(tmp_path / 'shot.png') == (
-            tmp_path / 'shot-1.png'
-        )
-
-    def test_suffix_increments_past_earlier_collisions(
-        self,
-        tmp_path: Path,
-    ) -> None:
-        make_image(tmp_path, 'shot.png', 1_000)
-        make_image(tmp_path, 'shot-1.png', 1_000)
-
-        assert free_destination(tmp_path / 'shot.png') == (
-            tmp_path / 'shot-2.png'
-        )
-
-
-class TestMoveScreenshots:
-    def test_moves_files_and_returns_new_paths(self, tmp_path: Path) -> None:
-        source = make_image(tmp_path / 'shots', 'shot.png', 1_000)
-        destination_dir = tmp_path / 'keep'
-
-        moved = move_screenshots([source], destination_dir)
-
-        assert moved == [destination_dir / 'shot.png']
-        assert not source.exists()
-        assert moved[0].read_bytes() == b'stub'
-
-    def test_creates_a_missing_destination_directory(
-        self,
-        tmp_path: Path,
-    ) -> None:
-        source = make_image(tmp_path / 'shots', 'shot.png', 1_000)
-        destination_dir = tmp_path / 'nested' / 'keep'
-
-        move_screenshots([source], destination_dir)
-
-        assert (destination_dir / 'shot.png').is_file()
-
-    def test_never_overwrites_an_existing_file(self, tmp_path: Path) -> None:
-        source = make_image(tmp_path / 'shots', 'shot.png', 1_000)
-        destination_dir = tmp_path / 'keep'
-        existing = make_image(destination_dir, 'shot.png', 2_000)
-        existing.write_bytes(b'original')
-
-        moved = move_screenshots([source], destination_dir)
-
-        assert moved == [destination_dir / 'shot-1.png']
-        assert existing.read_bytes() == b'original'
-
-    def test_missing_source_is_an_error(self, tmp_path: Path) -> None:
-        with pytest.raises(ScreenshotError, match='No such file'):
-            move_screenshots([tmp_path / 'gone.png'], tmp_path / 'keep')
-
-    def test_destination_that_is_a_file_is_an_error(
-        self,
-        tmp_path: Path,
-    ) -> None:
-        source = make_image(tmp_path / 'shots', 'shot.png', 1_000)
-        blocker = tmp_path / 'keep'
-        blocker.write_text('not a directory')
-
-        with pytest.raises(ScreenshotError, match='Not a directory'):
-            move_screenshots([source], blocker)
-
-        assert source.is_file()
-
-
-class TestCli:
-    @pytest.fixture
-    def populated(self, tmp_path: Path) -> Path:
-        make_image(tmp_path, 'old.png', 1_000)
-        make_image(tmp_path, 'new.png', 2_000)
-        return tmp_path
-
-    def run(
-        self,
-        *args: str,
-        env_dir: Path,
-    ) -> subprocess.CompletedProcess[str]:
-        return subprocess.run(  # noqa: S603
-            [sys.executable, str(CLI), *args],
-            capture_output=True,
-            text=True,
-            env={'SCREENSHOT_DIR': str(env_dir), 'PATH': '/usr/bin:/bin'},
-            check=False,
-        )
-
-    def test_bare_invocation_prints_the_latest_path(
-        self,
-        populated: Path,
-    ) -> None:
-        result = self.run(env_dir=populated)
+        result = run(tmp_path, 'latest', SCREENSHOT_DIR=str(shots))
 
         assert result.returncode == 0
-        assert result.stdout.strip() == str(populated / 'new.png')
+        assert result.stdout.strip() == str(newest)
 
-    def test_dir_prints_the_resolved_directory(self, populated: Path) -> None:
-        result = self.run('dir', env_dir=populated)
+    def test_ignores_non_images(self, tmp_path: Path) -> None:
+        shots = tmp_path / 'shots'
+        image = touch(shots / 'shot.png', age_seconds=600)
+        touch(shots / 'desktop.ini')
 
-        assert result.returncode == 0
-        assert result.stdout.strip() == str(populated)
+        result = run(tmp_path, 'latest', SCREENSHOT_DIR=str(shots))
 
-    def test_list_prints_newest_first(self, populated: Path) -> None:
-        result = self.run('list', env_dir=populated)
+        assert result.stdout.strip() == str(image)
 
-        assert result.returncode == 0
-        assert result.stdout.splitlines() == [
-            str(populated / 'new.png'),
-            str(populated / 'old.png'),
-        ]
-
-    def test_list_honours_the_count_flag(self, populated: Path) -> None:
-        result = self.run('list', '-n', '1', env_dir=populated)
-
-        assert result.stdout.splitlines() == [str(populated / 'new.png')]
-
-    def test_move_relocates_the_given_paths(
+    @pytest.mark.parametrize('name', ['SHOT.PNG', 'shot.JPEG', 'shot.webp'])
+    def test_matches_extensions_case_insensitively(
         self,
-        populated: Path,
         tmp_path: Path,
+        name: str,
     ) -> None:
-        destination_dir = tmp_path / 'keep'
+        shots = tmp_path / 'shots'
+        image = touch(shots / name)
 
-        result = self.run(
-            'move',
-            '--dest',
-            str(destination_dir),
-            '--',
-            str(populated / 'new.png'),
-            env_dir=populated,
-        )
+        result = run(tmp_path, 'latest', SCREENSHOT_DIR=str(shots))
 
-        assert result.returncode == 0
-        assert result.stdout.strip() == str(destination_dir / 'new.png')
-        assert not (populated / 'new.png').exists()
-        assert (populated / 'old.png').exists()
+        assert result.stdout.strip() == str(image)
 
-    def test_move_without_a_destination_exits_nonzero(
-        self,
-        populated: Path,
-    ) -> None:
-        result = self.run(
-            'move',
-            str(populated / 'new.png'),
-            env_dir=populated,
-        )
-
-        assert result.returncode != 0
-        assert (populated / 'new.png').exists()
-
-    def test_move_without_paths_exits_nonzero(self, populated: Path) -> None:
-        result = self.run(
-            'move',
-            '--dest',
-            str(populated / 'keep'),
-            env_dir=populated,
-        )
-
-        assert result.returncode != 0
-
-    def test_empty_directory_exits_nonzero_with_a_message(
+    def test_an_empty_directory_is_an_error_naming_it(
         self,
         tmp_path: Path,
     ) -> None:
-        result = self.run(env_dir=tmp_path)
+        shots = tmp_path / 'shots'
+        shots.mkdir()
+
+        result = run(tmp_path, 'latest', SCREENSHOT_DIR=str(shots))
 
         assert result.returncode == 1
-        assert 'No screenshots found' in result.stderr
-        assert not result.stdout.strip()
+        assert str(shots) in result.stderr
+
+
+class TestList:
+    def test_newest_first_and_capped(self, tmp_path: Path) -> None:
+        shots = tmp_path / 'shots'
+        for index in range(5):
+            touch(shots / f'{index}.png', age_seconds=index * 60)
+
+        result = run(tmp_path, 'list', '2', SCREENSHOT_DIR=str(shots))
+
+        assert result.stdout.split() == [
+            str(shots / '0.png'),
+            str(shots / '1.png'),
+        ]
+
+
+class TestResolution:
+    def test_screenshot_dir_wins_over_the_config_file(
+        self,
+        tmp_path: Path,
+    ) -> None:
+        env_dir = tmp_path / 'from-env'
+        env_dir.mkdir()
+        run(tmp_path, 'set', str(tmp_path / 'from-config'))
+
+        result = run(tmp_path, 'dir', SCREENSHOT_DIR=str(env_dir))
+
+        assert result.stdout.strip() == str(env_dir)
+
+    def test_a_bad_screenshot_dir_is_an_error_not_a_fallback(
+        self,
+        tmp_path: Path,
+    ) -> None:
+        result = run(tmp_path, 'dir', SCREENSHOT_DIR=str(tmp_path / 'nope'))
+
+        assert result.returncode == 1
+        assert 'SCREENSHOT_DIR' in result.stderr
+
+    def test_falls_back_to_the_home_pictures_folder(
+        self,
+        tmp_path: Path,
+    ) -> None:
+        expected = tmp_path / 'home' / 'Pictures' / 'Screenshots'
+        expected.mkdir(parents=True)
+
+        result = run(tmp_path, 'dir')
+
+        assert result.stdout.strip() == str(expected)
+
+    def test_says_how_to_configure_when_nothing_exists(
+        self,
+        tmp_path: Path,
+    ) -> None:
+        result = run(tmp_path, 'dir')
+
+        assert result.returncode == 1
+        assert 'set' in result.stderr
+
+    def test_windows_profiles_are_probed_when_mounted(
+        self,
+        tmp_path: Path,
+    ) -> None:
+        users = tmp_path / 'Users'
+        stale = users / 'danny' / 'Pictures' / 'Screenshots'
+        current = users / 'danny' / 'OneDrive' / 'Pictures' / 'Screenshots'
+        touch(stale / 'old.png', age_seconds=6000)
+        touch(current / 'new.png')
+
+        result = run(tmp_path, 'dir', WINDOWS_USERS_ROOT=str(users))
+
+        assert result.stdout.strip() == str(current)
+
+    def test_shared_windows_profiles_are_skipped(
+        self,
+        tmp_path: Path,
+    ) -> None:
+        users = tmp_path / 'Users'
+        touch(users / 'Public' / 'Pictures' / 'Screenshots' / 'nope.png')
+        mine = users / 'danny' / 'Pictures' / 'Screenshots'
+        touch(mine / 'mine.png', age_seconds=6000)
+
+        result = run(tmp_path, 'dir', WINDOWS_USERS_ROOT=str(users))
+
+        assert result.stdout.strip() == str(mine)
+
+
+class TestSet:
+    def test_records_the_directory_and_dir_reads_it_back(
+        self,
+        tmp_path: Path,
+    ) -> None:
+        shots = tmp_path / 'elsewhere'
+        shots.mkdir()
+
+        assert run(tmp_path, 'set', str(shots)).returncode == 0
+        assert run(tmp_path, 'dir').stdout.strip() == str(shots)
+
+    def test_expands_a_leading_tilde(self, tmp_path: Path) -> None:
+        shots = tmp_path / 'home' / 'shots'
+        shots.mkdir(parents=True)
+
+        assert run(tmp_path, 'set', '~/shots').returncode == 0
+        assert run(tmp_path, 'dir').stdout.strip() == str(shots)
+
+    def test_refuses_a_missing_directory(self, tmp_path: Path) -> None:
+        result = run(tmp_path, 'set', str(tmp_path / 'nope'))
+
+        assert result.returncode == 1
+        assert 'not a directory' in result.stderr
+
+    def test_a_stale_config_says_so_rather_than_guessing(
+        self,
+        tmp_path: Path,
+    ) -> None:
+        shots = tmp_path / 'gone'
+        shots.mkdir()
+        run(tmp_path, 'set', str(shots))
+        shots.rmdir()
+
+        result = run(tmp_path, 'dir')
+
+        assert result.returncode == 1
+        assert str(shots) in result.stderr
+
+
+class TestUsage:
+    @pytest.mark.parametrize('args', [(), ('help',), ('--help',)])
+    def test_help_names_every_command(
+        self,
+        tmp_path: Path,
+        args: tuple[str, ...],
+    ) -> None:
+        result = run(tmp_path, *args)
+
+        assert result.returncode == 0
+        for command in ('latest', 'list', 'dir', 'set'):
+            assert command in result.stdout
+
+    def test_unknown_command_is_an_error(self, tmp_path: Path) -> None:
+        result = run(tmp_path, 'capture')
+
+        assert result.returncode == 1
+        assert 'capture' in result.stderr

@@ -1,111 +1,163 @@
 #!/usr/bin/env bash
-# Windows screenshots, from WSL. Bare invocation prints the newest one's
-# path -- that's what an agent asked to "look at the screenshot" needs, and
-# it's the overwhelmingly common use. `pick` is the interactive escape
-# hatch: fzf over the recent ones with an inline image preview.
+# Where this machine puts screenshots, and which one is newest.
+#
+# Deliberately small: an agent needs a path it can Read, and the user needs
+# a way to say "they're actually over here" once. Capturing, picking, and
+# moving screenshots are an interactive concern and not in scope.
 set -euo pipefail
 
-_script_dir="$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")"
+CONFIG="${SCREENSHOT_CONFIG:-${XDG_CONFIG_HOME:-${HOME}/.config}/skill-tree/screenshot-dir}"
+WINDOWS_USERS_ROOT="${WINDOWS_USERS_ROOT:-/mnt/c/Users}"
 
-_screenshot_py() {
-    uv run python "${_script_dir}/screenshot_cli.py" "$@"
+# Extensions considered a screenshot. OneDrive drops a desktop.ini into the
+# folder, which would otherwise come back as "the latest screenshot".
+readonly IMAGE_EXTENSIONS=(png jpg jpeg gif webp bmp)
+
+_die() {
+    echo "screenshot: $*" >&2
+    exit 1
 }
 
-# How many screenshots the picker offers. Enough to reach back a few days
-# without making the list unscannable.
-PICK_LIMIT="${SCREENSHOT_PICK_LIMIT:-40}"
+# Every image in a directory, newest first, absolute.
+_images() {
+    local dir="$1" files=() extension
+    shopt -s nullglob nocaseglob
+    for extension in "${IMAGE_EXTENSIONS[@]}"; do
+        files+=("${dir}"/*."${extension}")
+    done
+    shopt -u nullglob nocaseglob
 
-# chafa renders into plain ANSI, which survives tmux -- unlike sixel or the
-# kitty/iTerm graphics protocols, which tmux mangles or drops. Without it
-# the preview degrades to metadata rather than breaking the picker.
-_preview_command() {
-    if command -v chafa >/dev/null 2>&1; then
-        # shellcheck disable=SC2016  # fzf expands these in the preview shell
-        printf '%s' 'chafa --format=symbols --size="${FZF_PREVIEW_COLUMNS}x${FZF_PREVIEW_LINES}" -- {}'
-    else
-        printf '%s' 'echo "install chafa for image previews"; ls -lh -- {}'
-    fi
+    ((${#files[@]})) || return 0
+    ls -t -- "${files[@]}"
 }
 
-# The key that turns a selection into a move. Enter still just prints the
-# paths -- viewing is the common case, moving the occasional one.
-readonly MOVE_KEY='ctrl-x'
+# Standard screenshot locations for whatever this machine is, best first.
+#
+# WSL is checked by whether the Windows profile root is actually mounted
+# rather than by parsing /proc/version -- the mount is the thing that has
+# to exist for any of those paths to work.
+_default_candidates() {
+    local profile
 
-# Fills `pressed_key` and `selected_paths`. Both are empty when the picker
-# was cancelled, which every caller treats as "do nothing".
-pressed_key=''
-selected_paths=()
+    if [[ -d "${WINDOWS_USERS_ROOT}" ]]; then
+        for profile in "${WINDOWS_USERS_ROOT}"/*/; do
+            case "$(basename "${profile}")" in
+            Public | Default | 'Default User' | 'All Users') continue ;;
+            esac
+            # OneDrive's "back up my Pictures" silently redirects the real
+            # folder and leaves the old one behind, so both are candidates.
+            echo "${profile}OneDrive/Pictures/Screenshots"
+            echo "${profile}Pictures/Screenshots"
+        done
+    fi
 
-_pick() {
-    local paths output
-    paths="$(_screenshot_py list -n "${PICK_LIMIT}")"
+    if [[ "$(uname -s)" == Darwin ]]; then
+        # macOS keeps the location in a defaults key, and ships no folder
+        # of its own -- screenshots land on the Desktop unless moved.
+        local configured
+        configured="$(defaults read com.apple.screencapture location 2>/dev/null || true)"
+        [[ -n "${configured}" ]] && echo "${configured/#\~/${HOME}}"
+        echo "${HOME}/Desktop"
+    fi
 
-    # --with-nth/-d show just the filename while the full path stays the
-    # selected value, so preview and stdout both get something usable.
-    # --expect makes fzf print the pressed key as the first line.
-    output="$(
-        fzf --prompt="${1} " \
-            --delimiter=/ \
-            --with-nth=-1 \
-            --multi \
-            --expect="${MOVE_KEY}" \
-            --header="enter: print path  ${MOVE_KEY}: move  tab: multi-select" \
-            --height=90% \
-            --reverse \
-            --preview="$(_preview_command)" \
-            --preview-window=right,60% \
-            <<<"${paths}"
-    )" || true
-
-    pressed_key=''
-    selected_paths=()
-    [[ -n "${output}" ]] || return 0
-
-    mapfile -t selected_paths <<<"${output}"
-    pressed_key="${selected_paths[0]}"
-    selected_paths=("${selected_paths[@]:1}")
+    echo "${HOME}/Pictures/Screenshots"
+    echo "${HOME}/Pictures"
 }
 
-# The destination, from the argument, then the environment, then a prompt.
-# `read -e` gives readline, so tab-completing a path works.
-_destination() {
-    local destination="${1:-${SCREENSHOT_MOVE_DEST:-}}"
-    if [[ -z "${destination}" ]]; then
-        read -r -e -p 'Move to (blank to cancel): ' destination
+# The configured directory, else whichever default holds the most recent
+# image. "Whichever exists" isn't enough: a stale pre-OneDrive folder
+# usually still exists, and is never the one the user just wrote to.
+_resolve_dir() {
+    if [[ -n "${SCREENSHOT_DIR:-}" ]]; then
+        [[ -d "${SCREENSHOT_DIR}" ]] ||
+            _die "\$SCREENSHOT_DIR is not a directory: ${SCREENSHOT_DIR}"
+        echo "${SCREENSHOT_DIR}"
+        return
     fi
-    printf '%s' "${destination}"
+
+    if [[ -f "${CONFIG}" ]]; then
+        local configured
+        configured="$(grep -v -e '^[[:space:]]*#' -e '^[[:space:]]*$' "${CONFIG}" | head -1)"
+        [[ -d "${configured}" ]] ||
+            _die "${CONFIG} points at a missing directory: ${configured}"
+        echo "${configured}"
+        return
+    fi
+
+    local candidate newest='' newest_dir='' first_existing='' image
+    while read -r candidate; do
+        [[ -d "${candidate}" ]] || continue
+        [[ -n "${first_existing}" ]] || first_existing="${candidate}"
+
+        image="$(_images "${candidate}" | head -1)"
+        if [[ -n "${image}" && (-z "${newest}" || "${image}" -nt "${newest}") ]]; then
+            newest="${image}"
+            newest_dir="${candidate}"
+        fi
+    done < <(_default_candidates)
+
+    if [[ -z "${newest_dir}" && -z "${first_existing}" ]]; then
+        _die "no screenshots directory found. Set one with: $0 set <path>"
+    fi
+    echo "${newest_dir:-${first_existing}}"
 }
 
-_move_selected() {
-    local destination
-    if [[ "${#selected_paths[@]}" -eq 0 ]]; then
-        echo 'Nothing selected; nothing moved.' >&2
-        return 0
-    fi
+_cmd_set() {
+    local target="${1:-}"
+    [[ -n "${target}" ]] || _die "set: which directory? (usage: $0 set <path>)"
+    target="${target/#\~/${HOME}}"
+    [[ -d "${target}" ]] || _die "set: not a directory: ${target}"
 
-    destination="$(_destination "${1:-}")"
-    if [[ -z "${destination}" ]]; then
-        echo 'No destination; nothing moved.' >&2
-        return 0
-    fi
-
-    _screenshot_py move --dest "${destination}" -- "${selected_paths[@]}"
+    # Absolute, so the config survives being read from anywhere.
+    target="$(cd "${target}" && pwd)"
+    mkdir -p "$(dirname "${CONFIG}")"
+    printf '# Screenshots directory used by the skill-tree screenshot skill.\n%s\n' \
+        "${target}" >"${CONFIG}"
+    echo "Screenshots directory set to ${target}"
+    echo "(${CONFIG} -- delete it to go back to auto-detection)"
 }
 
-case "${1:-}" in
-pick)
-    _pick 'screenshot'
-    if [[ "${pressed_key}" == "${MOVE_KEY}" ]]; then
-        _move_selected
-    elif [[ "${#selected_paths[@]}" -gt 0 ]]; then
-        printf '%s\n' "${selected_paths[@]}"
-    fi
-    ;;
-move)
-    _pick 'move'
-    _move_selected "${2:-}"
-    ;;
-*)
-    _screenshot_py "$@"
-    ;;
-esac
+_cmd_latest() {
+    local dir image
+    dir="$(_resolve_dir)"
+    image="$(_images "${dir}" | head -1)"
+    [[ -n "${image}" ]] || _die "no screenshots in ${dir}"
+    echo "${image}"
+}
+
+_cmd_list() {
+    local dir count="${1:-10}"
+    dir="$(_resolve_dir)"
+    _images "${dir}" | head -n "${count}"
+}
+
+_usage() {
+    cat <<EOF
+Usage: screenshot <command>
+
+  latest        Absolute path of the newest screenshot (what an agent wants)
+  list [N]      The N newest, newest first (default 10)
+  dir           The resolved screenshots directory
+  set <path>    Remember <path> as the screenshots directory
+  help          This screen
+
+Resolution order: \$SCREENSHOT_DIR, then ${CONFIG},
+then the standard location for this machine (WSL/macOS/Linux).
+EOF
+}
+
+main() {
+    local command="${1:-help}"
+    shift || true
+
+    case "${command}" in
+    latest) _cmd_latest ;;
+    list) _cmd_list "$@" ;;
+    dir) _resolve_dir ;;
+    set) _cmd_set "$@" ;;
+    help | -h | --help) _usage ;;
+    *) _die "unknown command: ${command} (try: $0 help)" ;;
+    esac
+}
+
+main "$@"

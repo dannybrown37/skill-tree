@@ -1,73 +1,71 @@
 ---
 name: screenshot
-description: Invoke when the user refers to a screenshot they took on Windows without attaching it — "look at the screenshot", "see the screenshot I just took", "check that error in the screenshot", "what does this screenshot say". Resolves the newest screenshot's path from WSL so it can be read directly.
+description: Invoke when the user refers to a screenshot they took without attaching it — "look at the screenshot", "see the screenshot I just took", "check that error in the screenshot", "what does this screenshot say". Resolves the newest screenshot's path so it can be read directly.
 ---
 
 # Screenshot
 
-Windows writes screenshots (Win+PrtScn, or Snipping Tool with auto-save on) into the user's
-profile, which WSL sees under `/mnt/c/Users/<user>/`. This skill resolves that path so a
-screenshot can be read without the user attaching it or pasting a path.
-
-Nothing machine-specific is committed: the directory is discovered at runtime.
+The user took a screenshot and is talking about it without attaching it. Find its path and
+read it. Taking screenshots and browsing them interactively are out of scope — this resolves
+paths, nothing else.
 
 ## Reading the screenshot the user means
 
-Default to the **newest** one, with no confirmation step — when someone says "the screenshot
-I just took", that's what they mean, and a round-trip to confirm is pure friction:
+Default to the **newest** one, with no confirmation step — when someone says "the screenshot I
+just took", that's what they mean, and a round-trip to confirm is pure friction:
 
 ```bash
-"${CLAUDE_PLUGIN_ROOT:-${SKILL_TREE_DIR:-$HOME/projects/skill-tree}}/skills/screenshot/scripts/screenshot"
+"${SKILL_TREE_DIR:-$HOME/projects/skill-tree}/skills/screenshot/scripts/screenshot" latest
 ```
 
 That prints one absolute path. `Read` it — the Read tool renders images.
 
-Don't run `pick` or `move` yourself: they're fzf pickers and need a real terminal. If the newest
-one is clearly not what the user meant, ask them to run `screenshot pick` and paste the path back.
+If the newest one clearly isn't what they meant, `screenshot list 10` prints the ten most
+recent, newest first; pick from those or ask.
+
+The printed path is unquoted, so a terminal will linkify it. Paths often contain spaces —
+quote them when passing one to another command.
+
+## When it can't find anything
+
+Two different failures, with two different answers:
+
+- **`no screenshots in <dir>`** — the directory is right but empty. On Windows, Snipping Tool
+  only writes a file when "Automatically save screenshots" is on; Win+PrtScn always does. That
+  setting is the first thing to check.
+- **`no screenshots directory found`** — nothing standard exists on this machine. Ask the user
+  where their screenshots go and have them run `screenshot set <path>` (see below). Don't guess
+  at a path, and don't go hunting the filesystem for one.
+
+## Where it looks
+
+In order:
+
+1. `$SCREENSHOT_DIR`, used verbatim. An error, not a fallback, if it isn't a directory —
+   silently ignoring it would hide a typo.
+2. `~/.config/skill-tree/screenshot-dir` (`$XDG_CONFIG_HOME` respected), written by
+   `screenshot set <path>` and undone by deleting the file.
+3. Otherwise the standard locations for whatever this machine is:
+   - **WSL** — every Windows profile under `/mnt/c/Users` (`$WINDOWS_USERS_ROOT`), checking
+     both `OneDrive/Pictures/Screenshots` and `Pictures/Screenshots`. Shared profiles
+     (`Public`, `Default`, …) are skipped.
+   - **macOS** — the `com.apple.screencapture location` default, then `~/Desktop`.
+   - **Linux** — `~/Pictures/Screenshots`, then `~/Pictures`.
+
+When several of those exist, the one holding the **most recent** image wins. OneDrive's "back
+up my Pictures" setting silently redirects the folder and leaves the old one populated, so
+"whichever exists" would pick wrong about half the time.
 
 ## CLI
 
-`scripts/screenshot` (put on PATH as `screenshot` by `scripts/install.sh`), backed by
-`scripts/screenshot_cli.py`:
+`skills/screenshot/scripts/screenshot`, also reachable as `skill-tree screenshot <command>`:
 
-- `screenshot` — print the newest screenshot's absolute path. Exits 1 with a message if the
-  directory is empty. This is the bare invocation, and the one an agent should use.
-- `screenshot list [-n N]` — absolute paths, newest first, one per line.
-- `screenshot dir` — the resolved screenshots directory.
-- `screenshot pick` — fzf over the most recent `$SCREENSHOT_PICK_LIMIT` (default 40) with an
-  inline image preview. `tab` multi-selects, `enter` prints the chosen paths, `ctrl-x` moves
-  them instead (see below). **Interactive only** — needs a terminal.
-- `screenshot move [DEST]` — the same picker, but the selection is moved into `DEST` rather than
-  printed. Without `DEST` it falls back to `$SCREENSHOT_MOVE_DEST`, and then to a
-  tab-completing prompt; a blank answer or an empty selection cancels, moving nothing. The
-  destination is created if missing, and a name collision there gets a `-1`, `-2`, … suffix
-  rather than overwriting. Prints the new paths. **Interactive only.**
+- `screenshot latest` — the newest screenshot's absolute path. **This is the one to use.**
+  Exits 1 if the directory is empty.
+- `screenshot list [N]` — the N newest, newest first (default 10).
+- `screenshot dir` — the resolved directory, for explaining where it's looking.
+- `screenshot set <path>` — remember a directory. This is the user's escape hatch when
+  detection is wrong; suggest it rather than working around a bad path every session.
 
-Viewing and moving are deliberately separate: `pick` never touches the filesystem unless
-`ctrl-x` is pressed, so browsing screenshots is always safe.
-
-## How the directory is resolved
-
-1. `$SCREENSHOT_DIR`, if set, is used verbatim (an error if it isn't a directory). This is the
-   escape hatch for a non-standard setup, or for a native-Linux machine.
-2. Otherwise every Windows profile under `/mnt/c/Users` (overridable with
-   `$WINDOWS_USERS_ROOT`) is probed for `OneDrive/Pictures/Screenshots` and
-   `Pictures/Screenshots`. `$WINDOWS_USERNAME` — exported by `dotfiles`' `.bashrc` — narrows
-   this to one profile when it's set, but isn't required.
-3. When several candidates exist, the one holding the **most recent** screenshot wins. OneDrive's
-   "back up my Pictures" setting silently redirects the folder and leaves the old one in place,
-   so "whichever exists" would be ambiguous.
-
-## Previews
-
-`pick` uses `chafa` (ANSI symbol output), which survives tmux — sixel and the kitty/iTerm
-graphics protocols don't. Without `chafa` installed the picker still works; the preview pane
-just shows file metadata instead of the image.
-
-## Notes
-
-- An empty screenshots directory is the normal failure. Snipping Tool copies to the clipboard
-  and only writes a file when "Automatically save screenshots" is enabled; Win+PrtScn always
-  writes one. If `screenshot` reports nothing found, that setting is the first thing to check.
-- Only image files are considered (`.png`, `.jpg`, `.jpeg`, `.gif`, `.webp`, `.bmp`), so
-  OneDrive's `desktop.ini` never gets returned as "the latest screenshot".
+Only image files are considered (`.png`, `.jpg`, `.jpeg`, `.gif`, `.webp`, `.bmp`, any case),
+so OneDrive's `desktop.ini` never comes back as "the latest screenshot".

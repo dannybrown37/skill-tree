@@ -65,9 +65,9 @@ _link "${_repo_root}/scripts/skill-tree" "${HOME}/.local/bin/skill-tree"
 # Interactive backlog CLI on PATH.
 _link "${_repo_root}/skills/backlog/scripts/backlog" "${HOME}/.local/bin/backlog"
 
-# Screenshot locator on PATH -- used interactively (`screenshot pick`) as
-# much as by the skill, so it earns a bare name like `backlog` does.
-_link "${_repo_root}/skills/screenshot/scripts/screenshot" "${HOME}/.local/bin/screenshot"
+# The screenshot resolver stays off PATH deliberately: it's for the skill to
+# call, `screenshot` is a plausible name for something else on a given
+# machine, and `skill-tree screenshot` already reaches it.
 
 if [[ "${_repo_root}" != "${HOME}/projects/skill-tree" && "${SKILL_TREE_DIR:-}" != "${_repo_root}" ]]; then
     cat >&2 <<EOF
