@@ -11,7 +11,9 @@ from screenshot_cli import (
     IMAGE_SUFFIXES,
     SKIPPED_WINDOWS_USERS,
     ScreenshotError,
+    free_destination,
     latest_screenshot,
+    move_screenshots,
     resolve_screenshot_dir,
     screenshot_paths,
 )
@@ -222,6 +224,82 @@ class TestLatestScreenshot:
             latest_screenshot(tmp_path)
 
 
+class TestFreeDestination:
+    def test_unused_name_is_returned_unchanged(self, tmp_path: Path) -> None:
+        target = tmp_path / 'shot.png'
+
+        assert free_destination(target) == target
+
+    def test_taken_name_gets_a_suffix(self, tmp_path: Path) -> None:
+        make_image(tmp_path, 'shot.png', 1_000)
+
+        assert free_destination(tmp_path / 'shot.png') == (
+            tmp_path / 'shot-1.png'
+        )
+
+    def test_suffix_increments_past_earlier_collisions(
+        self,
+        tmp_path: Path,
+    ) -> None:
+        make_image(tmp_path, 'shot.png', 1_000)
+        make_image(tmp_path, 'shot-1.png', 1_000)
+
+        assert free_destination(tmp_path / 'shot.png') == (
+            tmp_path / 'shot-2.png'
+        )
+
+
+class TestMoveScreenshots:
+    def test_moves_files_and_returns_new_paths(self, tmp_path: Path) -> None:
+        source = make_image(tmp_path / 'shots', 'shot.png', 1_000)
+        destination_dir = tmp_path / 'keep'
+
+        moved = move_screenshots([source], destination_dir)
+
+        assert moved == [destination_dir / 'shot.png']
+        assert not source.exists()
+        assert moved[0].read_bytes() == b'stub'
+
+    def test_creates_a_missing_destination_directory(
+        self,
+        tmp_path: Path,
+    ) -> None:
+        source = make_image(tmp_path / 'shots', 'shot.png', 1_000)
+        destination_dir = tmp_path / 'nested' / 'keep'
+
+        move_screenshots([source], destination_dir)
+
+        assert (destination_dir / 'shot.png').is_file()
+
+    def test_never_overwrites_an_existing_file(self, tmp_path: Path) -> None:
+        source = make_image(tmp_path / 'shots', 'shot.png', 1_000)
+        destination_dir = tmp_path / 'keep'
+        existing = make_image(destination_dir, 'shot.png', 2_000)
+        existing.write_bytes(b'original')
+
+        moved = move_screenshots([source], destination_dir)
+
+        assert moved == [destination_dir / 'shot-1.png']
+        assert existing.read_bytes() == b'original'
+
+    def test_missing_source_is_an_error(self, tmp_path: Path) -> None:
+        with pytest.raises(ScreenshotError, match='No such file'):
+            move_screenshots([tmp_path / 'gone.png'], tmp_path / 'keep')
+
+    def test_destination_that_is_a_file_is_an_error(
+        self,
+        tmp_path: Path,
+    ) -> None:
+        source = make_image(tmp_path / 'shots', 'shot.png', 1_000)
+        blocker = tmp_path / 'keep'
+        blocker.write_text('not a directory')
+
+        with pytest.raises(ScreenshotError, match='Not a directory'):
+            move_screenshots([source], blocker)
+
+        assert source.is_file()
+
+
 class TestCli:
     @pytest.fixture
     def populated(self, tmp_path: Path) -> Path:
@@ -270,6 +348,50 @@ class TestCli:
         result = self.run('list', '-n', '1', env_dir=populated)
 
         assert result.stdout.splitlines() == [str(populated / 'new.png')]
+
+    def test_move_relocates_the_given_paths(
+        self,
+        populated: Path,
+        tmp_path: Path,
+    ) -> None:
+        destination_dir = tmp_path / 'keep'
+
+        result = self.run(
+            'move',
+            '--dest',
+            str(destination_dir),
+            '--',
+            str(populated / 'new.png'),
+            env_dir=populated,
+        )
+
+        assert result.returncode == 0
+        assert result.stdout.strip() == str(destination_dir / 'new.png')
+        assert not (populated / 'new.png').exists()
+        assert (populated / 'old.png').exists()
+
+    def test_move_without_a_destination_exits_nonzero(
+        self,
+        populated: Path,
+    ) -> None:
+        result = self.run(
+            'move',
+            str(populated / 'new.png'),
+            env_dir=populated,
+        )
+
+        assert result.returncode != 0
+        assert (populated / 'new.png').exists()
+
+    def test_move_without_paths_exits_nonzero(self, populated: Path) -> None:
+        result = self.run(
+            'move',
+            '--dest',
+            str(populated / 'keep'),
+            env_dir=populated,
+        )
+
+        assert result.returncode != 0
 
     def test_empty_directory_exits_nonzero_with_a_message(
         self,
