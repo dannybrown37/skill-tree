@@ -3,6 +3,7 @@
 
 import argparse
 import os
+import shutil
 import sys
 from pathlib import Path
 
@@ -128,6 +129,70 @@ def latest_screenshot(directory: Path) -> Path:
     return paths[0]
 
 
+def free_destination(destination: Path) -> Path:
+    """`destination`, suffixed until it names nothing that exists.
+
+    Screenshot filenames collide easily -- Windows restarts its
+    "Screenshot (N)" counter per directory -- and a move is not worth
+    losing an older file over.
+    """
+    if not destination.exists():
+        return destination
+
+    for index in range(1, 1000):
+        candidate = destination.with_name(
+            f'{destination.stem}-{index}{destination.suffix}',
+        )
+        if not candidate.exists():
+            return candidate
+
+    message = f'Too many files named like {destination.name}'
+    raise ScreenshotError(message)
+
+
+def move_screenshots(
+    paths: list[Path],
+    destination_dir: Path,
+) -> list[Path]:
+    """Move `paths` into `destination_dir`, returning their new paths."""
+    destination_dir = destination_dir.expanduser()
+    if destination_dir.exists() and not destination_dir.is_dir():
+        message = f'Not a directory: {destination_dir}'
+        raise ScreenshotError(message)
+    destination_dir.mkdir(parents=True, exist_ok=True)
+
+    moved = []
+    for path in paths:
+        if not path.is_file():
+            message = f'No such file: {path}'
+            raise ScreenshotError(message)
+        target = free_destination(destination_dir / path.name)
+        # shutil.move, not Path.rename: the screenshots directory is on
+        # /mnt/c and the destination usually is not, so this is a
+        # cross-filesystem move more often than not.
+        shutil.move(str(path), str(target))
+        moved.append(target)
+    return moved
+
+
+def move_from_args(
+    parser: argparse.ArgumentParser,
+    args: argparse.Namespace,
+) -> None:
+    """Run the `move` action, printing each screenshot's new path."""
+    if args.dest is None:
+        parser.error('move requires --dest')
+    if not args.paths:
+        parser.error('move requires at least one path')
+
+    try:
+        for path in move_screenshots(args.paths, args.dest):
+            print(path)
+    except (ScreenshotError, OSError) as error:
+        print(f'Error: {error}', file=sys.stderr)
+        sys.exit(1)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(
         description='Locate Windows screenshots from WSL, newest first.',
@@ -136,9 +201,16 @@ def main() -> None:
         'action',
         nargs='?',
         default='latest',
-        choices=('latest', 'list', 'dir'),
+        choices=('latest', 'list', 'dir', 'move'),
         help='latest (default): newest screenshot path; list: newest first; '
-        'dir: the resolved screenshots directory',
+        'dir: the resolved screenshots directory; '
+        'move: move the given screenshots into --dest',
+    )
+    parser.add_argument(
+        'paths',
+        nargs='*',
+        type=Path,
+        help='with move, the screenshots to move',
     )
     parser.add_argument(
         '-n',
@@ -147,7 +219,17 @@ def main() -> None:
         default=None,
         help='with list, show at most this many',
     )
+    parser.add_argument(
+        '--dest',
+        type=Path,
+        default=None,
+        help='with move, the destination directory (created if missing)',
+    )
     args = parser.parse_args()
+
+    if args.action == 'move':
+        move_from_args(parser, args)
+        return
 
     try:
         directory = resolve_screenshot_dir(

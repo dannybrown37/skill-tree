@@ -27,29 +27,83 @@ _preview_command() {
     fi
 }
 
+# The key that turns a selection into a move. Enter still just prints the
+# paths -- viewing is the common case, moving the occasional one.
+readonly MOVE_KEY='ctrl-x'
+
+# Fills `pressed_key` and `selected_paths`. Both are empty when the picker
+# was cancelled, which every caller treats as "do nothing".
+pressed_key=''
+selected_paths=()
+
 _pick() {
-    local paths selected
+    local paths output
     paths="$(_screenshot_py list -n "${PICK_LIMIT}")"
 
     # --with-nth/-d show just the filename while the full path stays the
     # selected value, so preview and stdout both get something usable.
-    selected="$(
-        fzf --prompt='screenshot ' \
+    # --expect makes fzf print the pressed key as the first line.
+    output="$(
+        fzf --prompt="${1} " \
             --delimiter=/ \
             --with-nth=-1 \
+            --multi \
+            --expect="${MOVE_KEY}" \
+            --header="enter: print path  ${MOVE_KEY}: move  tab: multi-select" \
             --height=90% \
             --reverse \
             --preview="$(_preview_command)" \
             --preview-window=right,60% \
             <<<"${paths}"
-    )"
+    )" || true
 
-    printf '%s\n' "${selected}"
+    pressed_key=''
+    selected_paths=()
+    [[ -n "${output}" ]] || return 0
+
+    mapfile -t selected_paths <<<"${output}"
+    pressed_key="${selected_paths[0]}"
+    selected_paths=("${selected_paths[@]:1}")
+}
+
+# The destination, from the argument, then the environment, then a prompt.
+# `read -e` gives readline, so tab-completing a path works.
+_destination() {
+    local destination="${1:-${SCREENSHOT_MOVE_DEST:-}}"
+    if [[ -z "${destination}" ]]; then
+        read -r -e -p 'Move to (blank to cancel): ' destination
+    fi
+    printf '%s' "${destination}"
+}
+
+_move_selected() {
+    local destination
+    if [[ "${#selected_paths[@]}" -eq 0 ]]; then
+        echo 'Nothing selected; nothing moved.' >&2
+        return 0
+    fi
+
+    destination="$(_destination "${1:-}")"
+    if [[ -z "${destination}" ]]; then
+        echo 'No destination; nothing moved.' >&2
+        return 0
+    fi
+
+    _screenshot_py move --dest "${destination}" -- "${selected_paths[@]}"
 }
 
 case "${1:-}" in
 pick)
-    _pick
+    _pick 'screenshot'
+    if [[ "${pressed_key}" == "${MOVE_KEY}" ]]; then
+        _move_selected
+    elif [[ "${#selected_paths[@]}" -gt 0 ]]; then
+        printf '%s\n' "${selected_paths[@]}"
+    fi
+    ;;
+move)
+    _pick 'move'
+    _move_selected "${2:-}"
     ;;
 *)
     _screenshot_py "$@"

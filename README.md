@@ -22,8 +22,41 @@ top-level directory.
 | `debug-ci` | Diagnoses a failed GitHub Actions run from its real `gh` logs and fixes it locally. Never commits or pushes. |
 | `verify` | Forces a falsifiable check (real command, real output) behind any "it works now" / "it's gone" claim, instead of an inference from the diff. |
 
-`scripts/` at the repo root (outside any skill) is separate: repo-level dev tooling like
-`check_skill_structure.py`, not part of any skill's own bundle.
+`scripts/` at the repo root (outside any skill) is separate: the `skill-tree` CLI plus
+repo-level dev tooling like `check_skill_structure.py`, not part of any skill's own bundle.
+
+## The `skill-tree` CLI
+
+One entry point for everything in here, from an ordinary shell — no Claude session needed.
+It exists for two reasons: the skills otherwise only document themselves *inside* Claude, and
+the commands behind them are scattered across `scripts/` and `skills/*/scripts/`.
+
+A bare `skill-tree` prints the whole surface — every command *and* every skill — because
+keeping track of it all is the point:
+
+```bash
+skill-tree                 # commands + skills (the default; `help` does the same)
+skill-tree list            # just the skills, one line each
+skill-tree list --json     # the same, machine-readable
+skill-tree show verify     # print a skill's full playbook (--raw keeps frontmatter)
+skill-tree doctor          # this checkout, dev-link state, which CLIs are wired up
+skill-tree install         # re-run scripts/install.sh
+skill-tree dev --on        # dev mode (see below)
+skill-tree check           # validate every skill's frontmatter and bundled scripts
+skill-tree test            # the test suite
+```
+
+Skills that ship their own CLI are reachable by name, with arguments passed straight through
+(`skill-tree screenshot --help` is the screenshot CLI's help, not the dispatcher's):
+
+```bash
+skill-tree backlog claim
+skill-tree screenshot pick
+```
+
+It's a dispatcher, not a reimplementation — each sub-command delegates to the script that
+already does the job, and propagates its exit code. `install.sh` puts it on `PATH` at
+`~/.local/bin/skill-tree`.
 
 ## Installing
 
@@ -37,8 +70,8 @@ top-level directory.
 This also registers a `SessionStart` hook that runs `scripts/install.sh` automatically the next
 time a session starts, which symlinks every skill in this plugin into `~/.claude/skills/<name>`
 (personal scope, so each is invoked bare — `/backlog`, `/debug-ci`, `/verify` — instead of
-namespaced, e.g. `/skill-tree:backlog`) and puts the interactive `backlog` and `screenshot`
-CLIs on `PATH` (`~/.local/bin/`).
+namespaced, e.g. `/skill-tree:backlog`) and puts the `skill-tree` entry point plus the
+interactive `backlog` and `screenshot` CLIs on `PATH` (`~/.local/bin/`).
 
 **Manual clone**, or to (re-)run setup yourself:
 
@@ -52,9 +85,34 @@ didn't create itself, and prints a note instead of silently editing your shell r
 `~/.local/bin` isn't on `PATH` or the repo isn't at the default `~/projects/skill-tree`
 location (set `$SKILL_TREE_DIR` in that case).
 
+## Dev mode
+
+The plugin manager installs a *tagged* release into a version-pinned directory under
+`~/.claude/plugins/cache/`, so a commit that's on `main` but not tagged is invisible to
+`/plugin marketplace update` — it correctly reports the installed version as the latest. That's
+right for consumers and painful while authoring a skill. Dev mode points the installed plugin
+at this checkout instead, so local edits are live with no bump/tag/push/update round trip:
+
+```bash
+skill-tree dev --on      # symlink the install path at this checkout
+skill-tree dev           # --status, the default with no arguments
+skill-tree dev --off     # restore the real install
+```
+
+Restart Claude after `--on` or `--off` for it to take effect.
+
+`--on` never deletes anything: the real install is moved aside to `<install-path>.real` and
+restored by `--off`. If a `/plugin install` re-downloads the plugin while the link is in place,
+a second `--on` discards the re-download and keeps the original backup. It refuses to touch a
+symlink pointing at some other checkout. Both directions are idempotent.
+
+Turn dev mode off before cutting a release — while it's on, the "installed" plugin is your
+working tree, uncommitted changes and all.
+
 ## Testing
 
 ```bash
+skill-tree test            # or, equivalently:
 uv run --with pytest pytest scripts/ skills/ -q
 ```
 

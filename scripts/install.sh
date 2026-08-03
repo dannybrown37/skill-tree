@@ -58,6 +58,10 @@ for _skill in debug-ci verify; do
     fi
 done
 
+# The top-level entry point: browse/read every skill and reach every other
+# CLI in here from a shell, without starting a Claude session.
+_link "${_repo_root}/scripts/skill-tree" "${HOME}/.local/bin/skill-tree"
+
 # Interactive backlog CLI on PATH.
 _link "${_repo_root}/skills/backlog/scripts/backlog" "${HOME}/.local/bin/backlog"
 

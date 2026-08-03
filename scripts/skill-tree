@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+# Top-level `skill-tree` CLI -- see skill_tree_cli.py for what it dispatches.
+#
+# A wrapper rather than a `#!/usr/bin/env python3` shebang on the module
+# itself, so the CLI runs under uv like the other bundled CLIs do and picks
+# up the repo's interpreter regardless of what `python3` happens to be.
+set -euo pipefail
+
+_script_dir="$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")"
+
+exec uv run python "${_script_dir}/skill_tree_cli.py" "$@"
