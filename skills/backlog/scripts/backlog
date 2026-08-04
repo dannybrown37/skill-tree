@@ -49,15 +49,39 @@ _backlog_has_all_flag() {
     return 1
 }
 
-# Bare `backlog` means "drop something in the backlog" -- that's the
-# overwhelmingly common interactive use, and typing the action every time is
-# friction. It maps to `queue`, not `stack`: an unattended quick capture
-# shouldn't jump ahead of items already deliberately prioritized. Every other
-# action still has to be named explicitly.
-# A leading flag counts as "no action given" too (`backlog --title x`), but
+# The human-facing actions, offered by the bare-`backlog` menu. `titles` and
+# the `merge-*` pair are deliberately absent: they exist for the picker and
+# the sync mechanism to call, not for a person to choose from a list.
+_backlog_actions() {
+    cat <<'EOF'
+queue     Add an item to the bottom -- do this eventually
+stack     Add an item to the top -- do this next
+list      Preview the next items
+next      Show the full first item
+claim     Mark an item in-progress
+complete  Move an item to the completed log
+tag       Set, replace, or remove an item's [repo] tag
+edit      Open the backlog file directly in $EDITOR
+EOF
+}
+
+# Bare `backlog` used to mean "queue an item", which quietly dropped the user
+# into an editor for a *new* item when they may well have meant to read or
+# claim one. It now offers every action instead -- one keystroke more for a
+# capture, but nothing destructive happens by default.
+# A leading flag still counts as "queue this" (`backlog --title x`): naming
+# the item's fields is already an unambiguous "I'm adding something". But
 # -h/--help must reach argparse as-is so it prints real usage.
 if [[ $# -eq 0 ]]; then
-    set -- queue
+    selection="$(_backlog_actions |
+        fzf --prompt="Which action? " --height=40% --reverse)"
+
+    if [[ -z "${selection}" ]]; then
+        echo "backlog: nothing selected" >&2
+        exit 1
+    fi
+
+    set -- "${selection%% *}"
 elif [[ "$1" == -* && "$1" != "-h" && "$1" != "--help" ]]; then
     set -- queue "$@"
 fi
@@ -101,6 +125,24 @@ if [[ "${action}" == "tag" && "$*" != *--repo* ]]; then
     fi
 
     set -- "$@" --repo "${repo}"
+fi
+
+# Ask for the title *before* the repo picker. The other way round, choosing a
+# repo out of a long fzf list is enough of a detour that the thought being
+# captured is often gone by the time the title prompt shows up.
+if [[ ("${action}" == "stack" || "${action}" == "queue") && "$*" != *--title* ]]; then
+    # Prompt printed rather than passed to `read -p`, which stays silent
+    # unless stdin is a terminal -- piped input would otherwise just hang
+    # with no indication of what it's waiting for.
+    printf 'Item title: ' >&2
+    read -r title
+
+    if [[ -z "${title}" ]]; then
+        echo "backlog: title cannot be empty" >&2
+        exit 1
+    fi
+
+    set -- "$@" --title "${title}"
 fi
 
 # stack/queue offer the same repo picker, but unlike `tag` an empty pick just

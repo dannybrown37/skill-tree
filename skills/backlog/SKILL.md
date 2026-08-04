@@ -55,16 +55,22 @@ repo-agnostic and always visible; tagged items are filtered by default (see belo
   path first. For hand-fixing something the picker-driven actions can't reach (reordering,
   rewording, untangling a bad merge) — not part of the normal claim/discuss/complete flow.
 - `backlog stack [--title "..."] [--content "..."] [--repo "<name>"]` — add a new item to the
-  **top** of the backlog (do this next). Prompts for title/opens `$EDITOR` for content if either
-  is omitted. With no `--repo`, fzf offers the same repo picker `tag` does (git repos under
-  `$PROJECTS_DIR`, `greenfield`, or a typed name) — but unlike `tag`, leaving it blank is fine,
-  the item is just created untagged.
+  **top** of the backlog (do this next). Prompts for whichever of title/repo/content is
+  omitted, **in that order** — title first, so the thought being captured isn't lost while
+  scrolling the repo picker. With no `--repo`, fzf offers the same repo picker `tag` does (git
+  repos under `$PROJECTS_DIR`, `greenfield`, or a typed name) — but unlike `tag`, leaving it
+  blank is fine, the item is just created untagged. Content opens in `$EDITOR` last. An empty
+  title is an error (exit 1), not an untitled item.
 - `backlog queue [--title "..."] [--content "..."] [--repo "<name>"]` — add a new item to the
   **bottom** of the backlog (do this eventually). Same title/content/repo behavior as `stack`.
-  **A bare `backlog` with no arguments is `backlog queue`** — the common quick-capture path,
-  deliberately not `stack`, so a drop-in doesn't jump ahead of already-prioritized items. (That
-  default lives in the `backlog` wrapper script; `backlog_cli.py` still requires an explicit
-  action.)
+
+**A bare `backlog` with no arguments opens an fzf menu of every action** (queue, stack, list,
+next, claim, complete, tag, edit), each with a one-line description; picking one runs it with
+its usual pickers. It used to mean `queue`, which dropped you into an editor for a *new* item
+even when you meant to read or claim one. A leading *flag* still means `queue`
+(`backlog --title x` — naming the item's fields is unambiguously "I'm adding something"), and
+`-h`/`--help` still reaches argparse. (All of this lives in the `backlog` wrapper script;
+`backlog_cli.py` itself still requires an explicit action.)
 
 With no `--item-title`, `backlog claim`/`complete`/`tag` all open fzf over the current titles.
 `--item-title` matches regardless of whether it includes the `[in-progress]` suffix or a

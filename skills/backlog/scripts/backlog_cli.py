@@ -141,13 +141,35 @@ def filter_untagged_items(
 
 
 def find_item(items: list[BacklogItem], title: str) -> BacklogItem | None:
-    """Find an item by title, ignoring whether it's marked in-progress."""
+    """Find an item by title, ignoring the in-progress marker and repo tag.
+
+    Titles get copied around with or without their decorations -- a picker
+    hands back the fully decorated `[repo] Title [in-progress]`, while a
+    human (or an agent reading the file) usually types the bare title. Both
+    have to land on the same item, so matching falls back to comparing bare
+    titles. An exact match still wins, so two items whose bare titles collide
+    can each still be addressed by their tagged title.
+    """
     target = strip_in_progress_marker(title)
-    return next(
+    bare_target = parse_repo_tag(target)[1]
+
+    exact = next(
         (
             item
             for item in items
             if strip_in_progress_marker(item.title) == target
+        ),
+        None,
+    )
+    if exact:
+        return exact
+
+    return next(
+        (
+            item
+            for item in items
+            if parse_repo_tag(strip_in_progress_marker(item.title))[1]
+            == bare_target
         ),
         None,
     )
