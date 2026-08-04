@@ -114,11 +114,11 @@ def _wrapper_argv(tmp_path: Path, *args: str) -> list[str]:
 
 
 def test_wrapper_passes_an_explicit_action_through(tmp_path: Path) -> None:
-    assert 'queue' not in _wrapper_argv(tmp_path, 'list')
+    assert 'add' not in _wrapper_argv(tmp_path, 'list')
 
 
 def test_wrapper_leaves_help_alone(tmp_path: Path) -> None:
-    assert 'queue' not in _wrapper_argv(tmp_path, '--help')
+    assert 'add' not in _wrapper_argv(tmp_path, '--help')
 
 
 def test_bare_backlog_offers_every_action_in_the_picker(
@@ -133,10 +133,9 @@ def test_bare_backlog_offers_every_action_in_the_picker(
 
     actions = {line.split()[0] for line in offered.splitlines() if line}
     assert actions == {
-        'queue',
-        'stack',
-        'list',
+        'add',
         'next',
+        'list',
         'claim',
         'complete',
         'tag',
@@ -145,7 +144,7 @@ def test_bare_backlog_offers_every_action_in_the_picker(
 
 
 def test_bare_backlog_runs_the_picked_action(env: dict[str, str]) -> None:
-    _queue_fzf(env, 'list  Preview the next items')
+    _queue_fzf(env, 'list      Preview the next items')
 
     result = _run(env)
 
@@ -153,9 +152,9 @@ def test_bare_backlog_runs_the_picked_action(env: dict[str, str]) -> None:
     assert 'Backlog is empty' in result.stdout
 
 
-def test_bare_backlog_no_longer_silently_queues(env: dict[str, str]) -> None:
+def test_bare_backlog_no_longer_silently_adds(env: dict[str, str]) -> None:
     """The old behavior: bare `backlog` jumped straight into a new item."""
-    _queue_fzf(env, 'list  Preview the next items')
+    _queue_fzf(env, 'list      Preview the next items')
 
     result = _run(env)
 
@@ -173,7 +172,7 @@ def test_bare_backlog_exits_when_nothing_is_picked(
     assert 'nothing selected' in result.stderr
 
 
-def test_leading_flag_still_means_queue(env: dict[str, str]) -> None:
+def test_leading_flag_still_means_add(env: dict[str, str]) -> None:
     _queue_fzf(env, '')  # repo picker: blank means untagged
 
     result = _run(env, '--title', 'Flagged Item', '--content', 'Body.')
@@ -182,7 +181,7 @@ def test_leading_flag_still_means_queue(env: dict[str, str]) -> None:
     assert '## Flagged Item' in _backlog_text(env)
 
 
-@pytest.mark.parametrize('action', ['stack', 'queue'])
+@pytest.mark.parametrize('action', ['next', 'add'])
 def test_new_item_asks_for_title_before_the_repo_picker(
     env: dict[str, str],
     action: str,
@@ -197,7 +196,7 @@ def test_new_item_asks_for_title_before_the_repo_picker(
     assert stderr.index('Item title:') < stderr.index('FZF-RAN')
 
 
-@pytest.mark.parametrize('action', ['stack', 'queue'])
+@pytest.mark.parametrize('action', ['next', 'add'])
 def test_new_item_skips_the_title_prompt_when_given_one(
     env: dict[str, str],
     action: str,
@@ -211,7 +210,7 @@ def test_new_item_skips_the_title_prompt_when_given_one(
     assert '## [skill-tree] Given' in _backlog_text(env)
 
 
-@pytest.mark.parametrize('action', ['stack', 'queue'])
+@pytest.mark.parametrize('action', ['next', 'add'])
 def test_new_item_rejects_an_empty_title(
     env: dict[str, str],
     action: str,

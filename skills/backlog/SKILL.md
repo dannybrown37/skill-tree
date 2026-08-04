@@ -32,11 +32,10 @@ repo-agnostic and always visible; tagged items are filtered by default (see belo
   every item, tagged or not. `--repo-only` (or `--repo <name>`) narrows to items tagged for the
   **current repo** (by cwd, or the named one) plus every untagged item, and prints a `(N hidden
   for other repos — drop --repo-only to see them)` note so nothing vanishes silently.
-- `backlog next` — show the full first visible item, same scoping as `list`.
 - `backlog titles` — bare titles, one per line (what the picker reads), same scoping; an
   in-progress item's title carries a literal `[in-progress]` suffix.
 - `backlog claim [--item-title "..."]` — mark an item in-progress by appending `[in-progress]`
-  to its `##` header, so a concurrent agent reading the file (or `backlog titles`/`list`/`next`)
+  to its `##` header, so a concurrent agent reading the file (or `backlog titles`/`list`)
   can see it's taken. Errors (exit 1) if the item is already marked. **Lookup is never
   repo-filtered** — you can claim an item tagged for another repo if you know its title.
 - `backlog complete [--item-title "..."] [--end-time "<iso>"]` — move an item to the completed
@@ -54,20 +53,20 @@ repo-agnostic and always visible; tagged items are filtered by default (see belo
 - `backlog edit` — open the active `.backlog` file directly in `$EDITOR`, printing its resolved
   path first. For hand-fixing something the picker-driven actions can't reach (reordering,
   rewording, untangling a bad merge) — not part of the normal claim/discuss/complete flow.
-- `backlog stack [--title "..."] [--content "..."] [--repo "<name>"]` — add a new item to the
+- `backlog next [--title "..."] [--content "..."] [--repo "<name>"]` — add a new item to the
   **top** of the backlog (do this next). Prompts for whichever of title/repo/content is
   omitted, **in that order** — title first, so the thought being captured isn't lost while
   scrolling the repo picker. With no `--repo`, fzf offers the same repo picker `tag` does (git
   repos under `$PROJECTS_DIR`, `greenfield`, or a typed name) — but unlike `tag`, leaving it
   blank is fine, the item is just created untagged. Content opens in `$EDITOR` last. An empty
   title is an error (exit 1), not an untitled item.
-- `backlog queue [--title "..."] [--content "..."] [--repo "<name>"]` — add a new item to the
-  **bottom** of the backlog (do this eventually). Same title/content/repo behavior as `stack`.
+- `backlog add [--title "..."] [--content "..."] [--repo "<name>"]` — add a new item to the
+  **bottom** of the backlog (do this eventually). Same title/content/repo behavior as `next`.
 
-**A bare `backlog` with no arguments opens an fzf menu of every action** (queue, stack, list,
-next, claim, complete, tag, edit), each with a one-line description; picking one runs it with
-its usual pickers. It used to mean `queue`, which dropped you into an editor for a *new* item
-even when you meant to read or claim one. A leading *flag* still means `queue`
+**A bare `backlog` with no arguments opens an fzf menu of every action** (add, next, list,
+claim, complete, tag, edit), each with a one-line description; picking one runs it with its
+usual pickers. It used to add an item straight away, which dropped you into an editor for a
+*new* item even when you meant to read or claim one. A leading *flag* still means `add`
 (`backlog --title x` — naming the item's fields is unambiguously "I'm adding something"), and
 `-h`/`--help` still reaches argparse. (All of this lives in the `backlog` wrapper script;
 `backlog_cli.py` itself still requires an explicit action.)

@@ -54,10 +54,9 @@ _backlog_has_all_flag() {
 # the sync mechanism to call, not for a person to choose from a list.
 _backlog_actions() {
     cat <<'EOF'
-queue     Add an item to the bottom -- do this eventually
-stack     Add an item to the top -- do this next
+add       Add an item to the bottom -- do this eventually
+next      Add an item to the top -- do this next
 list      Preview the next items
-next      Show the full first item
 claim     Mark an item in-progress
 complete  Move an item to the completed log
 tag       Set, replace, or remove an item's [repo] tag
@@ -65,11 +64,11 @@ edit      Open the backlog file directly in $EDITOR
 EOF
 }
 
-# Bare `backlog` used to mean "queue an item", which quietly dropped the user
+# Bare `backlog` used to mean "add an item", which quietly dropped the user
 # into an editor for a *new* item when they may well have meant to read or
 # claim one. It now offers every action instead -- one keystroke more for a
 # capture, but nothing destructive happens by default.
-# A leading flag still counts as "queue this" (`backlog --title x`): naming
+# A leading flag still counts as "add this" (`backlog --title x`): naming
 # the item's fields is already an unambiguous "I'm adding something". But
 # -h/--help must reach argparse as-is so it prints real usage.
 if [[ $# -eq 0 ]]; then
@@ -83,7 +82,7 @@ if [[ $# -eq 0 ]]; then
 
     set -- "${selection%% *}"
 elif [[ "$1" == -* && "$1" != "-h" && "$1" != "--help" ]]; then
-    set -- queue "$@"
+    set -- add "$@"
 fi
 
 action="${1:-}"
@@ -130,7 +129,7 @@ fi
 # Ask for the title *before* the repo picker. The other way round, choosing a
 # repo out of a long fzf list is enough of a detour that the thought being
 # captured is often gone by the time the title prompt shows up.
-if [[ ("${action}" == "stack" || "${action}" == "queue") && "$*" != *--title* ]]; then
+if [[ ("${action}" == "next" || "${action}" == "add") && "$*" != *--title* ]]; then
     # Prompt printed rather than passed to `read -p`, which stays silent
     # unless stdin is a terminal -- piped input would otherwise just hang
     # with no indication of what it's waiting for.
@@ -145,9 +144,9 @@ if [[ ("${action}" == "stack" || "${action}" == "queue") && "$*" != *--title* ]]
     set -- "$@" --title "${title}"
 fi
 
-# stack/queue offer the same repo picker, but unlike `tag` an empty pick just
+# next/add offer the same repo picker, but unlike `tag` an empty pick just
 # means the new item stays untagged -- nothing to error out over.
-if [[ ("${action}" == "stack" || "${action}" == "queue") && "$*" != *--repo* ]]; then
+if [[ ("${action}" == "next" || "${action}" == "add") && "$*" != *--repo* ]]; then
     repo="$(_backlog_repo_candidates | _backlog_pick_or_type "Tag with which repo (blank for none)?")"
 
     if [[ -n "${repo}" ]]; then

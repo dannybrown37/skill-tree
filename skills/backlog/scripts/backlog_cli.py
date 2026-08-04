@@ -422,15 +422,6 @@ def visible_items(
     return filter_items_for_repo(items, repo)
 
 
-def get_next_item(
-    backlog_path: Path | None = None,
-    repo: str | None = None,
-) -> BacklogItem | None:
-    """Get the first item the given repo should see."""
-    items, _ = visible_items(backlog_path, repo)
-    return items[0] if items else None
-
-
 def list_items(
     backlog_path: Path | None = None,
     limit: int = 5,
@@ -447,15 +438,6 @@ def list_titles(backlog_path: Path, repo: str | None = None) -> list[str]:
     return [item.title for item in items]
 
 
-def show_item(item: BacklogItem) -> None:
-    """Display an item for review."""
-    print(f'\n{"=" * 70}')
-    print(f'📋 {item.title}')
-    print(f'{"=" * 70}')
-    print(item.content)
-    print(f'{"=" * 70}\n')
-
-
 def hidden_note(
     hidden: int,
     action: str,
@@ -465,18 +447,6 @@ def hidden_note(
     if reason == 'for other repos':
         return f'({hidden} hidden {reason} — drop --repo-only to see them)'
     return f'({hidden} hidden {reason} — `backlog {action} --all`)'
-
-
-def action_next(backlog_path: Path, repo: str | None = None) -> None:
-    """Show next item for discussion."""
-    items, hidden = visible_items(backlog_path, repo)
-    if items:
-        show_item(items[0])
-        print(f'Proceed with: {items[0].title}? (y/n)')
-    else:
-        print('✓ Backlog is empty!')
-    if hidden:
-        print(hidden_note(hidden, 'next'))
 
 
 def action_list(backlog_path: Path, repo: str | None = None) -> None:
@@ -587,7 +557,7 @@ def apply_repo_tag(title: str, repo: str | None) -> str:
     return f'[{repo}] {bare_title}' if repo else bare_title
 
 
-def action_stack(
+def action_next(
     backlog_path: Path,
     title: str | None = None,
     content: str | None = None,
@@ -599,10 +569,10 @@ def action_stack(
     items = parse_backlog_file(backlog_path)
     items.insert(0, BacklogItem(title, content))
     backlog_path.write_text(render_backlog(items))
-    print(f'✓ Stacked: {title}')
+    print(f'✓ Next up: {title}')
 
 
-def action_queue(
+def action_add(
     backlog_path: Path,
     title: str | None = None,
     content: str | None = None,
@@ -614,7 +584,7 @@ def action_queue(
     items = parse_backlog_file(backlog_path)
     items.append(BacklogItem(title, content))
     backlog_path.write_text(render_backlog(items))
-    print(f'✓ Queued: {title}')
+    print(f'✓ Added: {title}')
 
 
 def action_claim(backlog_path: Path, item_title: str) -> None:
@@ -768,12 +738,11 @@ def main() -> None:
     parser.add_argument(
         'action',
         choices=[
+            'add',
             'next',
             'list',
             'titles',
             'edit',
-            'stack',
-            'queue',
             'claim',
             'complete',
             'tag',
@@ -802,16 +771,16 @@ def main() -> None:
         type=str,
         default=None,
         help=(
-            'For list/next/titles: repo to filter to (implies --repo-only). '
+            'For list/titles: repo to filter to (implies --repo-only). '
             'For tag: repo to tag the item with (pass "" to untag). '
-            'For stack/queue: repo to tag the new item with.'
+            'For next/add: repo to tag the new item with.'
         ),
     )
     parser.add_argument(
         '--repo-only',
         action='store_true',
         help=(
-            'For list/next/titles: only show items tagged for the current '
+            'For list/titles: only show items tagged for the current '
             '(or --repo) repo, plus untagged ones. Default is to show '
             'everything.'
         ),
@@ -852,16 +821,13 @@ def main() -> None:
         '--title',
         type=str,
         default=None,
-        help='Title of item to stack/queue (if omitted, will prompt)',
+        help='Title of the new item (if omitted, will prompt)',
     )
     parser.add_argument(
         '--content',
         type=str,
         default=None,
-        help=(
-            'Content for the stacked/queued item (if omitted, will open '
-            '$EDITOR)'
-        ),
+        help=('Content for the new item (if omitted, will open $EDITOR)'),
     )
 
     args = parser.parse_args()
@@ -870,18 +836,16 @@ def main() -> None:
     complete_path = args.complete_path or default_complete_path()
     repo = args.repo or (current_repo_name() if args.repo_only else None)
 
-    if args.action == 'next':
-        action_next(backlog_path, repo)
-    elif args.action == 'list':
+    if args.action == 'list':
         action_list(backlog_path, repo)
     elif args.action == 'titles':
         action_titles(backlog_path, repo, untagged_only=args.untagged_only)
     elif args.action == 'edit':
         action_edit(backlog_path)
-    elif args.action == 'stack':
-        action_stack(backlog_path, args.title, args.content, args.repo)
-    elif args.action == 'queue':
-        action_queue(backlog_path, args.title, args.content, args.repo)
+    elif args.action == 'next':
+        action_next(backlog_path, args.title, args.content, args.repo)
+    elif args.action == 'add':
+        action_add(backlog_path, args.title, args.content, args.repo)
     elif args.action in ('merge-backlog', 'merge-completed'):
         dispatch_merge(args, backlog_path, complete_path)
     elif args.action in ('claim', 'complete', 'tag'):
