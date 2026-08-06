@@ -23,6 +23,17 @@ That prints one absolute path. `Read` it — the Read tool renders images.
 If the newest one clearly isn't what they meant, `screenshot list 10` prints the ten most
 recent, newest first; pick from those or ask.
 
+Neither step should prompt for permission: this skill ships a `PreToolUse` hook
+(`scripts/screenshot_hook.py`, registered in the plugin's `hooks/hooks.json`) that
+pre-approves the resolver's read-only commands and `Read` of an image inside the resolved
+directory. If a prompt does appear, the hook isn't loaded — the plugin is installed from a
+release that predates it, or `hooks/hooks.json` was edited. Don't work around it by asking the
+user to approve twice every session; say which of those it is.
+
+The grant is deliberately narrow, so don't expect it to cover more than the above: a chained
+command (`screenshot latest && …`), `screenshot set`, a non-image, or a path outside the
+screenshots directory all fall back to the normal prompt.
+
 The printed path is unquoted, so a terminal will linkify it. Paths often contain spaces —
 quote them when passing one to another command.
 

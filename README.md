@@ -19,6 +19,7 @@ top-level directory.
 | --- | --- |
 | `backlog` | A cross-repo work-item backlog (`~/.claude/backlog/`), with an optional `[repo]` tag and an fzf-driven claim/complete/tag CLI. |
 | `screenshot` | Resolves the newest screenshot's path, so one the user took but didn't attach can be read directly. Detects the standard location on WSL, macOS or Linux, with `screenshot set <path>` to override it. |
+| `cli-ergonomics` | What a human-facing command-line entrypoint owes its user — a mandatory `--version`, plus the argument ladder from "print help, not an error" through TTY-guarded prompts, fzf selection, and echoing the replayable command. |
 | `debug-ci` | Diagnoses a failed GitHub Actions run from its real `gh` logs and fixes it locally. Never commits or pushes. |
 | `site-launch` | The pre-ship checklist for a website — canonical URL, per-page titles, share cards, feed, analytics, robots/sitemap, favicon and 404. Stack-agnostic; each item states the requirement and how to falsify it against the deployed origin. |
 | `verify` | Forces a falsifiable check (real command, real output) behind any "it works now" / "it's gone" claim, instead of an inference from the diff. |
@@ -83,6 +84,31 @@ interactive `backlog` CLI on `PATH` (`~/.local/bin/`).
 git clone <this repo> ~/projects/skill-tree
 ~/projects/skill-tree/scripts/install.sh
 ```
+
+### What installing grants: your screenshots folder
+
+Installing also registers a `PreToolUse` hook that auto-approves two things, so
+`/screenshot` doesn't cost two permission prompts before it can do the one thing it's for:
+
+- running `skills/screenshot/scripts/screenshot` in its read-only modes (`latest`, `list`,
+  `dir`, `help`) — and only that script, alone on the line, with nothing chained onto it;
+- `Read` of an **image file inside whichever directory `screenshot dir` resolves to**.
+
+Be clear-eyed about the second one: that's standing permission to read *any* image in your
+screenshots folder, in any session with this plugin enabled — not just the one you're talking
+about, and not just when you invoked the skill. Screenshots are an unusually candid folder;
+mine tends to accumulate whatever was on screen at the time.
+
+If that's more than you want to hand over, either keep the folder tidy — clear it out so only
+the shots relevant to what you're working on are sitting there — or point the skill at a
+scratch directory you feed deliberately:
+
+```bash
+skill-tree screenshot set ~/screenshots-for-claude
+```
+
+To opt out entirely, remove the `PreToolUse` block from `hooks/hooks.json`; the skill still
+works, it just asks first.
 
 `install.sh` is idempotent and safe to re-run — it never overwrites a file or symlink it
 didn't create itself, and prints a note instead of silently editing your shell rc if

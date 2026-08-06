@@ -1,5 +1,16 @@
 {
   "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash|Read",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"${CLAUDE_PLUGIN_ROOT}\"/skills/screenshot/scripts/screenshot_hook.py"
+          }
+        ]
+      }
+    ],
     "SessionStart": [
       {
         "hooks": [
