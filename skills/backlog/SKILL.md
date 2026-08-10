@@ -26,7 +26,8 @@ The leading `[repo]` is an optional tag naming which repo the item is for. Untag
 repo-agnostic and always visible; tagged items are filtered by default (see below).
 
 `backlog` (this skill's own `scripts/backlog` -- an executable fzf wrapper, put on PATH by
-`scripts/install.sh` -- backed by `scripts/backlog_cli.py`) is the CLI:
+the repo-root `scripts/install.sh`, as both `backlog` and the short `bl` -- backed by
+`scripts/backlog_cli.py`) is the CLI:
 
 - `backlog list` — preview the next items (title + first line). Shows everything by default —
   every item, tagged or not. `--repo-only` (or `--repo <name>`) narrows to items tagged for the

@@ -76,7 +76,7 @@ This also registers a `SessionStart` hook that runs `scripts/install.sh` automat
 time a session starts, which symlinks every skill in this plugin into `~/.claude/skills/<name>`
 (personal scope, so each is invoked bare — `/backlog`, `/debug-ci`, `/verify` — instead of
 namespaced, e.g. `/skill-tree:backlog`) and puts the `skill-tree` entry point plus the
-interactive `backlog` CLI on `PATH` (`~/.local/bin/`).
+interactive `backlog` CLI — under that name and the short `bl` — on `PATH` (`~/.local/bin/`).
 
 **Manual clone**, or to (re-)run setup yourself:
 

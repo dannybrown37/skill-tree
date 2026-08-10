@@ -62,8 +62,11 @@ done
 # CLI in here from a shell, without starting a Claude session.
 _link "${_repo_root}/scripts/skill-tree" "${HOME}/.local/bin/skill-tree"
 
-# Interactive backlog CLI on PATH.
+# Interactive backlog CLI on PATH, under both its full name and the `bl`
+# short form -- it's reached often enough by hand that the seven extra
+# keystrokes are the difference between capturing a thought and not.
 _link "${_repo_root}/skills/backlog/scripts/backlog" "${HOME}/.local/bin/backlog"
+_link "${_repo_root}/skills/backlog/scripts/backlog" "${HOME}/.local/bin/bl"
 
 # The screenshot resolver stays off PATH deliberately: it's for the skill to
 # call, `screenshot` is a plausible name for something else on a given

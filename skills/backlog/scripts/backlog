@@ -3,7 +3,7 @@
 #
 # Ported from dotfiles' bin/queue.sh (a sourced shell function) into a
 # standalone executable, so skill-tree is installable without dotfiles --
-# `install.sh` just has to put this file on PATH.
+# the repo-root `scripts/install.sh` just has to put this file on PATH.
 set -euo pipefail
 
 _script_dir="$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")"
