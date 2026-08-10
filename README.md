@@ -22,6 +22,7 @@ top-level directory.
 | `cli-ergonomics` | What a human-facing command-line entrypoint owes its user — a mandatory `--version`, plus the argument ladder from "print help, not an error" through TTY-guarded prompts, fzf selection, and echoing the replayable command. |
 | `debug-ci` | Diagnoses a failed GitHub Actions run from its real `gh` logs and fixes it locally. Never commits or pushes. |
 | `site-launch` | The pre-ship checklist for a website — canonical URL, per-page titles, share cards, feed, analytics, robots/sitemap, favicon and 404. Stack-agnostic; each item states the requirement and how to falsify it against the deployed origin. |
+| `handoff` | Carries work across a compaction, a session boundary, or another agent. Splits it two ways — a persistent narrative (decisions, dead ends, verified state) and an ephemeral re-entry prompt — anchored to a SHA so staleness is detectable, with the write-back rule that keeps it from rotting. |
 | `verify` | Forces a falsifiable check (real command, real output) behind any "it works now" / "it's gone" claim, instead of an inference from the diff. |
 
 `scripts/` at the repo root (outside any skill) is separate: the `skill-tree` CLI plus
