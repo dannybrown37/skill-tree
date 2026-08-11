@@ -19,10 +19,9 @@ symlink `skills/<name>` into `~/.claude/skills/` just to make a skill exist; tha
 redundant with the plugin install, and the harness collapses a same-named bare symlink into
 just the unscoped alias, hiding that skill from `skill-tree:`-prefixed lookups entirely.
 
-A bare `~/.claude/skills/<name>` symlink (pointing at the installed plugin's copy under
-`~/.claude/plugins/cache/skill-tree/skill-tree/<version>/skills/<name>`) is only worth
-adding as a deliberate, occasional shortcut for a skill used often enough to want a shorter
-invocation (e.g. `backlog`) — not the default for every skill.
+`skill-tree:<name>` is the *only* invocation path. Do not add bare
+`~/.claude/skills/<name>` symlinks as shortcuts — the shorter alias isn't worth a second,
+version-pinned copy of the same skill and the ambiguity about which one is live.
 
 ## General Approach
 
