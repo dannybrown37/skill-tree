@@ -106,19 +106,40 @@ Appended to across sessions. Ordered by how much of it can't be recovered otherw
 4. **State it back in a few lines** — goal, where things stand, the next action you're about to
    take — and let the user correct you first. Handoffs are lossy; this is where the loss
    surfaces, for the cost of one exchange.
+5. **Then keep it current as you work** — see below. A resumed handoff you don't maintain is
+   just the previous session's snapshot with your work invisibly stacked on top of it.
 
 ## Write-back
 
 **The step that rots.** A handoff written once and never updated is a snapshot of yesterday
 being presented as the current state — the most common way this whole pattern fails.
 
-- Update the re-entry prompt whenever the next action changes, not just at session end.
-- Append to the narrative when something is decided, abandoned, or verified — at the moment,
-  while the reason is still known.
+The fix is cadence, not effort: **update the handoff as part of finishing each task, not as a
+thing you do at session end.** Treat the two files as live state you're editing alongside the
+code, in the same turn you finish the work. It costs a few lines per task, and it means the
+handoff is never more than one task stale — so an abrupt end (compaction, a crash, the user
+walking away) loses one task instead of the whole session.
+
+Per task completed, in the same turn:
+
+- **Narrative** — append the done-claim with its evidence (`<claim>` — `<command>` → result, at
+  `<sha>`). Add any decision, dead end, or surprise the task produced, while the reason is
+  still in context. This is the part that can't be reconstructed later.
+- **Re-entry prompt** — rewrite "next action" and "acceptance check" to the *new* next step,
+  clear the "in flight" entry the task resolved, and re-run the anchor commands if you
+  committed. Edit in place; don't append a running log to it.
+
+Also:
+
+- Update the re-entry prompt whenever the next action changes, even mid-task — a plan that
+  changed and a task that finished are the same event as far as this file is concerned.
 - On close, **replace** the re-entry prompt. One active re-entry prompt, always. Superseding
   means overwriting, not appending a second file.
 - When the work is finished, delete the re-entry prompt. The narrative stays; a dead "continue
   here" left in the repo is a trap.
+
+The session-end write is then a review, not a reconstruction — which is the point, because
+session end is exactly when you have the least context to reconstruct from.
 
 Automate it if the environment allows: a `PreCompact` hook that writes the handoff and a
 `SessionStart` hook that reads it turns this from discipline into mechanism, which matters most
@@ -143,3 +164,5 @@ the failed attempts most of all.
 | Handoff became a junk drawer | Long-lived facts left in the re-entry prompt instead of promoted to the narrative or a durable doc |
 | The user's earlier "no" gets reversed | Decisions and constraints skipped |
 | Everything after the last handoff is lost | Write-back only happened at session end |
+| Next action points at work already finished | Re-entry prompt not updated when the task completed |
+| Evidence is vague, reasons are missing | Narrative written from memory at session end instead of per task |

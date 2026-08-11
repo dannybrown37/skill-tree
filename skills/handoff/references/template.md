@@ -3,6 +3,10 @@
 Two files. The re-entry prompt is consumed and replaced each session; the narrative is
 appended to and kept.
 
+Both are live state, not session-end paperwork: as each task finishes, append its done-claim
+plus evidence to the narrative and rewrite the re-entry prompt's next action / acceptance
+check in the same turn.
+
 ---
 
 ## `CURRENT.md` — the ephemeral re-entry prompt
@@ -34,7 +38,8 @@ below, then do the next action.
 
 ## Next action
 
-<Exactly one concrete step, specific enough to begin without making a decision.>
+<Exactly one concrete step, specific enough to begin without making a decision. Rewrite this
+the moment the current task lands — this file is edited in place, never appended to.>
 
 ## Acceptance check
 
