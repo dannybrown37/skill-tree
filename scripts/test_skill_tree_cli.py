@@ -328,6 +328,50 @@ class TestDoctor:
         assert str(fake_root) in out
         assert 'backlog' in out
 
+    def test_reports_copilot_as_uninstalled(
+        self,
+        fake_root: Path,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        monkeypatch.setenv('HOME', str(tmp_path / 'empty-home'))
+
+        _, out, _ = run_cli('doctor', root=fake_root)
+
+        assert 'Copilot    not installed' in out
+
+    def test_counts_linked_copilot_skills(
+        self,
+        fake_root: Path,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        home = tmp_path / 'home'
+        skills_dir = home / '.copilot' / 'skills'
+        skills_dir.mkdir(parents=True)
+        (skills_dir / 'backlog').symlink_to(fake_root / 'skills' / 'backlog')
+        monkeypatch.setenv('HOME', str(home))
+
+        _, out, _ = run_cli('doctor', root=fake_root)
+
+        assert '1/2 skills linked, hooks missing' in out
+
+    def test_notices_the_hook_config(
+        self,
+        fake_root: Path,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        home = tmp_path / 'home'
+        hooks = home / '.copilot' / 'hooks'
+        hooks.mkdir(parents=True)
+        (hooks / 'skill-tree.json').write_text('{}')
+        monkeypatch.setenv('HOME', str(home))
+
+        _, out, _ = run_cli('doctor', root=fake_root)
+
+        assert 'hooks on' in out
+
 
 class TestRealRepo:
     """The CLI has to work against this checkout, not just a fixture."""

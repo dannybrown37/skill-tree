@@ -27,7 +27,7 @@ FRONTMATTER_DELIMITER = '---'
 DELEGATED = {
     'install': (
         'scripts/install.sh',
-        'Link skills and CLIs into ~ (idempotent)',
+        'Link skills and CLIs into ~ (--claude/--copilot; idempotent)',
     ),
     'dev': (
         'scripts/dev_link.sh',
@@ -217,11 +217,35 @@ def _dev_mode_flag(root: Path) -> str:
     return '  [dev mode ?]'
 
 
+def _copilot_state(root: Path, skills: list[Skill]) -> str:
+    """How much of the Copilot-side install is actually in place.
+
+    Copilot has no plugin manifest to inspect, so "is this wired up" is
+    only answerable by looking at the symlinks install.sh would make.
+    """
+    home = Path.home()
+    skills_dir = home / '.copilot' / 'skills'
+    if not (home / '.copilot').is_dir():
+        return 'not installed (no ~/.copilot)'
+
+    linked = sum(
+        1
+        for skill in skills
+        if (skills_dir / skill.name).is_symlink()
+        and (skills_dir / skill.name).resolve()
+        == (root / 'skills' / skill.name).resolve()
+    )
+    hooks = home / '.copilot' / 'hooks' / 'skill-tree.json'
+    hook_state = 'hooks on' if hooks.is_file() else 'hooks missing'
+    return f'{linked}/{len(skills)} skills linked, {hook_state}'
+
+
 def cmd_doctor(root: Path, _args: list[str]) -> int:
     skills = find_skills(root)
     print(f'Checkout   {root}')
     print(f'Dev link   {_dev_mode(root)}')
     print(f'Skills     {len(skills)}')
+    print(f'Copilot    {_copilot_state(root, skills)}')
     print()
 
     for skill in skills:

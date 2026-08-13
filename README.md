@@ -1,10 +1,13 @@
 # skill-tree
 
-A shared home for reusable Claude Code skills — the actual implementation behind each skill,
-not just its playbook. Skills here are meant to be genuinely portable: usable from any repo, on
-any machine, independent of any one project's own conventions. A `SKILL.md` alone is a few
-lines anyone can write; what makes a skill worth keeping around system-wide is the tooling
-behind it, and that's what lives here.
+A shared home for reusable agent skills — the actual implementation behind each skill, not just
+its playbook. Skills here are meant to be genuinely portable: usable from any repo, on any
+machine, under either Claude Code or GitHub Copilot CLI, independent of any one project's own
+conventions. A `SKILL.md` alone is a few lines anyone can write; what makes a skill worth
+keeping around system-wide is the tooling behind it, and that's what lives here.
+
+Both hosts read the same `SKILL.md` spec, so portability is an install-and-hooks problem rather
+than a content one — see [Installing](#installing).
 
 ## Layout
 
@@ -66,6 +69,8 @@ already does the job, and propagates its exit code. `install.sh` puts it on `PAT
 
 ## Installing
 
+### Claude Code
+
 **From the marketplace (recommended):**
 
 ```
@@ -73,11 +78,11 @@ already does the job, and propagates its exit code. `install.sh` puts it on `PAT
 /plugin install skill-tree@skill-tree
 ```
 
-This also registers a `SessionStart` hook that runs `scripts/install.sh` automatically the next
-time a session starts, which symlinks every skill in this plugin into `~/.claude/skills/<name>`
-(personal scope, so each is invoked bare — `/backlog`, `/debug-ci`, `/verify` — instead of
-namespaced, e.g. `/skill-tree:backlog`) and puts the `skill-tree` entry point plus the
-interactive `backlog` CLI — under that name and the short `bl` — on `PATH` (`~/.local/bin/`).
+The plugin install is what makes every skill available, always as `skill-tree:<name>`. It also
+registers a `SessionStart` hook that runs `scripts/install.sh` the next time a session starts,
+which adds the shortcuts the namespace can't give you: `~/.claude/skills/backlog` (so it's
+invoked bare, `/backlog`), and the `skill-tree` entry point plus the interactive `backlog`
+CLI — under that name and the short `bl` — on `PATH` (`~/.local/bin/`).
 
 **Manual clone**, or to (re-)run setup yourself:
 
@@ -85,6 +90,38 @@ interactive `backlog` CLI — under that name and the short `bl` — on `PATH` (
 git clone <this repo> ~/projects/skill-tree
 ~/projects/skill-tree/scripts/install.sh
 ```
+
+### GitHub Copilot CLI
+
+Copilot reads the same `SKILL.md` spec, so the skills themselves need no translation — but it
+has no plugin or marketplace concept, so symlinking the skills into place *is* the install:
+
+```bash
+git clone <this repo> ~/projects/skill-tree
+~/projects/skill-tree/scripts/install.sh --copilot
+```
+
+That links **every** skill into `~/.copilot/skills/<name>` and generates
+`~/.copilot/hooks/skill-tree.json`. Two differences from the Claude side worth knowing:
+
+- **Every skill lands bare.** Copilot has no `skill-tree:` namespace to keep the less-used ones
+  behind, so there's no shortcut/namespace tradeoff to make — unlinked would just mean
+  unreachable.
+- **The hook config is generated, not symlinked.** Copilot's hook schema has no
+  `${CLAUDE_PLUGIN_ROOT}` equivalent, so the checkout path is baked in at install time. Re-run
+  `install.sh --copilot` after moving the checkout. The file is only ever overwritten while it
+  still carries its `"_source": "skill-tree"` marker — delete that line to take ownership of it.
+
+The generated `sessionStart` hook re-runs the install (so new skills link themselves) and checks
+whether the checkout is behind its remote. Unlike the Claude side it **reports** rather than
+pulls: this clone is one you might have uncommitted work in.
+
+With no flags, `install.sh` runs the Claude side and adds the Copilot side only if Copilot is
+present (`~/.copilot` exists, or `copilot` is on `PATH`). `--claude` and `--copilot` force one
+side each; pass both for both.
+
+Two skills shell out to `uv run python` (`backlog`, `audit-skills`) and need `uv` on the
+machine. The other seven are pure playbook and work anywhere.
 
 ### What installing grants: your screenshots folder
 
@@ -108,8 +145,15 @@ scratch directory you feed deliberately:
 skill-tree screenshot set ~/screenshots-for-claude
 ```
 
-To opt out entirely, remove the `PreToolUse` block from `hooks/hooks.json`; the skill still
-works, it just asks first.
+To opt out entirely, remove the `PreToolUse` block from `hooks/hooks.json` (Claude) or the
+`preToolUse` block from `~/.copilot/hooks/skill-tree.json` (Copilot — also delete that file's
+`"_source"` line, or the next install will regenerate it). The skill still works either way, it
+just asks first.
+
+One thing to know if you use both: Copilot's `preToolUse` hooks are **fail-closed**, where
+Claude's treat silence as "no opinion". So on Copilot the hook always returns an explicit
+decision — `allow` for the two cases above, `ask` (the normal permission flow) for everything
+else. It has no deny path on either host; it only ever widens.
 
 `install.sh` is idempotent and safe to re-run — it never overwrites a file or symlink it
 didn't create itself, and prints a note instead of silently editing your shell rc if

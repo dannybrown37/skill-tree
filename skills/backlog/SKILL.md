@@ -97,8 +97,9 @@ testing).
    default; use `--repo-only` first, to confirm what's specific to this repo). Skip any item
    whose header already carries `[in-progress]` — another agent has it — and surface that to
    the user rather than silently ignoring it.
-2. If there's more than one eligible item, **ask which one to work on** — use `AskUserQuestion`
-   listing the item titles. Don't assume the first item is wanted; the user has explicitly said
+2. If there's more than one eligible item, **ask which one to work on**, listing the item
+   titles. Use `AskUserQuestion` where it exists; otherwise ask in chat as a numbered list and
+   wait for an answer. Don't assume the first item is wanted; the user has explicitly said
    they might not want to start with it.
 3. Once picked, immediately claim it so other concurrently-running agents don't grab the same
    item during the discussion/implementation that follows:

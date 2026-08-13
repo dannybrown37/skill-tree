@@ -10,8 +10,18 @@ instead, where it can be narrow: this exact script run read-only, and
 image files inside whichever directory it resolves to.
 
 Anything else -- another command riding along on the same line, `set`,
-a non-image, a path outside that directory -- produces no output at all,
-which leaves the normal permission flow untouched.
+a non-image, a path outside that directory -- leaves the normal
+permission flow untouched.
+
+Two hosts, two dialects, detected per payload rather than configured:
+
+* Claude Code sends `tool_name`/`tool_input` and reads a decision nested
+  under `hookSpecificOutput`. Saying nothing means "no opinion".
+* Copilot CLI sends `toolName`/`toolArgs` and reads a flat
+  `permissionDecision`. Its preToolUse hooks are *fail-closed*, so
+  silence is not a safe way to abstain -- every path answers explicitly,
+  with `ask` meaning "run the normal permission flow". This hook has no
+  deny path in either dialect; it only ever widens.
 """
 
 import json
@@ -146,36 +156,44 @@ def allowed_read(file_path: str) -> bool:
     return directory is not None and directory in target.parents
 
 
-def decide(payload: dict) -> str | None:
-    """The reason to allow this call, or None to say nothing."""
-    tool_input = payload.get('tool_input')
-    if not isinstance(tool_input, dict):
-        return None
+# Copilot CLI's tool names and argument keys aren't specified anywhere
+# the way Claude's are, and a wrong guess here reads as "the hook simply
+# never fires". Both sets are matched case-insensitively, and every
+# plausible spelling is accepted -- widening these only ever costs an
+# extra `allowed_*` check, which is the part that actually decides.
+SHELL_TOOLS = frozenset({'bash', 'shell'})
+READ_TOOLS = frozenset({'read', 'view'})
+COMMAND_KEYS = ('command', 'cmd')
+PATH_KEYS = ('file_path', 'path', 'filePath', 'target_file')
 
-    tool_name = payload.get('tool_name')
-    if tool_name == 'Bash':
-        command = tool_input.get('command')
-        if isinstance(command, str) and allowed_bash(command):
+
+def first_string(args: dict, keys: tuple[str, ...]) -> str | None:
+    """The first of `keys` present in `args` with a string value."""
+    for key in keys:
+        value = args.get(key)
+        if isinstance(value, str):
+            return value
+    return None
+
+
+def decide(tool_name: str, args: dict) -> str | None:
+    """The reason to allow this call, or None to have no opinion."""
+    normalized = tool_name.lower()
+
+    if normalized in SHELL_TOOLS:
+        command = first_string(args, COMMAND_KEYS)
+        if command is not None and allowed_bash(command):
             return 'Read-only screenshot path lookup (skill-tree).'
-    elif tool_name == 'Read':
-        file_path = tool_input.get('file_path')
-        if isinstance(file_path, str) and allowed_read(file_path):
+    elif normalized in READ_TOOLS:
+        file_path = first_string(args, PATH_KEYS)
+        if file_path is not None and allowed_read(file_path):
             return "Image in this machine's screenshots directory."
     return None
 
 
-def main() -> None:
-    try:
-        payload = json.load(sys.stdin)
-    except (json.JSONDecodeError, UnicodeDecodeError):
-        return
-    if not isinstance(payload, dict):
-        return
-
-    reason = decide(payload)
+def respond_claude(reason: str | None) -> None:
     if reason is None:
         return
-
     json.dump(
         {
             'hookSpecificOutput': {
@@ -186,6 +204,42 @@ def main() -> None:
         },
         sys.stdout,
     )
+
+
+def respond_copilot(reason: str | None) -> None:
+    if reason is None:
+        json.dump({'permissionDecision': 'ask'}, sys.stdout)
+        return
+    json.dump(
+        {'permissionDecision': 'allow', 'permissionDecisionReason': reason},
+        sys.stdout,
+    )
+
+
+def main() -> None:
+    try:
+        payload = json.load(sys.stdin)
+    except (json.JSONDecodeError, UnicodeDecodeError):
+        return
+    if not isinstance(payload, dict):
+        return
+
+    # Junk stdin exits above without a decision: the dialect is only
+    # knowable from a payload that parsed, and Claude's silence is the
+    # safer of the two guesses.
+    is_copilot = 'toolName' in payload or 'toolArgs' in payload
+    name_key, args_key = (
+        ('toolName', 'toolArgs') if is_copilot else ('tool_name', 'tool_input')
+    )
+    respond = respond_copilot if is_copilot else respond_claude
+
+    tool_name = payload.get(name_key)
+    args = payload.get(args_key)
+    if not isinstance(tool_name, str) or not isinstance(args, dict):
+        respond(None)
+        return
+
+    respond(decide(tool_name, args))
 
 
 if __name__ == '__main__':

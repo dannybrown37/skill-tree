@@ -44,6 +44,13 @@ def decision(output: dict[str, object] | None) -> str | None:
     return output['hookSpecificOutput']['permissionDecision']
 
 
+def copilot_decision(output: dict[str, object] | None) -> str | None:
+    """Copilot's response is flat, not nested under hookSpecificOutput."""
+    if output is None:
+        return None
+    return output['permissionDecision']
+
+
 @pytest.fixture
 def shots(tmp_path: Path) -> Path:
     """A screenshots directory holding one image."""
@@ -277,3 +284,115 @@ class TestMalformedInput:
 
         assert result.returncode == 0
         assert not result.stdout.strip()
+
+
+def copilot_bash(command: str) -> dict[str, object]:
+    return {'toolName': 'bash', 'toolArgs': {'command': command}}
+
+
+def copilot_read(path: str | Path) -> dict[str, object]:
+    return {'toolName': 'read', 'toolArgs': {'path': str(path)}}
+
+
+class TestCopilotDialect:
+    """Copilot CLI sends camelCase and is fail-closed on preToolUse.
+
+    Silence is a valid "no opinion" under Claude but not here: anything
+    short of an explicit decision risks denying the call, so every path
+    through the hook has to answer, with `ask` meaning "normal flow".
+    """
+
+    def test_allows_the_resolver(self, tmp_path: Path, shots: Path) -> None:
+        command = f'{RESOLVER} latest'
+
+        output = run(
+            tmp_path,
+            copilot_bash(command),
+            SCREENSHOT_DIR=str(shots),
+        )
+
+        assert copilot_decision(output) == 'allow'
+
+    def test_allows_an_image_in_the_screenshots_dir(
+        self,
+        tmp_path: Path,
+        shots: Path,
+    ) -> None:
+        image = next(shots.iterdir())
+
+        output = run(
+            tmp_path,
+            copilot_read(image),
+            SCREENSHOT_DIR=str(shots),
+        )
+
+        assert copilot_decision(output) == 'allow'
+
+    @pytest.mark.parametrize(
+        'path_key',
+        ['path', 'file_path', 'filePath', 'target_file'],
+    )
+    def test_accepts_every_plausible_path_argument_name(
+        self,
+        tmp_path: Path,
+        shots: Path,
+        path_key: str,
+    ) -> None:
+        """The read tool's argument name isn't documented -- accept the set."""
+        image = next(shots.iterdir())
+        payload = {'toolName': 'read', 'toolArgs': {path_key: str(image)}}
+
+        output = run(tmp_path, payload, SCREENSHOT_DIR=str(shots))
+
+        assert copilot_decision(output) == 'allow'
+
+    @pytest.mark.parametrize(
+        'case',
+        ['unrelated', 'chained', 'non-image', 'no-args', 'another-tool'],
+    )
+    def test_defers_rather_than_denying(
+        self,
+        tmp_path: Path,
+        shots: Path,
+        case: str,
+    ) -> None:
+        payloads: dict[str, dict[str, object]] = {
+            'unrelated': copilot_bash('rm -rf ~'),
+            'chained': copilot_bash(f'{RESOLVER} latest; rm -rf ~'),
+            'non-image': copilot_read(shots / 'nope.txt'),
+            'no-args': {'toolName': 'bash', 'toolArgs': {}},
+            'another-tool': {
+                'toolName': 'write',
+                'toolArgs': {'path': 'x.png'},
+            },
+        }
+
+        output = run(tmp_path, payloads[case], SCREENSHOT_DIR=str(shots))
+
+        assert copilot_decision(output) == 'ask'
+
+    def test_never_denies(self, tmp_path: Path, shots: Path) -> None:
+        """This hook only ever widens permissions -- it has no deny path."""
+        output = run(
+            tmp_path,
+            copilot_bash('rm -rf ~'),
+            SCREENSHOT_DIR=str(shots),
+        )
+
+        assert copilot_decision(output) != 'deny'
+
+    def test_claude_payloads_are_unaffected(
+        self,
+        tmp_path: Path,
+        shots: Path,
+    ) -> None:
+        """Dialect is detected per payload, not per install."""
+        output = run(
+            tmp_path,
+            bash(f'{RESOLVER} latest'),
+            SCREENSHOT_DIR=str(shots),
+        )
+
+        assert decision(output) == 'allow'
+        assert output is not None
+        assert 'permissionDecision' not in output
