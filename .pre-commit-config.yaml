@@ -5,7 +5,7 @@ repos:
   # These live in git-a-grip so every repo shares one copy. Releasing is no
   # longer a hook: run `git-release` (aliased to gp) to bump, tag and push.
   - repo: https://github.com/dannybrown37/git-a-grip
-    rev: v0.8.1
+    rev: v0.11.0
     hooks:
       - id: commitizen-early
         fail_fast: true
@@ -16,6 +16,7 @@ repos:
       - id: pytest
         args: ['--runner=uv run --with pytest pytest', scripts/, skills/, -q]
         files: ^(scripts|skills)/.*\.py$
+      - id: block-private-terms
 
   - repo: https://github.com/commitizen-tools/commitizen
     rev: v4.17.0
