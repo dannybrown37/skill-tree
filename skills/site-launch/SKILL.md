@@ -102,7 +102,26 @@ and the host's generic error page on every bad link. The favicon wants an `.svg`
 **Check:** request a URL you know doesn't exist and confirm you get the site's own 404 — and
 that it responds with status 404, not 200. A soft-404 gets indexed.
 
-### 8. It works before you announce it.
+### 8. The response carries security headers.
+
+Frameworks and hosts ship almost none of these — a fresh deploy typically sends `strict-transport-security` and nothing else. The four that cost nothing and need no per-site tuning:
+`x-content-type-options: nosniff`, `referrer-policy: strict-origin-when-cross-origin`,
+`x-frame-options: DENY`, and `content-security-policy: frame-ancestors 'none'` (the modern
+half of the framing pair; send both, old browsers only honour the former).
+
+**Stop there unless the site needs more.** A full CSP with `script-src` has to enumerate the
+framework's own inline bootstrap scripts, and getting it wrong doesn't degrade — it blanks the
+page. `frame-ancestors` alone has no such failure mode.
+
+`nosniff` is the one with a real side effect: it makes every response's declared
+`Content-Type` binding. Check the non-HTML routes — feeds, sitemaps, an XSLT stylesheet, font
+and download endpoints — actually declare the right type, or they stop working.
+
+**Check:** `curl -sI` the **deployed** origin, not the dev server, and not within a couple of
+minutes of a push — a check against a still-building deploy reports the previous version's
+headers and looks like your config didn't apply. Then re-check one non-HTML route.
+
+### 9. It works before you announce it.
 
 Load the deployed site — not the dev server — on a phone-width viewport, cold, with cache
 disabled. Confirm: no console errors, no horizontal scroll, external links open correctly,

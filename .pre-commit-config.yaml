@@ -5,7 +5,7 @@ repos:
   # These live in git-a-grip so every repo shares one copy. Releasing is no
   # longer a hook: run `git-release` (aliased to gp) to bump, tag and push.
   - repo: https://github.com/dannybrown37/git-a-grip
-    rev: v0.11.0
+    rev: v0.11.1
     hooks:
       - id: commitizen-early
         fail_fast: true
