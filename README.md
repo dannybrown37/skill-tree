@@ -27,6 +27,11 @@ top-level directory.
 | `site-launch` | The pre-ship checklist for a website — canonical URL, per-page titles, share cards, feed, analytics, robots/sitemap, favicon and 404. Stack-agnostic; each item states the requirement and how to falsify it against the deployed origin. |
 | `handoff` | Carries work across a compaction, a session boundary, or another agent. Splits it two ways — a persistent narrative (decisions, dead ends, verified state) and an ephemeral re-entry prompt — anchored to a SHA so staleness is detectable, with the write-back rule that keeps it from rotting. |
 | `verify` | Forces a falsifiable check (real command, real output) behind any "it works now" / "it's gone" claim, instead of an inference from the diff. |
+| `ui-designer` | Accumulated web-design lessons applied as rules rather than suggestions — bundled fonts, a spacing scale, intentional color, `:focus-visible`, flash-free theming — each with a grep or a gesture that falsifies it. |
+| `audit-skills` | Read-only structural review of a repo's own skills: frontmatter and bundled-script validation, skill-vs-reference classification, inventory drift, and staleness in the paths and flags a playbook names. Works against either skills layout. |
+| `dynamodb-modeling` | Access-pattern-first DynamoDB design: the key and sort-key strategies, item-collection limits, GSI vs. LSI, multi-attribute composite keys, projections, and the anti-patterns that show up in review. |
+| `dynamodb-cost-audit` | An ordered audit of a DynamoDB bill, biggest lever first — item shape and write amplification, unread GSIs, capacity mode, table class, TTL and PITR — with the thresholds that decide each call. |
+| `dynamodb-migrations` | Changing a live DynamoDB table: the required step order per evolution type, backfill-vs-drift, stream feedback loops, the one-index-at-a-time constraint, and how to run bulk operations without setting money on fire. |
 
 `scripts/` at the repo root (outside any skill) is separate: the `skill-tree` CLI plus
 repo-level dev tooling like `check_skill_structure.py`, not part of any skill's own bundle.
