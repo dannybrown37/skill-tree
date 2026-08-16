@@ -187,20 +187,20 @@ def parse_backlog_text(content: str) -> list[BacklogItem]:
     """Extract items under ## headers from backlog-formatted markdown."""
     lines = content.split('\n')
 
-    items = []
-    current_title = None
-    current_content = []
-    current_raw_lines = []
+    items: list[BacklogItem] = []
+    current_title: str | None = None
+    current_content: list[str] = []
+    current_raw_lines: list[str] = []
 
-    def finalize_current_item() -> None:
+    def finalize_current_item(title: str) -> None:
         item_content = '\n'.join(current_content).strip()
         raw_section = '\n'.join(current_raw_lines)
-        items.append(BacklogItem(current_title, item_content, raw_section))
+        items.append(BacklogItem(title, item_content, raw_section))
 
     for line in lines:
         if line.startswith('## '):
             if current_title is not None:
-                finalize_current_item()
+                finalize_current_item(current_title)
             current_title = line[3:].strip()
             current_content = []
             current_raw_lines = [line]
@@ -209,7 +209,7 @@ def parse_backlog_text(content: str) -> list[BacklogItem]:
             current_raw_lines.append(line)
 
     if current_title is not None:
-        finalize_current_item()
+        finalize_current_item(current_title)
 
     return items
 

@@ -13,6 +13,7 @@ repos:
         args: [--config, .ruff.toml]
       - id: ruff-format
         args: [--config, .ruff.toml]
+      - id: mypy
       - id: pytest
         args: ['--runner=uv run --with pytest pytest', scripts/, skills/, -q]
         files: ^(scripts|skills)/.*\.py$

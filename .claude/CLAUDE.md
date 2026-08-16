@@ -54,7 +54,9 @@ is about Claude's alias collapsing, not a general preference — don't carry it 
 ## Code Style
 
 - Python: type hints on all parameters/returns, `pytest.mark.parametrize` for DRY tests, ruff
-  (`.ruff.toml`) for lint/format.
+  (`.ruff.toml`) for lint/format, mypy (`mypy.ini`) for type checking. mypy checks sources
+  only — test files are excluded; run it bare (`uv run --with mypy mypy`), never with targets,
+  so the hook and the terminal give the same answer.
 - Bash (any shell glue a skill ships): shellcheck + shfmt clean, `set -euo pipefail`, quote all
   expansions.
 
