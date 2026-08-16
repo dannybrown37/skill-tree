@@ -1,13 +1,43 @@
 ---
 name: screenshot
-description: Invoke when the user refers to a screenshot they took without attaching it — "look at the screenshot", "see the screenshot I just took", "check that error in the screenshot", "what does this screenshot say". Resolves the newest screenshot's path so it can be read directly.
+description: Invoke when the user refers to something on their screen — "look at the screenshot", "see the screenshot I just took", "check that error in the screenshot", "what does this dialog say", "look at my screen" — whether or not they attached an image. Resolves the newest screenshot's path, or captures the screen, so it can be read directly.
 ---
 
 # Screenshot
 
-The user took a screenshot and is talking about it without attaching it. Find its path and
-read it. Taking screenshots and browsing them interactively are out of scope — this resolves
-paths, nothing else.
+The user is talking about something on their screen that isn't in the conversation. Get an
+image of it and read it. Browsing screenshots interactively is out of scope.
+
+Two cases, and picking the wrong one wastes a round trip:
+
+- **They took a screenshot** ("the screenshot I just took", "see that error I grabbed") —
+  resolve the newest one.
+- **They didn't** ("look at my screen", "what does this dialog say", or they described
+  something visual and no image ever arrived) — take one yourself.
+
+When it's genuinely ambiguous, taking one is the cheaper mistake: it costs a capture, whereas
+resolving finds some unrelated shot from last Tuesday and confidently describes it.
+
+## Taking one
+
+```bash
+"${SKILL_TREE_DIR:-$HOME/projects/skill-tree}/skills/screenshot/scripts/screenshot" take
+```
+
+Captures the whole desktop — every monitor, not just the primary — into the screenshots
+directory and prints the new file's absolute path. `Read` that path.
+
+Two things to know before reaching for it:
+
+- **It captures whatever is there, right now.** No window picker, no region select. If the
+  user has to bring something to the front first, say so and let them tell you when — don't
+  capture blind and then describe the wrong window.
+- **This one prompts for permission**, deliberately: the hook below pre-approves the read-only
+  lookups, and photographing the screen isn't in that class. Reading the result is still free,
+  so a capture costs one prompt, not two.
+
+WSL only — it needs `powershell.exe`. Elsewhere it exits 1 saying so; ask the user to take
+one and fall back to `latest`.
 
 ## Reading the screenshot the user means
 
@@ -31,8 +61,8 @@ release that predates it, or `hooks/hooks.json` was edited. Don't work around it
 user to approve twice every session; say which of those it is.
 
 The grant is deliberately narrow, so don't expect it to cover more than the above: a chained
-command (`screenshot latest && …`), `screenshot set`, a non-image, or a path outside the
-screenshots directory all fall back to the normal prompt.
+command (`screenshot latest && …`), `screenshot set`, `screenshot take`, a non-image, or a
+path outside the screenshots directory all fall back to the normal prompt.
 
 The printed path is unquoted, so a terminal will linkify it. Paths often contain spaces —
 quote them when passing one to another command.
@@ -41,9 +71,10 @@ quote them when passing one to another command.
 
 Two different failures, with two different answers:
 
-- **`no screenshots in <dir>`** — the directory is right but empty. On Windows, Snipping Tool
-  only writes a file when "Automatically save screenshots" is on; Win+PrtScn always does. That
-  setting is the first thing to check.
+- **`no screenshots in <dir>`** — the directory is right but empty. Usually this means they
+  thought they saved one and didn't: on Windows, Snipping Tool only writes a file when
+  "Automatically save screenshots" is on, while Win+PrtScn always does. Offer `take` rather
+  than sending them back to re-capture it, and mention the setting once.
 - **`no screenshots directory found`** — nothing standard exists on this machine. Ask the user
   where their screenshots go and have them run `screenshot set <path>` (see below). Don't guess
   at a path, and don't go hunting the filesystem for one.
@@ -71,8 +102,9 @@ up my Pictures" setting silently redirects the folder and leaves the old one pop
 
 `skills/screenshot/scripts/screenshot`, also reachable as `skill-tree screenshot <command>`:
 
-- `screenshot latest` — the newest screenshot's absolute path. **This is the one to use.**
-  Exits 1 if the directory is empty.
+- `screenshot take` — capture the desktop, print the new file's path. WSL only.
+- `screenshot latest` — the newest screenshot's absolute path. **This is the one to use** when
+  the user took the shot. Exits 1 if the directory is empty.
 - `screenshot list [N]` — the N newest, newest first (default 10).
 - `screenshot dir` — the resolved directory, for explaining where it's looking.
 - `screenshot set <path>` — remember a directory. This is the user's escape hatch when

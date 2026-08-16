@@ -152,6 +152,16 @@ class TestResolverCommands:
 
         assert decision(output) is None
 
+    def test_stays_silent_on_take(self, tmp_path: Path, shots: Path) -> None:
+        """Capturing the screen is not something to widen away a prompt."""
+        output = run(
+            tmp_path,
+            bash(f'{RESOLVER} take'),
+            SCREENSHOT_DIR=str(shots),
+        )
+
+        assert decision(output) is None
+
     @pytest.mark.parametrize(
         'suffix',
         [

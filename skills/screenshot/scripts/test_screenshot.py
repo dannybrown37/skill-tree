@@ -41,6 +41,135 @@ def run(
     )
 
 
+def fake_windows(tmp_path: Path, *, powershell: str) -> Path:
+    """A PATH entry standing in for the Windows interop binaries.
+
+    `wslpath` is the identity here, so the path PowerShell is told to write
+    is one the test can look at afterwards.
+    """
+    bin_dir = tmp_path / 'fakebin'
+    bin_dir.mkdir(exist_ok=True)
+
+    wslpath = bin_dir / 'wslpath'
+    wslpath.write_text('#!/usr/bin/env bash\nprintf "%s" "$2"\n')
+    wslpath.chmod(0o755)
+
+    shell = bin_dir / 'powershell.exe'
+    shell.write_text(powershell)
+    shell.chmod(0o755)
+    return bin_dir
+
+
+# The output path is the first single-quoted literal in the script text;
+# pull it back out and write a file there, the way a capture would.
+CAPTURING_POWERSHELL = """#!/usr/bin/env bash
+script="${@: -1}"
+rest="${script#*\\'}"
+printf 'png' > "${rest%%\\'*}"
+"""
+
+FAILING_POWERSHELL = """#!/usr/bin/env bash
+echo 'CopyFromScreen failed' >&2
+exit 1
+"""
+
+SILENT_POWERSHELL = '#!/usr/bin/env bash\nexit 0\n'
+
+
+def take(
+    tmp_path: Path,
+    shots: Path,
+    powershell: str = CAPTURING_POWERSHELL,
+) -> subprocess.CompletedProcess[str]:
+    bin_dir = fake_windows(tmp_path, powershell=powershell)
+    return run(
+        tmp_path,
+        'take',
+        SCREENSHOT_DIR=str(shots),
+        PATH=f'{bin_dir}:{os.environ["PATH"]}',
+    )
+
+
+class TestTake:
+    def test_captures_into_the_resolved_dir_and_prints_the_path(
+        self,
+        tmp_path: Path,
+    ) -> None:
+        shots = tmp_path / 'shots'
+        shots.mkdir()
+
+        result = take(tmp_path, shots)
+
+        assert result.returncode == 0
+        written = result.stdout.strip()
+        assert Path(written).parent == shots
+        assert Path(written).is_file()
+
+    def test_the_new_file_is_what_latest_then_returns(
+        self,
+        tmp_path: Path,
+    ) -> None:
+        shots = tmp_path / 'shots'
+        touch(shots / 'older.png', age_seconds=600)
+
+        written = take(tmp_path, shots).stdout.strip()
+        latest = run(tmp_path, 'latest', SCREENSHOT_DIR=str(shots))
+
+        assert latest.stdout.strip() == written
+
+    def test_never_overwrites_an_existing_file(self, tmp_path: Path) -> None:
+        shots = tmp_path / 'shots'
+        shots.mkdir()
+
+        first = take(tmp_path, shots).stdout.strip()
+        second = take(tmp_path, shots).stdout.strip()
+
+        assert first != second
+        assert Path(first).is_file()
+        assert Path(second).is_file()
+
+    def test_without_windows_interop_it_says_so(self, tmp_path: Path) -> None:
+        shots = tmp_path / 'shots'
+        shots.mkdir()
+
+        # The stock Unix PATH: enough to run the script, never enough to
+        # find powershell.exe, which lives under /mnt/c even on real WSL.
+        result = run(
+            tmp_path,
+            'take',
+            SCREENSHOT_DIR=str(shots),
+            PATH='/usr/bin:/bin',
+        )
+
+        assert result.returncode == 1
+        assert 'WSL' in result.stderr
+
+    def test_a_failed_capture_surfaces_powershells_error(
+        self,
+        tmp_path: Path,
+    ) -> None:
+        shots = tmp_path / 'shots'
+        shots.mkdir()
+
+        result = take(tmp_path, shots, powershell=FAILING_POWERSHELL)
+
+        assert result.returncode == 1
+        assert 'CopyFromScreen failed' in result.stderr
+        assert not list(shots.iterdir())
+
+    def test_a_silent_capture_that_wrote_nothing_is_an_error(
+        self,
+        tmp_path: Path,
+    ) -> None:
+        shots = tmp_path / 'shots'
+        shots.mkdir()
+
+        result = take(tmp_path, shots, powershell=SILENT_POWERSHELL)
+
+        assert result.returncode == 1
+        assert 'nothing' in result.stderr
+
+
 class TestLatest:
     def test_prints_the_newest_image_absolute(self, tmp_path: Path) -> None:
         shots = tmp_path / 'shots'
@@ -220,7 +349,7 @@ class TestUsage:
         result = run(tmp_path, *args)
 
         assert result.returncode == 0
-        for command in ('latest', 'list', 'dir', 'set'):
+        for command in ('take', 'latest', 'list', 'dir', 'set'):
             assert command in result.stdout
 
     def test_unknown_command_is_an_error(self, tmp_path: Path) -> None:

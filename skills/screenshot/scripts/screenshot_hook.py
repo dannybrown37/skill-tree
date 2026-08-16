@@ -34,8 +34,10 @@ from pathlib import Path
 
 RESOLVER = Path(__file__).parent / 'screenshot'
 
-# Read-only actions. `set` is excluded deliberately: it writes config, so
-# it should cost a prompt.
+# Read-only actions. `set` and `take` are excluded deliberately: one writes
+# config and the other photographs whatever is on screen, and neither is
+# something a hook should quietly widen away. Reading the resulting file is
+# still free, so a capture costs one prompt, not two.
 SAFE_ACTIONS = frozenset({'latest', 'list', 'dir', 'help', '-h', '--help'})
 
 # Shell syntax that could smuggle a second command onto an allowed line.

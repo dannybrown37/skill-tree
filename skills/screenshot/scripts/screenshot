@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
-# Where this machine puts screenshots, and which one is newest.
+# Where this machine puts screenshots, which one is newest, and taking one.
 #
-# Deliberately small: an agent needs a path it can Read, and the user needs
-# a way to say "they're actually over here" once. Capturing, picking, and
-# moving screenshots are an interactive concern and not in scope.
+# Deliberately small: an agent needs a path it can Read -- either of a shot
+# the user just took, or of one it takes itself when the user is describing
+# something on screen that never got attached. Picking and moving
+# screenshots are an interactive concern and not in scope.
 set -euo pipefail
 
 CONFIG="${SCREENSHOT_CONFIG:-${XDG_CONFIG_HOME:-${HOME}/.config}/skill-tree/screenshot-dir}"
@@ -117,6 +118,71 @@ _cmd_set() {
     echo "(${CONFIG} -- delete it to go back to auto-detection)"
 }
 
+# Windows' own naming, so a captured file sorts and reads like one taken
+# with Win+PrtScn.
+readonly CAPTURE_NAME_FORMAT='Screenshot %Y-%m-%d %H%M%S.png'
+
+# VirtualScreen, not PrimaryScreen: a multi-monitor desktop should come out
+# whole rather than silently cropped to whichever monitor Windows calls
+# first. $OutPath is prepended by the caller -- `-Command` has no way to
+# bind arguments, so the path has to be part of the script text.
+# shellcheck disable=SC2016  # the $vars are PowerShell's, not bash's
+readonly CAPTURE_SCRIPT='
+Add-Type -AssemblyName System.Windows.Forms,System.Drawing
+$bounds = [System.Windows.Forms.SystemInformation]::VirtualScreen
+$bitmap = New-Object System.Drawing.Bitmap $bounds.Width, $bounds.Height
+try {
+    $graphics = [System.Drawing.Graphics]::FromImage($bitmap)
+    try {
+        $graphics.CopyFromScreen(
+            $bounds.Location,
+            [System.Drawing.Point]::Empty,
+            $bounds.Size
+        )
+    } finally { $graphics.Dispose() }
+    $bitmap.Save($OutPath, [System.Drawing.Imaging.ImageFormat]::Png)
+} finally { $bitmap.Dispose() }
+'
+
+# A path like "$1" that names nothing yet. Two captures land in the same
+# second easily, and a screenshot is not worth losing an older file over.
+_free_path() {
+    local base="$1" index=1 candidate="$1"
+    while [[ -e "${candidate}" ]]; do
+        candidate="${base%.png}-${index}.png"
+        ((index++ < 1000)) || _die "too many files named like $(basename "${base}")"
+    done
+    echo "${candidate}"
+}
+
+# Single quotes don't interpolate in PowerShell, so doubling an embedded
+# quote is the whole escape.
+_ps_literal() {
+    local escaped="${1//\'/\'\'}"
+    echo "'${escaped}'"
+}
+
+_cmd_take() {
+    local dir target windows_target output
+    dir="$(_resolve_dir)"
+    command -v powershell.exe >/dev/null 2>&1 ||
+        _die "take needs Windows interop (powershell.exe), so it only works from WSL"
+
+    target="$(_free_path "${dir}/$(date "+${CAPTURE_NAME_FORMAT}")")"
+    windows_target="$(wslpath -w "${target}")" ||
+        _die "could not translate ${target} to a Windows path"
+
+    if ! output="$(powershell.exe -NoProfile -NonInteractive -Command \
+        "\$OutPath = $(_ps_literal "${windows_target}")
+${CAPTURE_SCRIPT}" 2>&1)"; then
+        _die "capture failed: ${output:-no output}"
+    fi
+    [[ -f "${target}" ]] ||
+        _die "capture reported success but wrote nothing to ${target}"
+
+    echo "${target}"
+}
+
 _cmd_latest() {
     local dir image
     dir="$(_resolve_dir)"
@@ -135,6 +201,7 @@ _usage() {
     cat <<EOF
 Usage: screenshot <command>
 
+  take          Capture the whole desktop, print the new file's path (WSL only)
   latest        Absolute path of the newest screenshot (what an agent wants)
   list [N]      The N newest, newest first (default 10)
   dir           The resolved screenshots directory
@@ -151,6 +218,7 @@ main() {
     shift || true
 
     case "${command}" in
+    take) _cmd_take ;;
     latest) _cmd_latest ;;
     list) _cmd_list "$@" ;;
     dir) _resolve_dir ;;
