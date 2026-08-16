@@ -135,6 +135,14 @@ _install_claude() {
     # to call, `screenshot` is a plausible name for something else on a given
     # machine, and `skill-tree screenshot` already reaches it.
 
+    # Output styles: symlink each .md into ~/.claude/output-styles/
+    local style name
+    for style in "${_repo_root}"/output-styles/*.md; do
+        [[ -f "${style}" ]] || continue
+        name="$(basename "${style}")"
+        _link "${style}" "${HOME}/.claude/output-styles/${name}"
+    done
+
     case ":${PATH}:" in
     *":${HOME}/.local/bin:"*) ;;
     *)

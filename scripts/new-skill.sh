@@ -2,6 +2,7 @@
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+source "$REPO_ROOT/scripts/lib/open-in-editor.sh"
 
 prompt() {
     if ! [ -t 0 ]; then
@@ -46,6 +47,4 @@ TODO: Write the skill content.
 EOF
 
 echo "Created skills/$SKILL/SKILL.md"
-echo
-echo "Run again with:"
-echo "  $0 $SKILL"
+open_in_editor "$SKILL_DIR/SKILL.md"
