@@ -97,6 +97,37 @@ _link() {
     echo "Linked ${link_path} -> ${target}"
 }
 
+# Ensure settings.json has the statusLine config pointing at our script.
+# Only touches the statusLine key -- leaves everything else alone.
+_configure_statusline() {
+    local settings="${HOME}/.claude/settings.json"
+    local cmd="bash ${HOME}/.claude/statusline-command.sh"
+
+    if [[ ! -f "${settings}" ]]; then
+        cat >"${settings}" <<SEOF
+{
+  "statusLine": {
+    "type": "command",
+    "command": "${cmd}"
+  }
+}
+SEOF
+        echo "Created ${settings} with statusLine config"
+        return 0
+    fi
+
+    # Already configured correctly
+    if jq -e '.statusLine.command' "${settings}" 2>/dev/null | grep -qF "statusline-command.sh"; then
+        return 0
+    fi
+
+    # Merge statusLine into existing settings
+    local tmp="${settings}.tmp.$$"
+    jq --arg cmd "${cmd}" '.statusLine = {"type": "command", "command": $cmd}' "${settings}" >"${tmp}" \
+        && mv "${tmp}" "${settings}"
+    echo "Added statusLine config to ${settings}"
+}
+
 # Personal-scope skill dirs, so e.g. `/backlog` is invoked bare (a
 # plugin-installed skill would otherwise always be namespaced, e.g.
 # `/skill-tree:backlog`).
@@ -142,6 +173,10 @@ _install_claude() {
         name="$(basename "${style}")"
         _link "${style}" "${HOME}/.claude/output-styles/${name}"
     done
+
+    # Status line: symlink the script and wire up settings.json
+    _link "${_repo_root}/scripts/statusline-command.sh" "${HOME}/.claude/statusline-command.sh"
+    _configure_statusline
 
     case ":${PATH}:" in
     *":${HOME}/.local/bin:"*) ;;
