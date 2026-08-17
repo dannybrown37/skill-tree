@@ -166,12 +166,18 @@ _install_claude() {
     # to call, `screenshot` is a plausible name for something else on a given
     # machine, and `skill-tree screenshot` already reaches it.
 
-    # Output styles: symlink each .md into ~/.claude/output-styles/
-    local style name
-    for style in "${_repo_root}"/output-styles/*.md; do
-        [[ -f "${style}" ]] || continue
-        name="$(basename "${style}")"
-        _link "${style}" "${HOME}/.claude/output-styles/${name}"
+    # Output styles: the plugin already exposes these as skill-tree:<name>,
+    # so bare symlinks just create duplicates in the picker. Remove any that
+    # earlier installs created, plus stale styles (e.g. ELI5) that were
+    # replaced or removed.
+    local _style_link _style_target
+    for _style_link in "${HOME}/.claude/output-styles/"*.md; do
+        [[ -e "${_style_link}" || -L "${_style_link}" ]] || continue
+        _style_target="$(readlink "${_style_link}" 2>/dev/null || true)"
+        if [[ "${_style_target}" == *skill-tree* ]]; then
+            rm "${_style_link}"
+            echo "Removed duplicate output style ${_style_link} (use skill-tree:$(basename "${_style_link}" .md))"
+        fi
     done
 
     # Status line: symlink the script and wire up settings.json
