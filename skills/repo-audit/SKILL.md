@@ -55,7 +55,7 @@ If no `.pre-commit-config.yaml` exists, flag it and skip to the next section.
 ### 5. CLI ergonomics
 
 For every CLI entrypoint the repo exposes (check `pyproject.toml [project.scripts]`,
-`package.json bin`, `Makefile` targets that look like commands, or `scripts/` executables):
+`package.json bin`, `justfile`/`Makefile` targets that look like commands, or `scripts/` executables):
 
 - `--version` must exist, print a version, and exit 0 with no config/auth required.
 - Running with no arguments must print help, not crash.
