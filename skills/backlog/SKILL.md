@@ -9,8 +9,7 @@ allowed-tools: Read, Write, Edit, Glob, Grep, Bash, AskUserQuestion
 
 `~/.claude/backlog/backlog` (or `$BACKLOG_HOME` if set) holds work items the user has dropped
 in for later. It's **shared across every repo**, not repo-local — dropped in from any project,
-synced between machines via the password store (mechanism lives in `dotfiles`'
-`scripts/secrets.sh`, not here). Format:
+Format:
 
 ```markdown
 # Backlog
@@ -131,9 +130,8 @@ testing).
 
 ## Notes
 
-- The backlog and its completed log live in `~/.claude/backlog/`, outside every repo, and sync
-  between machines through `dotfiles`' password store. **Complete items, don't hand-delete
-  them** — completions are the tombstones that stop an item resurrecting on the other machine.
+- The backlog and its completed log live in `~/.claude/backlog/`, outside every repo. **Complete
+  items, don't hand-delete them** — completions are the record of finished work.
 - An untagged item you pick up on behalf of a specific repo doesn't get auto-tagged — if it
   turns out to belong to one, offer `backlog tag` rather than leaving it ambiguous for next
   time.
@@ -142,7 +140,3 @@ testing).
   explicitly asked for autonomous execution.
 - Nothing trims the active backlog while an item is active, so step 1's full read can be large
   if someone pasted a big log in. That's expected.
-
-- `references/backlog-sync-model.md` (alongside this file) — how the password-store merge
-  works: tombstones, merge ordering, stale `[in-progress]` markers, the 50-line completion
-  trim. Read it when a sync looks wrong; it is not needed for a normal backlog pull.

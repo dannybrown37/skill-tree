@@ -8,7 +8,7 @@ import sys
 import tempfile
 from datetime import datetime
 from pathlib import Path
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     import argparse
@@ -23,8 +23,6 @@ DEFAULT_BACKLOG_HOME = Path.home() / '.claude' / 'backlog'
 
 REPO_TAG_PATTERN = re.compile(r'^\[([^\[\]]+)\]\s*(\S.*)$')
 WORKTREE_GITDIR_PATTERN = re.compile(r'^gitdir:\s*(.+?)/\.git/worktrees/')
-
-MergePreference = Literal['local', 'incoming']
 
 
 def backlog_home() -> Path:
@@ -215,7 +213,7 @@ def parse_backlog_text(content: str) -> list[BacklogItem]:
 
 
 def render_backlog(items: list[BacklogItem]) -> str:
-    """Rebuild a .backlog file from items, dropping merge-time whitespace."""
+    """Rebuild a .backlog file from items."""
     sections = []
     for item in items:
         content = item.content.strip()
@@ -227,97 +225,6 @@ def render_backlog(items: list[BacklogItem]) -> str:
     if not sections:
         return f'{BACKLOG_HEADER}\n'
     return f'{BACKLOG_HEADER}\n\n' + '\n'.join(sections)
-
-
-def render_completed(items: list[BacklogItem]) -> str:
-    """Rebuild a .backlog-complete file; content already has its own rules."""
-    if not items:
-        return f'{COMPLETE_HEADER}\n\n'
-
-    sections = [f'## {item.title}\n{item.content.strip()}\n' for item in items]
-    return f'{COMPLETE_HEADER}\n\n' + '\n'.join(sections)
-
-
-def index_by_title(items: list[BacklogItem]) -> dict[str, BacklogItem]:
-    """Map normalized title to item, keeping the first of any duplicates."""
-    indexed: dict[str, BacklogItem] = {}
-    for item in items:
-        indexed.setdefault(strip_in_progress_marker(item.title), item)
-    return indexed
-
-
-def merge_backlog_text(
-    local_text: str,
-    incoming_text: str,
-    tombstones: set[str],
-    prefer: MergePreference,
-) -> str:
-    """Union both sides by title, minus anything already completed.
-
-    Items on both sides follow the preferred side's order and body; items on
-    only one side are appended in title order so that two machines merging the
-    same pair of files land on byte-identical output and stop churning the
-    password-store.
-    """
-    local = index_by_title(parse_backlog_text(local_text))
-    incoming = index_by_title(parse_backlog_text(incoming_text))
-    primary, secondary = (
-        (local, incoming) if prefer == 'local' else (incoming, local)
-    )
-
-    shared = [title for title in primary if title in secondary]
-    exclusive = sorted(local.keys() ^ incoming.keys())
-
-    merged = []
-    for title in shared + exclusive:
-        if title in tombstones:
-            continue
-        source = primary.get(title) or secondary[title]
-        # A stray "## " typed into either file parses as a titleless item;
-        # propagating it would put a blank line in front of the fzf picker.
-        if not title and not source.content.strip():
-            continue
-        claimed = any(
-            side[title].in_progress
-            for side in (local, incoming)
-            if title in side
-        )
-        header = f'{title}{IN_PROGRESS_MARKER}' if claimed else title
-        merged.append(BacklogItem(header, source.content))
-
-    return render_backlog(merged)
-
-
-def completed_record_key(item: BacklogItem) -> tuple[str, str]:
-    """Identify a completion by title plus the stamp backlog_cli.py wrote."""
-    match = re.search(r'^- Completed: (.+)$', item.content, re.MULTILINE)
-    stamp = match.group(1).strip() if match else ''
-    return (strip_in_progress_marker(item.title), stamp)
-
-
-def merge_completed_text(local_text: str, incoming_text: str) -> str:
-    """Union the two completion logs, ordered by when work finished."""
-    records: dict[tuple[str, str], BacklogItem] = {}
-    for item in parse_backlog_text(local_text) + parse_backlog_text(
-        incoming_text,
-    ):
-        records.setdefault(completed_record_key(item), item)
-
-    ordered = sorted(records, key=lambda key: (key[1], key[0]))
-    return render_completed([records[key] for key in ordered])
-
-
-def completed_titles(complete_path: Path) -> set[str]:
-    """Titles that have been completed anywhere -- the merge's tombstones."""
-    return {
-        strip_in_progress_marker(item.title)
-        for item in parse_backlog_file(complete_path)
-    }
-
-
-def read_if_present(file_path: Path) -> str:
-    """Read a sync participant that may not exist on this machine yet."""
-    return file_path.read_text() if file_path.exists() else ''
 
 
 def remove_item_from_backlog(backlog_path: Path, item: BacklogItem) -> None:
@@ -647,56 +554,6 @@ def action_tag(
         print(f'→ Untagged: {new_title}')
 
 
-def action_merge_completed(complete_path: Path, incoming_path: Path) -> None:
-    """Reconcile .backlog-complete with the copy from the password-store."""
-    merged = merge_completed_text(
-        read_if_present(complete_path),
-        read_if_present(incoming_path),
-    )
-    complete_path.write_text(merged)
-    count = len(parse_backlog_text(merged))
-    print(f'  merged {complete_path.name} ({count} completed)')
-
-
-def action_merge_backlog(
-    backlog_path: Path,
-    complete_path: Path,
-    incoming_path: Path,
-    prefer: MergePreference,
-) -> None:
-    """Reconcile .backlog with the copy from the password-store."""
-    merged = merge_backlog_text(
-        read_if_present(backlog_path),
-        read_if_present(incoming_path),
-        completed_titles(complete_path),
-        prefer,
-    )
-    backlog_path.write_text(merged)
-    count = len(parse_backlog_text(merged))
-    print(f'  merged {backlog_path.name} ({count} open)')
-
-
-def dispatch_merge(
-    args: 'argparse.Namespace',
-    backlog_path: Path,
-    complete_path: Path,
-) -> None:
-    """Route the two merge actions, both of which need --incoming."""
-    if not args.incoming:
-        print('Error: --incoming required', file=sys.stderr)
-        sys.exit(1)
-
-    if args.action == 'merge-backlog':
-        action_merge_backlog(
-            backlog_path,
-            complete_path,
-            args.incoming,
-            args.prefer,
-        )
-    else:
-        action_merge_completed(complete_path, args.incoming)
-
-
 def dispatch_item_action(
     args: 'argparse.Namespace',
     backlog_path: Path,
@@ -746,8 +603,6 @@ def main() -> None:
             'claim',
             'complete',
             'tag',
-            'merge-backlog',
-            'merge-completed',
         ],
         help='Backlog action to perform',
     )
@@ -807,17 +662,6 @@ def main() -> None:
         help='Title of item to claim or complete',
     )
     parser.add_argument(
-        '--incoming',
-        type=Path,
-        help='Path to the password-store copy to merge in',
-    )
-    parser.add_argument(
-        '--prefer',
-        choices=['local', 'incoming'],
-        default='local',
-        help='Which side wins order and body for items present on both',
-    )
-    parser.add_argument(
         '--title',
         type=str,
         default=None,
@@ -846,8 +690,6 @@ def main() -> None:
         action_next(backlog_path, args.title, args.content, args.repo)
     elif args.action == 'add':
         action_add(backlog_path, args.title, args.content, args.repo)
-    elif args.action in ('merge-backlog', 'merge-completed'):
-        dispatch_merge(args, backlog_path, complete_path)
     elif args.action in ('claim', 'complete', 'tag'):
         dispatch_item_action(args, backlog_path, complete_path)
 

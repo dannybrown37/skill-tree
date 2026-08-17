@@ -62,9 +62,8 @@ is about Claude's alias collapsing, not a general preference — don't carry it 
 
 ## Security
 
-- `backlog_cli.py` reads/writes a work-item file that can contain anything a user pastes in, and
-  is synced by another repo's password-store mechanism — treat changes to it with the same
-  care as auth/secrets code. For anything touching parsing, merging, or file writes, a red-team
+- `backlog_cli.py` reads/writes a work-item file that can contain anything a user pastes in —
+  treat changes to it with care. For anything touching parsing or file writes, a red-team
   pass (construct a real failing case, not checklist review) is worth it before shipping —
   spawn an `adversarial-review`-style subagent if one is available in this environment.
 
