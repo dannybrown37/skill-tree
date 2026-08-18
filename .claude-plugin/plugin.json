@@ -1,7 +1,7 @@
 {
   "name": "skill-tree",
   "displayName": "Skill Tree",
-  "description": "Reusable Claude Code skills with their own CLI implementations behind them -- currently a cross-repo shared work-item backlog.",
+  "description": "Reusable Claude Code skills with their own CLI implementations behind them.",
   "version": "0.2.1",
   "author": {
     "name": "Danny Brown",

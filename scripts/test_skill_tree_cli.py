@@ -379,7 +379,7 @@ class TestRealRepo:
     def test_lists_this_repos_skills(self) -> None:
         names = {s.name for s in cli.find_skills(REPO_ROOT)}
 
-        assert {'backlog', 'screenshot', 'verify'} <= names
+        assert {'screenshot', 'verify'} <= names
 
     def test_wrapper_is_executable_and_lists_skills(self) -> None:
         result = subprocess.run(  # noqa: S603
@@ -390,4 +390,4 @@ class TestRealRepo:
         )
 
         assert result.returncode == 0, result.stderr
-        assert 'backlog' in result.stdout
+        assert 'verify' in result.stdout

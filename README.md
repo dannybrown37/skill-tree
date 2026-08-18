@@ -20,7 +20,6 @@ top-level directory.
 
 | Skill | What it does |
 | --- | --- |
-| `backlog` | A cross-repo work-item backlog (`~/.claude/backlog/`), with an optional `[repo]` tag and an fzf-driven claim/complete/tag CLI. |
 | `screenshot` | Resolves the newest screenshot's path, so one the user took but didn't attach can be read directly. Detects the standard location on WSL, macOS or Linux, with `screenshot set <path>` to override it. |
 | `cli-ergonomics` | What a human-facing command-line entrypoint owes its user — a mandatory `--version`, plus the argument ladder from "print help, not an error" through TTY-guarded prompts, fzf selection, and echoing the replayable command. |
 | `debug-ci` | Diagnoses a failed GitHub Actions run from its real `gh` logs and fixes it locally. Never commits or pushes. |
@@ -57,11 +56,9 @@ skill-tree check           # validate every skill's frontmatter and bundled scri
 skill-tree test            # the test suite
 ```
 
-Skills that ship their own CLI are reachable by name, with arguments passed straight through
-(`skill-tree backlog --help` is the backlog CLI's help, not the dispatcher's):
+Skills that ship their own CLI are reachable by name, with arguments passed straight through:
 
 ```bash
-skill-tree backlog claim
 skill-tree screenshot latest
 ```
 
@@ -85,9 +82,7 @@ already does the job, and propagates its exit code. `install.sh` puts it on `PAT
 
 The plugin install is what makes every skill available, always as `skill-tree:<name>`. It also
 registers a `SessionStart` hook that runs `scripts/install.sh` the next time a session starts,
-which adds the shortcuts the namespace can't give you: `~/.claude/skills/backlog` (so it's
-invoked bare, `/backlog`), and the `skill-tree` entry point plus the interactive `backlog`
-CLI — under that name and the short `bl` — on `PATH` (`~/.local/bin/`).
+which puts the `skill-tree` entry point on `PATH` (`~/.local/bin/`).
 
 **Manual clone**, or to (re-)run setup yourself:
 
@@ -125,8 +120,8 @@ With no flags, `install.sh` runs the Claude side and adds the Copilot side only 
 present (`~/.copilot` exists, or `copilot` is on `PATH`). `--claude` and `--copilot` force one
 side each; pass both for both.
 
-Two skills shell out to `uv run python` (`backlog`, `audit-skills`) and need `uv` on the
-machine. The other seven are pure playbook and work anywhere.
+One skill, `audit-skills`, shells out to `uv run python` and needs `uv` on the machine. The
+rest are pure playbook and work anywhere.
 
 ### What installing grants: your screenshots folder
 

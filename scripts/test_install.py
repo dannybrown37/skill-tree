@@ -43,12 +43,7 @@ def skill_names() -> list[str]:
 @pytest.mark.parametrize(
     ('link', 'target'),
     [
-        ('.claude/skills/backlog', 'skills/backlog'),
         ('.local/bin/skill-tree', 'scripts/skill-tree'),
-        ('.local/bin/backlog', 'skills/backlog/scripts/backlog'),
-        # `bl` is the short form the backlog flow is habitually reached by --
-        # it points at the same wrapper, not at a second copy of the logic.
-        ('.local/bin/bl', 'skills/backlog/scripts/backlog'),
     ],
 )
 def test_install_links_are_created(home: Path, link: str, target: str) -> None:
@@ -63,12 +58,12 @@ def test_install_is_idempotent(home: Path) -> None:
     second = run(home)
 
     assert second.returncode == 0, second.stderr
-    assert (home / '.local' / 'bin' / 'bl').is_symlink()
+    assert (home / '.local' / 'bin' / 'skill-tree').is_symlink()
 
 
 def test_install_does_not_clobber_a_real_file(home: Path) -> None:
-    """Someone else's `bl` on PATH is left alone, not silently replaced."""
-    theirs = home / '.local' / 'bin' / 'bl'
+    """Someone else's `skill-tree` on PATH is left alone, not replaced."""
+    theirs = home / '.local' / 'bin' / 'skill-tree'
     theirs.write_text('#!/bin/sh\necho not ours\n')
 
     result = run(home)
@@ -76,6 +71,28 @@ def test_install_does_not_clobber_a_real_file(home: Path) -> None:
     assert result.returncode == 0, result.stderr
     assert theirs.read_text() == '#!/bin/sh\necho not ours\n'
     assert 'Skipping' in result.stderr
+
+
+def test_install_retires_stale_backlog_shortcuts(home: Path) -> None:
+    """A machine that ran an earlier install heals itself."""
+    claude_skills = home / '.claude' / 'skills'
+    claude_skills.mkdir(parents=True)
+    # Points at a path that no longer exists -- backlog was removed from the
+    # repo, but the retirement loop only inspects the symlink target string.
+    (claude_skills / 'backlog').symlink_to(REPO_ROOT / 'skills' / 'backlog')
+    (home / '.local' / 'bin' / 'backlog').symlink_to(
+        REPO_ROOT / 'skills' / 'backlog' / 'scripts' / 'backlog',
+    )
+    (home / '.local' / 'bin' / 'bl').symlink_to(
+        REPO_ROOT / 'skills' / 'backlog' / 'scripts' / 'backlog',
+    )
+
+    result = run(home)
+
+    assert result.returncode == 0, result.stderr
+    assert not (claude_skills / 'backlog').exists()
+    assert not (home / '.local' / 'bin' / 'backlog').exists()
+    assert not (home / '.local' / 'bin' / 'bl').exists()
 
 
 class TestCopilot:
@@ -117,14 +134,14 @@ class TestCopilot:
 
         assert result.returncode == 0, result.stderr
         assert not (home / '.claude').exists()
-        assert not (home / '.local' / 'bin' / 'bl').exists()
+        assert not (home / '.local' / 'bin' / 'skill-tree').exists()
 
     def test_both_flags_install_both_sides(self, home: Path) -> None:
         result = run(home, '--claude', '--copilot')
 
         assert result.returncode == 0, result.stderr
-        assert (home / '.claude' / 'skills' / 'backlog').is_symlink()
-        assert (home / '.copilot' / 'skills' / 'backlog').is_symlink()
+        assert (home / '.local' / 'bin' / 'skill-tree').is_symlink()
+        assert (home / '.copilot' / 'skills' / 'verify').is_symlink()
 
     def test_is_idempotent(self, home: Path) -> None:
         assert run(home, '--copilot').returncode == 0

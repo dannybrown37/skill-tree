@@ -128,22 +128,16 @@ SEOF
     echo "Added statusLine config to ${settings}"
 }
 
-# Personal-scope skill dirs, so e.g. `/backlog` is invoked bare (a
+# Personal-scope skill dirs, so a deliberately chosen few are invoked bare (a
 # plugin-installed skill would otherwise always be namespaced, e.g.
-# `/skill-tree:backlog`).
-#
-# Deliberately only the skills worth a shortcut. A bare symlink is not free:
-# the harness collapses a same-named plugin skill into just the unscoped
-# alias, so anything listed here disappears from `skill-tree:`-prefixed
-# lookups -- and from subagents that browse skills by that prefix.
+# `/skill-tree:backlog`). None currently warrant it -- see the retirement
+# loop below for how a shortcut gets un-installed once it doesn't.
 _install_claude() {
-    _link "${_repo_root}/skills/backlog" "${HOME}/.claude/skills/backlog"
-
     # Retire shortcuts earlier versions created, so a machine that ran those
     # installs heals itself. Only ever removes a symlink pointing back into a
     # skill-tree checkout -- never a real directory or someone else's link.
     local _skill _stale
-    for _skill in debug-ci verify; do
+    for _skill in debug-ci verify backlog; do
         _stale="${HOME}/.claude/skills/${_skill}"
         if [[ -L "${_stale}" && "$(readlink "${_stale}")" == *"/skills/${_skill}" ]] &&
             [[ "$(readlink "${_stale}")" == *skill-tree* ]]; then
@@ -156,11 +150,17 @@ _install_claude() {
     # CLI in here from a shell, without starting a Claude session.
     _link "${_repo_root}/scripts/skill-tree" "${HOME}/.local/bin/skill-tree"
 
-    # Interactive backlog CLI on PATH, under both its full name and the `bl`
-    # short form -- it's reached often enough by hand that the seven extra
-    # keystrokes are the difference between capturing a thought and not.
-    _link "${_repo_root}/skills/backlog/scripts/backlog" "${HOME}/.local/bin/backlog"
-    _link "${_repo_root}/skills/backlog/scripts/backlog" "${HOME}/.local/bin/bl"
+    # Retire the backlog CLI shortcuts a machine that ran an earlier install
+    # picked up. Same back-into-this-checkout guard as the skill retirement
+    # loop above.
+    local _bin _stale_bin
+    for _bin in backlog bl; do
+        _stale_bin="${HOME}/.local/bin/${_bin}"
+        if [[ -L "${_stale_bin}" && "$(readlink "${_stale_bin}")" == *skill-tree* ]]; then
+            rm "${_stale_bin}"
+            echo "Removed retired ${_stale_bin}"
+        fi
+    done
 
     # The screenshot resolver stays off PATH deliberately: it's for the skill
     # to call, `screenshot` is a plausible name for something else on a given
@@ -187,7 +187,7 @@ _install_claude() {
     case ":${PATH}:" in
     *":${HOME}/.local/bin:"*) ;;
     *)
-        echo "Note: ~/.local/bin isn't on PATH -- add it to use 'backlog' directly." >&2
+        echo "Note: ~/.local/bin isn't on PATH -- add it to use 'skill-tree' directly." >&2
         ;;
     esac
 }
@@ -261,7 +261,7 @@ if [[ "${_repo_root}" != "${HOME}/projects/skill-tree" && "${SKILL_TREE_DIR:-}" 
     cat >&2 <<EOF
 Note: skill-tree is running from ${_repo_root}, not the default
 ~/projects/skill-tree. Export SKILL_TREE_DIR=${_repo_root} in your shell rc
-so the backlog skill's agent-driven flow can find backlog_cli.py.
+so skills whose scripts need an absolute path can find this checkout.
 EOF
 fi
 

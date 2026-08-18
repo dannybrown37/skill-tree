@@ -9,7 +9,7 @@
     {
       "name": "skill-tree",
       "source": "./",
-      "description": "Reusable Claude Code skills with their own CLI implementations behind them -- currently a cross-repo shared work-item backlog."
+      "description": "Reusable Claude Code skills with their own CLI implementations behind them."
     }
   ]
 }
