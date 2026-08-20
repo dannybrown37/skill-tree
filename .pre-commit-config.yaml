@@ -18,6 +18,9 @@ repos:
         args: ['--runner=uv run --with pytest pytest', scripts/, skills/, -q]
         files: ^(scripts|skills)/.*\.py$
       - id: block-private-terms
+      - id: regen-file
+        args: ['--command=python3 scripts/gen_readme_skills_table.py', '--file=README.md']
+        files: ^(skills/.*/SKILL\.md|README\.md)$
 
   - repo: https://github.com/commitizen-tools/commitizen
     rev: v4.17.0
