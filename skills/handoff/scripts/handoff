@@ -81,7 +81,7 @@ _in_repo() {
 _pick_title() {
 	_need_fzf
 	local titles selection
-	titles="$(_handoff_py titles "$@")"
+	titles="$(_handoff_py backlog --titles "$@")"
 	[[ -n "${titles}" ]] || _die "the backlog is empty"
 
 	selection="$(fzf --prompt='Which item? ' --height=40% --reverse \
@@ -100,26 +100,44 @@ _compose_body() {
 	cat "${file}"
 }
 
+# Page only when there's a terminal: these same commands run from hooks and
+# tool calls, where a pager would hang waiting for a keypress.
+_page() {
+	if _have_tty; then
+		local pager="${PAGER:-}"
+		if [[ -z "${pager}" ]]; then
+			if command -v less >/dev/null 2>&1; then
+				pager="less -R"
+			else
+				pager="cat"
+			fi
+		fi
+		${pager}
+	else
+		cat
+	fi
+}
+
 _usage() {
 	cat <<'EOF'
 Usage: handoff <command> [options]
 
-  pop                Claim the top item: remove it from BACKLOG.md and make
-                     it CURRENT.md's next action. What agents call.
-  list               This repo's backlog, top first
-  titles             Bare titles, one per line
-  add                Add an item to the bottom -- do this eventually
-  next               Add an item to the top -- do this next
-  show               Print one item in full
-  remove             Delete an item
-  edit               Open BACKLOG.md in $EDITOR
-  --version          Print the version
+	backlog           Read BACKLOG.md -- what's queued -- in a pager
+	current           Read CURRENT.md -- the live handoff -- in a pager
+	narrative         Read NARRATIVE.md -- how the work got here -- in a pager
+	add               Add an item to the bottom -- do this eventually
+	next              Add an item to the top -- do this next
+	remove            Delete an item
+	edit              Open BACKLOG.md in $EDITOR
+	pop               (Main agent action, not for humans) Claim the top item:
+		     	  remove it from BACKLOG.md and make it CURRENT.md's next action.
+	--version         Print the version
 
 Options: --repo <path> acts on that repo; --pick chooses one with fzf from
 the repos under $PROJECTS_DIR that keep handoffs. With neither, the repo
 containing $PWD is used.
 
-add/next/show/remove prompt for what you leave out when there's a terminal:
+add/next/remove prompt for what you leave out when there's a terminal:
 --title, --body, and --item-title (fzf over the current titles).
 EOF
 }
@@ -201,7 +219,7 @@ add | next)
 		--title "${_title}" --body "${_body}" \
 		"${_rest[@]+"${_rest[@]}"}"
 	;;
-show | remove)
+remove)
 	if ! printf '%s\n' "$@" | grep -qx -- '--item-title'; then
 		if _have_tty; then
 			_title="$(_pick_title "${_scope[@]+"${_scope[@]}"}")"
@@ -209,6 +227,12 @@ show | remove)
 		fi
 	fi
 	_handoff_py "${_command}" "${_scope[@]+"${_scope[@]}"}" "$@"
+	;;
+backlog | current | narrative)
+	# Not piped directly into the pager: a failure on the Python side must
+	# still exit non-zero, which a pipeline's status would swallow.
+	_out="$(_handoff_py "${_command}" "${_scope[@]+"${_scope[@]}"}" "$@")"
+	_page <<<"${_out}"
 	;;
 edit)
 	_path="$(_handoff_py path "${_scope[@]+"${_scope[@]}"}" "$@")"

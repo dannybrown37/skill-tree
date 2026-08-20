@@ -16,6 +16,7 @@ BACKLOG_HEADER = '# Backlog'
 BACKLOG_NAME = 'BACKLOG.md'
 CURRENT_NAME = 'CURRENT.md'
 DEFAULT_SUBDIR = Path('docs') / 'handoffs'
+NARRATIVE_NAME = 'NARRATIVE.md'
 FENCE_PREFIXES = ('```', '~~~')
 
 
@@ -336,34 +337,6 @@ def pop_item(path: Path, current_path: Path) -> BacklogItem | None:
     return item
 
 
-def _first_line(body: str) -> str:
-    return next(
-        (line.strip() for line in body.split('\n') if line.strip()),
-        '',
-    )
-
-
-def cmd_list(path: Path, _args: argparse.Namespace) -> int:
-    items = read_items(path)
-    if not items:
-        print(f'Backlog is empty ({path})')
-        return 0
-
-    print(f'{path}\n')
-    for index, item in enumerate(items, start=1):
-        print(f'{index}. {item.title}')
-        summary = _first_line(item.body)
-        if summary:
-            print(f'   {summary}')
-    return 0
-
-
-def cmd_titles(path: Path, _args: argparse.Namespace) -> int:
-    for item in read_items(path):
-        print(item.title)
-    return 0
-
-
 def cmd_add(path: Path, args: argparse.Namespace) -> int:
     item = add_item(
         path,
@@ -397,14 +370,6 @@ def _require_item(path: Path, title: str | None) -> BacklogItem:
         message = f'no backlog item titled {title!r}'
         raise HandoffError(message)
     return item
-
-
-def cmd_show(path: Path, args: argparse.Namespace) -> int:
-    item = _require_item(path, args.item_title)
-    print(f'## {item.title}\n')
-    if item.body:
-        print(item.body)
-    return 0
 
 
 def cmd_remove(path: Path, args: argparse.Namespace) -> int:
@@ -447,14 +412,52 @@ def cmd_path(path: Path, _args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_doc(
+    path: Path,
+    args: argparse.Namespace,
+    name: str,
+) -> int:
+    """Print one of the handoff's prose files, or say where it is.
+
+    Paging is the wrapper's job -- this side runs from hooks and tool calls
+    with no terminal, where a pager would hang.
+    """
+    document = path.with_name(name)
+    if args.path:
+        print(document)
+        return 0
+    if not document.exists():
+        message = f'no {name} in {document.parent}'
+        raise HandoffError(message)
+    print(document.read_text().rstrip())
+    return 0
+
+
+def cmd_current(path: Path, args: argparse.Namespace) -> int:
+    return _cmd_doc(path, args, CURRENT_NAME)
+
+
+def cmd_narrative(path: Path, args: argparse.Namespace) -> int:
+    return _cmd_doc(path, args, NARRATIVE_NAME)
+
+
+def cmd_backlog(path: Path, args: argparse.Namespace) -> int:
+    """The backlog itself: the whole file, or bare titles for a picker."""
+    if args.titles:
+        for item in read_items(path):
+            print(item.title)
+        return 0
+    return _cmd_doc(path, args, BACKLOG_NAME)
+
+
 HANDLERS = {
     'pop': cmd_pop,
+    'backlog': cmd_backlog,
+    'current': cmd_current,
+    'narrative': cmd_narrative,
     'path': cmd_path,
-    'list': cmd_list,
-    'titles': cmd_titles,
     'add': cmd_add,
     'next': cmd_add,
-    'show': cmd_show,
     'remove': cmd_remove,
 }
 
@@ -485,8 +488,23 @@ def build_parser() -> argparse.ArgumentParser:
         "Claim the top item: remove it and make it CURRENT.md's next action",
     )
     add_action('path', "Path to this repo's BACKLOG.md, creating it if new")
-    add_action('list', "Items in this repo's backlog, top first")
-    add_action('titles', 'Bare titles, one per line (what a picker reads)')
+    for name, help_text in (
+        ('backlog', "Print this repo's BACKLOG.md"),
+        ('current', "Print this repo's CURRENT.md"),
+        ('narrative', "Print this repo's NARRATIVE.md"),
+    ):
+        action = add_action(name, help_text)
+        action.add_argument(
+            '--path',
+            action='store_true',
+            help='print the file path instead of its contents',
+        )
+        if name == 'backlog':
+            action.add_argument(
+                '--titles',
+                action='store_true',
+                help='bare titles, one per line (what a picker reads)',
+            )
 
     for name, help_text in (
         ('add', 'Add an item to the bottom -- do this eventually'),
@@ -496,12 +514,8 @@ def build_parser() -> argparse.ArgumentParser:
         action.add_argument('--title', required=True)
         action.add_argument('--body', default='')
 
-    for name, help_text in (
-        ('show', 'Print one item in full'),
-        ('remove', 'Delete an item'),
-    ):
-        action = add_action(name, help_text)
-        action.add_argument('--item-title')
+    remove = add_action('remove', 'Delete an item')
+    remove.add_argument('--item-title')
 
     return parser
 

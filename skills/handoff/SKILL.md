@@ -51,7 +51,8 @@ get one item is the token cost this exists to avoid. It's one backlog per repo, 
 cwd.
 
 - `handoff add --title "..." --body "..."` — capture something for later (`next` for the top)
-- `handoff list` — what's queued
+- `handoff backlog` / `handoff current` / `handoff narrative` — read `BACKLOG.md` /
+  `CURRENT.md` / `NARRATIVE.md` (paged for a human; plain stdout in a tool call)
 - `handoff pop` — **claim the top item**: removes it from `BACKLOG.md` and writes it into
   `CURRENT.md` as the next action, in one step. Ask the user before doing this.
 

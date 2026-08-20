@@ -49,7 +49,7 @@ flowchart LR
     A -->|appends| NAR
     A -.->|"never hand-edits"| BLG
 
-    CLI["handoff CLI<br/>add · next · list · titles ·<br/>show · remove · edit · path ·<br/>pop · --version"] -->|"sole writer<br/>(re-renders whole file)"| BLG
+    CLI["handoff CLI<br/>add · next · remove · edit · path ·<br/>backlog · current · narrative ·<br/>pop · --version"] -->|"sole writer<br/>(re-renders whole file)"| BLG
     CLI -->|"pop only"| CUR
     A -->|invokes| CLI
 

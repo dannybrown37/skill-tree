@@ -70,7 +70,7 @@ No active handoff in this repo. The next backlog item is:
 
 Confirm with the user before starting it. \`handoff pop\` claims it (removing
 it from BACKLOG.md and writing it into CURRENT.md as the next action);
-\`handoff list\` shows the rest.
+\`handoff backlog\` shows the rest.
 EOF
 	fi
 fi

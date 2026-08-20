@@ -28,21 +28,24 @@ corrupted.
 | Command | What it does |
 | --- | --- |
 | `pop` | Claim the top item: remove it from `BACKLOG.md` **and** write it into `CURRENT.md` as the next action. Prints the item. Silent, exit 0, on an empty backlog. |
-| `list` | Titles plus first body line, top first |
-| `titles` | Bare titles, one per line — what the picker reads |
 | `add` | Append an item — do this eventually |
 | `next` | Insert at the top — do this next |
-| `show` | One item in full |
 | `remove` | Delete an item |
 | `edit` | Open `BACKLOG.md` in `$EDITOR` |
+| `backlog` | Print `BACKLOG.md` — paged through `$PAGER` (else `less -R`) at a terminal, plain stdout otherwise. `--titles` prints bare titles, which is what the picker reads |
+| `current` | Same for `CURRENT.md` |
+| `narrative` | Same for `NARRATIVE.md` |
 | `path` | Where the backlog is, creating an empty one if the repo has none |
 | `--version` | Prints and exits 0, no config needed |
 
-`add`/`next` take `--title` and `--body`; `show`/`remove` take `--item-title`, matched
+`add`/`next` take `--title` and `--body`; `remove` takes `--item-title`, matched
 case- and whitespace-insensitively. Omit them at a terminal and the wrapper prompts —
 title first (so the thought lands before an editor opens), `$EDITOR` for the body, fzf over
 current titles for `--item-title`. Without a terminal, a missing argument is an error that
 prints the available titles rather than a hang.
+
+`backlog`/`current`/`narrative` take `--path` to print the file's path instead of its contents, and
+exit 1 if the file doesn't exist.
 
 ## Which repo
 

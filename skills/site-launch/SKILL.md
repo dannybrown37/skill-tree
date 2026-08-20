@@ -2,6 +2,7 @@
 name: site-launch
 description: "Invoke before a website goes live, or when auditing one that already is — \"is this ready to ship\", \"why does my link look blank when I share it\", \"the site has no analytics\", \"add an RSS feed\". The checklist of things a site needs that aren't visible on the page itself."
 user-invocable: true
+allowed-tools: Read, Grep, Glob, Bash
 ---
 
 # Site Launch
@@ -15,6 +16,28 @@ break the build, so none of them get noticed until someone links the site somewh
 
 Stack-agnostic on purpose: the requirement is stated, the implementation is whatever the
 project already uses. Check what's in the repo before reaching for a new dependency.
+
+## Run the checker first
+
+`site-launch check <build-dir>` answers the mechanical half of this list from the built
+output, so the reading below is spent on what actually failed rather than on crawling HTML:
+
+```bash
+skill-tree site-launch check ./dist          # the built output, not src/
+skill-tree site-launch check ./dist --json   # same verdicts, machine-readable
+```
+
+Exit `0` = nothing failed, `1` = at least one FAIL, `2` = nothing there to check. Each item
+comes back `PASS`, `FAIL`, `NA` (the site doesn't have that thing), or **`MANUAL`** — items
+5, 8, and 9 can only be answered against the deployed origin, so it prints the command to run
+instead of guessing from disk. Redirect stubs and `404.html` are exempted from the page-level
+checks, and a sitemap index's own entries aren't miscounted as pages.
+
+If `skill-tree` isn't on `PATH` in a tool call, run the script directly:
+`"${CLAUDE_PLUGIN_ROOT:-${SKILL_TREE_DIR:-$HOME/projects/skill-tree}}/skills/site-launch/scripts/site-launch"`.
+
+The checker is deliberately narrower than the list: it proves absence, not adequacy. It can
+tell you an `og:image` tag is missing, not that the image is any good.
 
 ## Checklist
 

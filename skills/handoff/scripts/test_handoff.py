@@ -338,37 +338,38 @@ class TestCli:
         assert exit_info.value.code == 0
         assert capsys.readouterr().out.startswith('handoff ')
 
-    def test_list(
+    def test_backlog_prints_the_file(
         self,
         tmp_path: Path,
         capsys: pytest.CaptureFixture[str],
     ) -> None:
         write_backlog(tmp_path)
-        assert main(['list', '--repo', str(tmp_path)]) == 0
+        assert main(['backlog', '--repo', str(tmp_path)]) == 0
         out = capsys.readouterr().out
         assert 'Wire the flag' in out
         assert 'Drop the shim' in out
 
-    def test_titles_are_bare(
+    def test_backlog_titles_are_bare(
         self,
         tmp_path: Path,
         capsys: pytest.CaptureFixture[str],
     ) -> None:
         write_backlog(tmp_path)
-        assert main(['titles', '--repo', str(tmp_path)]) == 0
+        assert main(['backlog', '--titles', '--repo', str(tmp_path)]) == 0
         assert capsys.readouterr().out.split('\n')[:2] == [
             'Wire the flag',
             'Drop the shim',
         ]
 
-    def test_list_empty_backlog_is_not_an_error(
+    @pytest.mark.parametrize('action', ['list', 'titles', 'show'])
+    def test_retired_commands_are_gone(
         self,
         tmp_path: Path,
-        capsys: pytest.CaptureFixture[str],
+        action: str,
     ) -> None:
-        write_backlog(tmp_path, '# Backlog\n')
-        assert main(['list', '--repo', str(tmp_path)]) == 0
-        assert 'empty' in capsys.readouterr().out.casefold()
+        write_backlog(tmp_path)
+        with pytest.raises(SystemExit):
+            main([action, '--repo', str(tmp_path)])
 
     def test_add(self, tmp_path: Path) -> None:
         path = write_backlog(tmp_path)
@@ -385,18 +386,6 @@ class TestCli:
         )
         assert read_items(path)[0].title == 'Now'
 
-    def test_show(
-        self,
-        tmp_path: Path,
-        capsys: pytest.CaptureFixture[str],
-    ) -> None:
-        write_backlog(tmp_path)
-        code = main(
-            ['show', '--repo', str(tmp_path), '--item-title', 'Drop the shim'],
-        )
-        assert code == 0
-        assert 'no callers left' in capsys.readouterr().out
-
     def test_remove_without_a_title_lists_and_fails(
         self,
         tmp_path: Path,
@@ -412,3 +401,56 @@ class TestCli:
             ['remove', '--repo', str(tmp_path), '--item-title', 'nope'],
         )
         assert code == 1
+
+
+class TestDocs:
+    @pytest.mark.parametrize(
+        ('action', 'name'),
+        [
+            ('current', 'CURRENT.md'),
+            ('narrative', 'NARRATIVE.md'),
+            ('backlog', 'BACKLOG.md'),
+        ],
+    )
+    def test_prints_the_file(
+        self,
+        tmp_path: Path,
+        capsys: pytest.CaptureFixture[str],
+        action: str,
+        name: str,
+    ) -> None:
+        path = write_backlog(tmp_path)
+        (path.parent / name).write_text('# Heading\n\nbody text\n')
+        assert main([action, '--repo', str(tmp_path)]) == 0
+        assert 'body text' in capsys.readouterr().out
+
+    @pytest.mark.parametrize('action', ['current', 'narrative', 'backlog'])
+    def test_missing_file_exits_one(
+        self,
+        tmp_path: Path,
+        capsys: pytest.CaptureFixture[str],
+        action: str,
+    ) -> None:
+        (tmp_path / 'docs' / 'handoffs').mkdir(parents=True)
+        assert main([action, '--repo', str(tmp_path)]) == 1
+        assert 'no ' in capsys.readouterr().err
+
+    @pytest.mark.parametrize(
+        ('action', 'name'),
+        [
+            ('current', 'CURRENT.md'),
+            ('narrative', 'NARRATIVE.md'),
+            ('backlog', 'BACKLOG.md'),
+        ],
+    )
+    def test_path_flag_prints_the_path(
+        self,
+        tmp_path: Path,
+        capsys: pytest.CaptureFixture[str],
+        action: str,
+        name: str,
+    ) -> None:
+        path = write_backlog(tmp_path)
+        (path.parent / name).write_text('x\n')
+        assert main([action, '--path', '--repo', str(tmp_path)]) == 0
+        assert capsys.readouterr().out.strip() == str(path.parent / name)

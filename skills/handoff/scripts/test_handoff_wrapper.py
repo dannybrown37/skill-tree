@@ -71,10 +71,10 @@ class TestWrapper:
         assert result.returncode == 0
         assert result.stdout.startswith('handoff ')
 
-    def test_list_uses_the_repo_containing_cwd(self, repo: Path) -> None:
+    def test_backlog_uses_the_repo_containing_cwd(self, repo: Path) -> None:
         nested = repo / 'src'
         nested.mkdir()
-        result = run(WRAPPER, 'list', cwd=nested)
+        result = run(WRAPPER, 'backlog', cwd=nested)
         assert result.returncode == 0
         assert 'Wire the flag' in result.stdout
 
@@ -112,14 +112,14 @@ class TestWrapper:
         self,
         tmp_path: Path,
     ) -> None:
-        result = run(WRAPPER, 'list', cwd=tmp_path)
+        result = run(WRAPPER, 'backlog', cwd=tmp_path)
         assert result.returncode != 0
         assert 'not inside a git repo' in result.stderr
 
     def test_explicit_repo_flag_wins(self, repo: Path, tmp_path: Path) -> None:
         outside = tmp_path / 'outside'
         outside.mkdir()
-        result = run(WRAPPER, 'list', '--repo', str(repo), cwd=outside)
+        result = run(WRAPPER, 'backlog', '--repo', str(repo), cwd=outside)
         assert result.returncode == 0
         assert 'Wire the flag' in result.stdout
 
@@ -186,3 +186,40 @@ class TestSessionStart:
             env={'HANDOFF_DIR': str(elsewhere)},
         )
         assert 'Over here.' in result.stdout
+
+
+class TestDocCommands:
+    @pytest.mark.parametrize(
+        ('command', 'name'),
+        [
+            ('current', 'CURRENT.md'),
+            ('narrative', 'NARRATIVE.md'),
+        ],
+    )
+    def test_prints_without_a_terminal(
+        self,
+        repo: Path,
+        command: str,
+        name: str,
+    ) -> None:
+        (repo / 'docs' / 'handoffs' / name).write_text('body text\n')
+        result = run(WRAPPER, command, cwd=repo)
+        assert result.returncode == 0
+        assert 'body text' in result.stdout
+
+    @pytest.mark.parametrize('command', ['current', 'narrative'])
+    def test_missing_file_is_an_error(self, repo: Path, command: str) -> None:
+        result = run(WRAPPER, command, cwd=repo)
+        assert result.returncode != 0
+        assert 'no ' in result.stderr
+
+    @pytest.mark.parametrize('command', ['current', 'narrative', 'backlog'])
+    def test_listed_in_usage(self, repo: Path, command: str) -> None:
+        assert command in run(WRAPPER, '--help', cwd=repo).stdout
+
+
+class TestRetiredCommands:
+    @pytest.mark.parametrize('command', ['list', 'titles', 'show'])
+    def test_gone_from_usage(self, repo: Path, command: str) -> None:
+        usage = run(WRAPPER, '--help', cwd=repo).stdout
+        assert f'  {command}' not in usage

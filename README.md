@@ -127,7 +127,7 @@ Skills that ship their own CLI are reachable by name, with arguments passed stra
 
 ```bash
 skill-tree screenshot latest
-skill-tree handoff list       # this repo's backlog; --pick to choose another repo
+skill-tree handoff backlog    # this repo's backlog; --pick to choose another repo
 ```
 
 `handoff` also gets a bare name on `PATH` (`~/.local/bin/handoff`) -- capturing a backlog
@@ -189,7 +189,7 @@ done-claims with evidence — accumulates), and `BACKLOG.md` (what isn't next ye
 
 ```bash
 handoff add --title "..." --body "..."   # capture for later; `next` puts it on top
-handoff list                             # what's queued
+handoff backlog                          # what's queued, in a pager
 handoff pop                              # claim the top item into CURRENT.md
 ```
 
