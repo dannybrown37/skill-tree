@@ -3,8 +3,7 @@
 A shared home for reusable agent skills — the actual implementation behind each skill, not just
 its playbook. Skills here are meant to be genuinely portable: usable from any repo, on any
 machine, under either Claude Code or GitHub Copilot CLI, independent of any one project's own
-conventions. A `SKILL.md` alone is a few lines anyone can write; what makes a skill worth
-keeping around system-wide is the tooling behind it, and that's what lives here.
+conventions.
 
 Both hosts read the same `SKILL.md` spec, so portability is an install-and-hooks problem rather
 than a content one — see [Installing](#installing).
@@ -94,15 +93,26 @@ git clone <this repo> ~/projects/skill-tree
 ### GitHub Copilot CLI
 
 Copilot reads the same `SKILL.md` spec, so the skills themselves need no translation — but it
-has no plugin or marketplace concept, so symlinking the skills into place *is* the install:
+has no plugin or marketplace concept, so symlinking the skills into place *is* the install.
+One-liner for a machine that's never cloned this repo:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/dannybrown37/skill-tree/main/scripts/bootstrap.sh | bash -s -- --copilot
+```
+
+That clones (or pulls, if it already exists) `~/projects/skill-tree` and runs `install.sh
+--copilot` for you. Equivalent manual steps:
 
 ```bash
 git clone <this repo> ~/projects/skill-tree
 ~/projects/skill-tree/scripts/install.sh --copilot
 ```
 
-That links **every** skill into `~/.copilot/skills/<name>` and generates
-`~/.copilot/hooks/skill-tree.json`. Two differences from the Claude side worth knowing:
+That links **every** skill into `~/.copilot/skills/<name>`, generates
+`~/.copilot/hooks/skill-tree.json`, symlinks `~/.copilot/copilot-instructions.md` to your
+`~/.claude/CLAUDE.md` (so global instructions apply to both hosts from one file), and points
+`~/.copilot/settings.json`'s `statusLine` at a Copilot-flavored version of the Claude status
+line. Two differences from the Claude side worth knowing:
 
 - **Every skill lands bare.** Copilot has no `skill-tree:` namespace to keep the less-used ones
   behind, so there's no shortcut/namespace tradeoff to make — unlinked would just mean
