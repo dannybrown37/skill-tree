@@ -179,6 +179,25 @@ didn't create itself, and prints a note instead of silently editing your shell r
 `~/.local/bin` isn't on `PATH` or the repo isn't at the default `~/projects/skill-tree`
 location (set `$SKILL_TREE_DIR` in that case).
 
+## Handoffs and the backlog
+
+`handoff` keeps three files per repo under `docs/handoffs/`: `CURRENT.md` (the re-entry
+prompt — one next action, replaced each time), `NARRATIVE.md` (decisions, dead ends,
+done-claims with evidence — accumulates), and `BACKLOG.md` (what isn't next yet).
+
+`BACKLOG.md` has a CLI so an agent never reads the whole file to get one item:
+
+```bash
+handoff add --title "..." --body "..."   # capture for later; `next` puts it on top
+handoff list                             # what's queued
+handoff pop                              # claim the top item into CURRENT.md
+```
+
+A `SessionStart` hook on both hosts prints `CURRENT.md` if there is one, else the top backlog
+item's title, else nothing. It never pops — claiming work is the user's call.
+
+Diagrams: [`skills/handoff/references/flow.md`](skills/handoff/references/flow.md).
+
 ## Dev mode
 
 The plugin manager installs a *tagged* release into a version-pinned directory under
