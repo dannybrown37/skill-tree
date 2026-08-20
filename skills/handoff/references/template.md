@@ -1,7 +1,7 @@
 # Handoff templates
 
-Two files. The re-entry prompt is consumed and replaced each session; the narrative is
-appended to and kept.
+Three files. The re-entry prompt is consumed and replaced each session; the narrative is
+appended to and kept; the backlog drains as items are claimed.
 
 Both are live state, not session-end paperwork: as each task finishes, append its done-claim
 plus evidence to the narrative and rewrite the re-entry prompt's next action / acceptance
@@ -82,3 +82,25 @@ Append a section per handoff. Newest first, so the top of the file is the live s
 
 - <the non-obvious thing about this codebase or environment that cost real time>
 ```
+
+---
+
+## `BACKLOG.md` — what to do after this
+
+Written by the `handoff` CLI, not by hand (`handoff add`, `handoff next`). The shape, for
+reading a file someone else's session wrote:
+
+```markdown
+# Backlog
+
+## <Item title>
+
+<Free-form body: the file:line, the constraint, the reason it's worth doing.>
+
+## <Next item title>
+
+<...>
+```
+
+Top is next. `handoff pop` takes the top item and makes it `CURRENT.md`'s next action.
+See `backlog.md`.

@@ -44,6 +44,7 @@ def skill_names() -> list[str]:
     ('link', 'target'),
     [
         ('.local/bin/skill-tree', 'scripts/skill-tree'),
+        ('.local/bin/handoff', 'skills/handoff/scripts/handoff'),
     ],
 )
 def test_install_links_are_created(home: Path, link: str, target: str) -> None:
@@ -210,6 +211,7 @@ class TestCopilotHooks:
 
         assert any('install.sh --copilot' in c for c in commands)
         assert any('check_repo_update.sh' in c for c in commands)
+        assert any('handoff_session_start.sh' in c for c in commands)
 
     def test_is_rewritten_in_place_on_reinstall(self, home: Path) -> None:
         """A stale config we generated is ours to refresh."""

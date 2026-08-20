@@ -1,0 +1,223 @@
+#!/usr/bin/env bash
+# Interactive `handoff` CLI: fzf pickers and prompts around handoff_cli.py.
+#
+# The Python side never prompts -- it's called from hooks and tool calls
+# where there's no terminal. Everything that needs one lives here.
+#
+# Repo scope: a bare `handoff` acts on the repo containing $PWD. Anything
+# that can't find one (or an explicit `--pick`) offers the repos under
+# $PROJECTS_DIR that already have a docs/handoffs directory, which is what
+# `skill-tree handoff` runs into when invoked from outside a project.
+set -euo pipefail
+
+_script_dir="$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")"
+
+_handoff_py() {
+	uv run python "${_script_dir}/handoff_cli.py" "$@"
+}
+
+_die() {
+	echo "handoff: $*" >&2
+	exit 1
+}
+
+_have_tty() {
+	[[ -t 0 && -t 1 ]]
+}
+
+_need_fzf() {
+	command -v fzf >/dev/null 2>&1 ||
+		_die "this needs fzf, or pass the argument explicitly (see --help)"
+}
+
+# Repos worth offering: a git repo directly under $PROJECTS_DIR that already
+# keeps handoffs. A repo with no docs/handoffs has no backlog to browse, and
+# listing every project would bury the ones that do.
+_repo_candidates() {
+	local projects_dir="${PROJECTS_DIR:-${HOME}/projects}" dir
+	for dir in "${projects_dir}"/*/; do
+		# `if`, not `[[ ]] &&` -- under `set -e` a bare `&&` as the loop's
+		# last command makes the function's exit status track whichever
+		# directory sorted last, killing the pipe this feeds.
+		if [[ -e "${dir}.git" && -d "${dir}docs/handoffs" ]]; then
+			echo "${dir%/}"
+		fi
+	done
+}
+
+_pick_repo() {
+	_need_fzf
+	local candidates selection
+	candidates="$(_repo_candidates)"
+	[[ -n "${candidates}" ]] ||
+		_die "no repos with a docs/handoffs directory under ${PROJECTS_DIR:-${HOME}/projects}"
+
+	selection="$(fzf --prompt='Which repo? ' --height=40% --reverse \
+		<<<"${candidates}")" || true
+	[[ -n "${selection}" ]] || _die "nothing selected"
+	echo "${selection}"
+}
+
+# True when the args already name a repo, so we don't second-guess them.
+_has_repo_flag() {
+	local arg
+	for arg in "$@"; do
+		[[ "${arg}" == "--repo" || "${arg}" == "--repo="* ]] && return 0
+	done
+	return 1
+}
+
+# Inside a repo? Same walk the Python side does, kept here so the wrapper can
+# decide whether to offer the picker before paying for an interpreter start.
+_in_repo() {
+	local dir="${PWD}"
+	while [[ "${dir}" != / ]]; do
+		[[ -e "${dir}/.git" ]] && return 0
+		dir="$(dirname "${dir}")"
+	done
+	return 1
+}
+
+_pick_title() {
+	_need_fzf
+	local titles selection
+	titles="$(_handoff_py titles "$@")"
+	[[ -n "${titles}" ]] || _die "the backlog is empty"
+
+	selection="$(fzf --prompt='Which item? ' --height=40% --reverse \
+		<<<"${titles}")" || true
+	[[ -n "${selection}" ]] || _die "nothing selected"
+	echo "${selection}"
+}
+
+# $EDITOR for a multi-line body, so an item can be more than one line without
+# fighting a shell prompt. An empty buffer means "no body", not an error.
+_compose_body() {
+	local editor="${EDITOR:-vi}" file
+	file="$(mktemp -t handoff-item-XXXXXX.md)"
+	trap 'rm -f "${file}"' RETURN
+	"${editor}" "${file}" >/dev/tty 2>&1 || true
+	cat "${file}"
+}
+
+_usage() {
+	cat <<'EOF'
+Usage: handoff <command> [options]
+
+  pop                Claim the top item: remove it from BACKLOG.md and make
+                     it CURRENT.md's next action. What agents call.
+  list               This repo's backlog, top first
+  titles             Bare titles, one per line
+  add                Add an item to the bottom -- do this eventually
+  next               Add an item to the top -- do this next
+  show               Print one item in full
+  remove             Delete an item
+  edit               Open BACKLOG.md in $EDITOR
+  --version          Print the version
+
+Options: --repo <path> acts on that repo; --pick chooses one with fzf from
+the repos under $PROJECTS_DIR that keep handoffs. With neither, the repo
+containing $PWD is used.
+
+add/next/show/remove prompt for what you leave out when there's a terminal:
+--title, --body, and --item-title (fzf over the current titles).
+EOF
+}
+
+_args=()
+_pick=''
+for arg in "$@"; do
+	if [[ "${arg}" == "--pick" ]]; then
+		_pick=1
+		continue
+	fi
+	_args+=("${arg}")
+done
+set -- "${_args[@]+"${_args[@]}"}"
+
+case "${1:-}" in
+'' | -h | --help | help)
+	_usage
+	exit 0
+	;;
+--version)
+	_handoff_py --version
+	exit 0
+	;;
+esac
+
+_command="$1"
+shift
+
+# Resolve which repo before anything else, so every subcommand below shares
+# one answer -- and so `skill-tree handoff` from outside a project offers the
+# picker instead of failing with "not inside a git repo".
+_scope=()
+if ! _has_repo_flag "$@"; then
+	if [[ -n "${_pick}" ]]; then
+		_scope=(--repo "$(_pick_repo)")
+	elif [[ -z "${HANDOFF_DIR:-}" ]] && ! _in_repo; then
+		_have_tty ||
+			_die "not inside a git repo -- pass --repo <path>"
+		_scope=(--repo "$(_pick_repo)")
+	fi
+fi
+
+case "${_command}" in
+add | next)
+	_title=''
+	_body=''
+	_rest=()
+	while (($#)); do
+		case "$1" in
+		--title)
+			_title="${2:-}"
+			shift 2
+			;;
+		--body)
+			_body="${2:-}"
+			shift 2
+			;;
+		*)
+			_rest+=("$1")
+			shift
+			;;
+		esac
+	done
+
+	# Title first, deliberately: the thought being captured shouldn't have
+	# to survive scrolling an editor before it gets written down.
+	if [[ -z "${_title}" ]]; then
+		_have_tty || _die "${_command}: --title is required without a terminal"
+		read -r -p 'Title: ' _title
+	fi
+	[[ -n "${_title}" ]] || _die "${_command}: an item needs a title"
+
+	if [[ -z "${_body}" ]] && _have_tty; then
+		_body="$(_compose_body)"
+	fi
+
+	_handoff_py "${_command}" "${_scope[@]+"${_scope[@]}"}" \
+		--title "${_title}" --body "${_body}" \
+		"${_rest[@]+"${_rest[@]}"}"
+	;;
+show | remove)
+	if ! printf '%s\n' "$@" | grep -qx -- '--item-title'; then
+		if _have_tty; then
+			_title="$(_pick_title "${_scope[@]+"${_scope[@]}"}")"
+			set -- --item-title "${_title}" "$@"
+		fi
+	fi
+	_handoff_py "${_command}" "${_scope[@]+"${_scope[@]}"}" "$@"
+	;;
+edit)
+	_path="$(_handoff_py path "${_scope[@]+"${_scope[@]}"}" "$@")"
+	echo "${_path}"
+	# shellcheck source=../../../scripts/lib/open-in-editor.sh
+	source "${_script_dir}/../../../scripts/lib/open-in-editor.sh"
+	open_in_editor "${_path}"
+	;;
+*)
+	_handoff_py "${_command}" "${_scope[@]+"${_scope[@]}"}" "$@"
+	;;
+esac

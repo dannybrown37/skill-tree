@@ -4,10 +4,30 @@ Discipline fails in long autonomous runs — that's exactly where drift bites. H
 two halves of the loop into mechanism. The two halves are **not** equally automatable, so be
 clear-eyed about which is which.
 
+## This repo already ships it
+
+`skills/handoff/scripts/handoff_session_start.sh` is wired as a `SessionStart` hook for both
+hosts — Claude via `hooks/hooks.json`, Copilot via the config `scripts/install.sh` generates.
+Nothing to configure; the rest of this file is why it does what it does, and what to do in a
+repo that doesn't have skill-tree installed.
+
+What it prints, in order:
+
+1. `CURRENT.md`, if there is one, plus a single line reminding the session to keep it and
+   `NARRATIVE.md` current as each task lands.
+2. Otherwise the **title only** of the top `BACKLOG.md` item, plus "confirm with the user
+   before starting it."
+3. Otherwise nothing at all.
+
+Two deliberate limits. It never injects the playbook itself — that's ~2k tokens on every
+session for something the agent can invoke by name when it's actually writing a handoff. And
+it never runs `handoff pop`: a hook claiming work nobody asked for is the human-in-the-loop
+violation the skill spends a section warning about.
+
 ## Reading is fully automatable
 
 `SessionStart` runs at the beginning of a session and **its stdout is added to the model's
-context**. That makes the resume half free:
+context**. That's what makes the above possible; the hand-rolled minimum is:
 
 ```json
 {

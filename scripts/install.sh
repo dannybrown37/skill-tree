@@ -150,6 +150,12 @@ _install_claude() {
 	# CLI in here from a shell, without starting a Claude session.
 	_link "${_repo_root}/scripts/skill-tree" "${HOME}/.local/bin/skill-tree"
 
+	# `handoff` earns a bare name where the retired `backlog`/`bl` didn't:
+	# capturing an item is a thing you do mid-thought, several times a day,
+	# and `skill-tree handoff add` is enough friction to lose the thought.
+	_link "${_repo_root}/skills/handoff/scripts/handoff" \
+		"${HOME}/.local/bin/handoff"
+
 	# Retire the backlog CLI shortcuts a machine that ran an earlier install
 	# picked up. Same back-into-this-checkout guard as the skill retirement
 	# loop above.
@@ -232,6 +238,11 @@ _write_copilot_hooks() {
         "type": "command",
         "bash": "${_repo_root}/scripts/install.sh --copilot",
         "timeoutSec": 30
+      },
+      {
+        "type": "command",
+        "bash": "${_repo_root}/skills/handoff/scripts/handoff_session_start.sh",
+        "timeoutSec": 15
       }
     ]
   }

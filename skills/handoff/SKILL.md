@@ -17,18 +17,17 @@ else.
 
 Two directions live here — **writing** one before context runs out, and **resuming** from one.
 
-## The two-file split
+## The three-file split
 
 Don't put everything in one document. One file is always either too long to load or too
-compressed to be useful, because it's being asked to do two jobs that pull in opposite
-directions:
+compressed to be useful, because it's being asked to do jobs that pull in opposite directions:
 
-| | Persistent narrative | Ephemeral re-entry prompt |
-| --- | --- | --- |
-| **Answers** | What was done and decided, and why | How to rebuild working context, right now |
-| **Lifespan** | Lives with the project, accumulates | Consumed by the next session, then dead |
-| **Optimized for** | Completeness, durability, an audit trail | Brevity — it's loaded before any work starts |
-| **Default path** | `docs/handoffs/NARRATIVE.md` | `docs/handoffs/CURRENT.md` |
+| | Persistent narrative | Ephemeral re-entry prompt | Backlog |
+| --- | --- | --- | --- |
+| **Answers** | What was done and decided, and why | How to rebuild working context, right now | What to do after this |
+| **Lifespan** | Lives with the project, accumulates | Consumed by the next session, then dead | Drains as items are claimed |
+| **Optimized for** | Completeness, durability, an audit trail | Brevity — it's loaded before any work starts | Capture — writing an item must be cheap |
+| **Default path** | `docs/handoffs/NARRATIVE.md` | `docs/handoffs/CURRENT.md` | `docs/handoffs/BACKLOG.md` |
 
 The re-entry prompt does not restate the narrative — it *points* at it, plus the code, plus
 the tests, and says in what order to read them. The incoming agent reconstructs from durable
@@ -40,6 +39,25 @@ need to know *which* agent was working from a summary rather than firsthand cont
 
 If the repo already has a convention (a `HANDOFF.md`, `.claude/handoffs/`, an
 `architecture.md`, a path named in `CLAUDE.md`), use that rather than inventing this layout.
+
+## The backlog
+
+Work that surfaces mid-task and isn't next belongs in `BACKLOG.md`, not parked in the
+re-entry prompt — `CURRENT.md` holds exactly one next action, and a to-do list stapled to it
+is how it stops being short enough to read.
+
+The `handoff` CLI is the only thing that should touch `BACKLOG.md`; reading the whole file to
+get one item is the token cost this exists to avoid. It's one backlog per repo, resolved from
+cwd.
+
+- `handoff add --title "..." --body "..."` — capture something for later (`next` for the top)
+- `handoff list` — what's queued
+- `handoff pop` — **claim the top item**: removes it from `BACKLOG.md` and writes it into
+  `CURRENT.md` as the next action, in one step. Ask the user before doing this.
+
+Full surface, repo selection, and the flags in `references/backlog.md`. If `handoff` isn't on
+`PATH` in a tool call, run
+`"${CLAUDE_PLUGIN_ROOT:-${SKILL_TREE_DIR:-$HOME/projects/skill-tree}}/skills/handoff/scripts/handoff"`.
 
 ## Reference artifacts, don't absorb them
 
@@ -93,6 +111,7 @@ Appended to across sessions. Ordered by how much of it can't be recovered otherw
    cost an hour to find.
 
 `references/template.md` has both files as fill-in skeletons.
+`references/flow.md` diagrams the lifecycle and which writer owns which file.
 
 ## Resuming
 
@@ -131,6 +150,9 @@ Per task completed, in the same turn:
 
 Also:
 
+- When work surfaces that isn't next — a follow-up, a cleanup, something the user mentioned
+  in passing — `handoff add` it in the same turn. Anything parked in `CURRENT.md` "for later"
+  is either lost or in the way.
 - Update the re-entry prompt whenever the next action changes, even mid-task — a plan that
   changed and a task that finished are the same event as far as this file is concerned.
 - On close, **replace** the re-entry prompt. One active re-entry prompt, always. Superseding
@@ -165,4 +187,6 @@ the failed attempts most of all.
 | The user's earlier "no" gets reversed | Decisions and constraints skipped |
 | Everything after the last handoff is lost | Write-back only happened at session end |
 | Next action points at work already finished | Re-entry prompt not updated when the task completed |
+| An item was claimed and then vanished | `pop` ran but `CURRENT.md` was never kept current after |
+| The re-entry prompt grew a to-do list | Future work left in `CURRENT.md` instead of `handoff add`ed |
 | Evidence is vague, reasons are missing | Narrative written from memory at session end instead of per task |

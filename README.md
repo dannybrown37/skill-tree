@@ -22,7 +22,7 @@ than a content one. See [Installing](#installing).
 
 The plugin install is what makes every skill available, always as `skill-tree:<name>`. It also
 registers a `SessionStart` hook that runs `scripts/install.sh` the next time a session starts,
-which puts the `skill-tree` entry point on `PATH` (`~/.local/bin/`).
+which puts the `skill-tree` and `handoff` entry points on `PATH` (`~/.local/bin/`).
 
 **Manual clone**, or to (re-)run setup yourself:
 
@@ -127,7 +127,11 @@ Skills that ship their own CLI are reachable by name, with arguments passed stra
 
 ```bash
 skill-tree screenshot latest
+skill-tree handoff list       # this repo's backlog; --pick to choose another repo
 ```
+
+`handoff` also gets a bare name on `PATH` (`~/.local/bin/handoff`) -- capturing a backlog
+item is a mid-thought action, and the longer form is enough friction to lose the thought.
 
 Not every skill has one — `verify` and `ui-designer` are pure playbook. Those tell you so and
 point at `skill-tree show <name>`.
