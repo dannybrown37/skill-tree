@@ -1,21 +1,20 @@
 # skill-tree
 
-A shared home for reusable agent skills — the actual implementation behind each skill, not just
-its playbook. Skills here are meant to be genuinely portable: usable from any repo, on any
-machine, under either Claude Code or GitHub Copilot CLI, independent of any one project's own
-conventions.
+This is my LLM agent skill repo. There are many like it, but this one is mine.
+
+Includes the actual implementation behind each skill,
+not just its playbook. Skills here are meant to be portable:
+usable on any repo, machine, or project.
 
 Both hosts read the same `SKILL.md` spec, so portability is an install-and-hooks problem rather
-than a content one — see [Installing](#installing).
+than a content one. See [Installing](#installing).
 
 ## Layout
 
-This repo is itself a single installable Claude Code plugin (`.claude-plugin/`), and also its
-own marketplace, so it can be added directly via `/plugin marketplace add`. Each skill gets a
-`skills/<name>/SKILL.md` (the playbook) plus whatever implementation it needs under its own
-`scripts/` and `references/`, following the same three-layer model (metadata / playbook /
-resources) any Claude Code skill uses — colocated with the skill itself, not in a shared
-top-level directory.
+Each skill gets its own `skills/<name>/SKILL.md` (the playbook) plus whatever implementation
+it needs under its own `scripts/` and `references/`, following the same three-layer model
+(metadata / playbook / resources) any Claude Code skill uses, colocated with the skill itself,
+not in a shared top-level directory.
 
 <!-- skills:start -->
 | Skill | What it does |
