@@ -9,6 +9,66 @@ usable on any repo, machine, or project.
 Both hosts read the same `SKILL.md` spec, so portability is an install-and-hooks problem rather
 than a content one. See [Installing](#installing).
 
+## Installing
+
+### Claude Code
+
+**From the marketplace (recommended):**
+
+```
+/plugin marketplace add dannybrown37/skill-tree
+/plugin install skill-tree@skill-tree
+```
+
+The plugin install is what makes every skill available, always as `skill-tree:<name>`. It also
+registers a `SessionStart` hook that runs `scripts/install.sh` the next time a session starts,
+which puts the `skill-tree` entry point on `PATH` (`~/.local/bin/`).
+
+**Manual clone**, or to (re-)run setup yourself:
+
+```bash
+git clone <this repo> ~/projects/skill-tree
+~/projects/skill-tree/scripts/install.sh
+```
+
+### GitHub Copilot CLI
+
+Copilot reads the same `SKILL.md` spec, so the skills need no translation. But Copilot doesn't
+do plugins, so you symlink them in instead.
+
+Never cloned this repo on this machine? One command:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/dannybrown37/skill-tree/main/scripts/bootstrap.sh | bash -s -- --copilot
+```
+
+What the installer does for Copilot:
+
+- Links every skill into `~/.copilot/skills/<name>`.
+- Writes a hook file at `~/.copilot/hooks/skill-tree.json`.
+- Points `~/.copilot/copilot-instructions.md` at your `~/.claude/CLAUDE.md`, so you only
+  maintain one set of global instructions.
+- Sets `~/.copilot/settings.json`'s `statusLine` to a Copilot-flavored version of the Claude one.
+
+Two differences from Claude:
+
+- No `skill-tree:` namespace, just bare skill names.
+- The hook file is generated with your checkout path hardcoded. If you move the repo, you must reinstall.
+
+On every Copilot session start, the hook updates your clone and re-runs the install, so new
+skills link themselves. It only pulls when the pull provably can't lose anything: clean
+worktree, on the default branch, strictly behind (a fast-forward). It prints one line when it
+does. If you're mid-change — dirty tree, feature branch, diverged history — it leaves the repo
+alone and just prints the command to run yourself.
+
+Flags: bare `install.sh` does the Claude side, plus Copilot only if it sees Copilot on the
+machine (`~/.copilot` exists, or `copilot` is on `PATH`). `--claude` and `--copilot` each force
+one side; pass both for both.
+
+One dependency: `audit-skills` shells out to `uv run python`, so it needs `uv` installed.
+Everything else is pure playbook and runs anywhere.
+
+
 ## Layout
 
 Each skill gets its own `skills/<name>/SKILL.md` (the playbook) plus whatever implementation
@@ -44,7 +104,7 @@ repo-level dev tooling like `check_skill_structure.py`, not part of any skill's 
 
 ## The `skill-tree` CLI
 
-One entry point for everything in here, from an ordinary shell — no Claude session needed.
+One entry point for everything in here, from an ordinary shell (no Claude session needed).
 It exists for two reasons: the skills otherwise only document themselves *inside* Claude, and
 the commands behind them are scattered across `scripts/` and `skills/*/scripts/`.
 
@@ -52,15 +112,15 @@ A bare `skill-tree` prints the whole surface — every command *and* every skill
 keeping track of it all is the point:
 
 ```bash
-skill-tree                 # commands + skills (the default; `help` does the same)
-skill-tree list            # just the skills, one line each
-skill-tree list --json     # the same, machine-readable
-skill-tree show verify     # print a skill's full playbook (--raw keeps frontmatter)
-skill-tree doctor          # this checkout, dev-link state, which CLIs are wired up
-skill-tree install         # re-run scripts/install.sh
-skill-tree dev --on        # dev mode (see below)
-skill-tree check           # validate every skill's frontmatter and bundled scripts
-skill-tree test            # the test suite
+skill-tree                    # commands + skills (the default; `help` does the same)
+skill-tree list               # just the skills, one line each
+skill-tree list --json        # the same, machine-readable
+skill-tree show <skill-name>  # print a skill's full playbook (--raw keeps frontmatter)
+skill-tree doctor             # this checkout, dev-link state, which CLIs are wired up
+skill-tree install            # re-run scripts/install.sh
+skill-tree dev --on           # dev mode (see below)
+skill-tree check              # validate every skill's frontmatter and bundled scripts
+skill-tree test               # the test suite
 ```
 
 Skills that ship their own CLI are reachable by name, with arguments passed straight through:
@@ -76,70 +136,7 @@ It's a dispatcher, not a reimplementation — each sub-command delegates to the 
 already does the job, and propagates its exit code. `install.sh` puts it on `PATH` at
 `~/.local/bin/skill-tree`.
 
-## Installing
 
-### Claude Code
-
-**From the marketplace (recommended):**
-
-```
-/plugin marketplace add dannybrown37/skill-tree
-/plugin install skill-tree@skill-tree
-```
-
-The plugin install is what makes every skill available, always as `skill-tree:<name>`. It also
-registers a `SessionStart` hook that runs `scripts/install.sh` the next time a session starts,
-which puts the `skill-tree` entry point on `PATH` (`~/.local/bin/`).
-
-**Manual clone**, or to (re-)run setup yourself:
-
-```bash
-git clone <this repo> ~/projects/skill-tree
-~/projects/skill-tree/scripts/install.sh
-```
-
-### GitHub Copilot CLI
-
-Copilot reads the same `SKILL.md` spec, so the skills themselves need no translation — but it
-has no plugin or marketplace concept, so symlinking the skills into place *is* the install.
-One-liner for a machine that's never cloned this repo:
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/dannybrown37/skill-tree/main/scripts/bootstrap.sh | bash -s -- --copilot
-```
-
-That clones (or pulls, if it already exists) `~/projects/skill-tree` and runs `install.sh
---copilot` for you. Equivalent manual steps:
-
-```bash
-git clone <this repo> ~/projects/skill-tree
-~/projects/skill-tree/scripts/install.sh --copilot
-```
-
-That links **every** skill into `~/.copilot/skills/<name>`, generates
-`~/.copilot/hooks/skill-tree.json`, symlinks `~/.copilot/copilot-instructions.md` to your
-`~/.claude/CLAUDE.md` (so global instructions apply to both hosts from one file), and points
-`~/.copilot/settings.json`'s `statusLine` at a Copilot-flavored version of the Claude status
-line. Two differences from the Claude side worth knowing:
-
-- **Every skill lands bare.** Copilot has no `skill-tree:` namespace to keep the less-used ones
-  behind, so there's no shortcut/namespace tradeoff to make — unlinked would just mean
-  unreachable.
-- **The hook config is generated, not symlinked.** Copilot's hook schema has no
-  `${CLAUDE_PLUGIN_ROOT}` equivalent, so the checkout path is baked in at install time. Re-run
-  `install.sh --copilot` after moving the checkout. The file is only ever overwritten while it
-  still carries its `"_source": "skill-tree"` marker — delete that line to take ownership of it.
-
-The generated `sessionStart` hook re-runs the install (so new skills link themselves) and checks
-whether the checkout is behind its remote. Unlike the Claude side it **reports** rather than
-pulls: this clone is one you might have uncommitted work in.
-
-With no flags, `install.sh` runs the Claude side and adds the Copilot side only if Copilot is
-present (`~/.copilot` exists, or `copilot` is on `PATH`). `--claude` and `--copilot` force one
-side each; pass both for both.
-
-One skill, `audit-skills`, shells out to `uv run python` and needs `uv` on the machine. The
-rest are pure playbook and work anywhere.
 
 ### What installing grants: your screenshots folder
 

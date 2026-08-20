@@ -225,12 +225,12 @@ _write_copilot_hooks() {
     "sessionStart": [
       {
         "type": "command",
-        "bash": "${_repo_root}/scripts/install.sh --copilot",
+        "bash": "${_repo_root}/scripts/check_repo_update.sh",
         "timeoutSec": 30
       },
       {
         "type": "command",
-        "bash": "${_repo_root}/scripts/check_repo_update.sh",
+        "bash": "${_repo_root}/scripts/install.sh --copilot",
         "timeoutSec": 30
       }
     ]
