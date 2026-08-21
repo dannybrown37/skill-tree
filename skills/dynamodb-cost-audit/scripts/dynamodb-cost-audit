@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+# The dynamodb-cost-audit checklist's deterministic half, over IaC.
+#
+# Thin on purpose -- all argument handling lives in the Python. The one
+# thing this wrapper decides is the interpreter: CloudFormation *YAML*
+# needs PyYAML, which is the CLI's only (lazy, optional) dependency, so
+# prefer `uv` when it's there and fall back to a bare python3 otherwise.
+# JSON templates and .tf sources are stdlib-only either way, and the
+# Python says so plainly if a YAML file needs what isn't installed.
+set -euo pipefail
+
+_here="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+_cli="${_here}/dynamodb_cost_audit_cli.py"
+
+if command -v uv >/dev/null 2>&1; then
+	exec uv run --quiet --with pyyaml python "${_cli}" "$@"
+fi
+
+exec python3 "${_cli}" "$@"

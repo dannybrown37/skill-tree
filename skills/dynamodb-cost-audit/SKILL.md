@@ -15,6 +15,27 @@ capacity, storage, backups, import/export, data transfer, streams.
 Work the list in order. The early items are usually worth more than everything below them
 combined.
 
+## 0. Run the CLI first
+
+Most of this checklist is decidable from infrastructure-as-code, with no AWS credentials, on a
+table that doesn't exist yet:
+
+```bash
+"${CLAUDE_PLUGIN_ROOT:-${SKILL_TREE_DIR:-$HOME/projects/skill-tree}}/skills/dynamodb-cost-audit/scripts/dynamodb-cost-audit" .
+# or, with the plugin installed:
+skill-tree dynamodb-cost-audit .        # a bare run audits cwd
+```
+
+It reads CloudFormation-shaped JSON/YAML (so CDK's `cdk.out/*.template.json`, SAM and
+Serverless Framework too), `terraform show -json` output, and `.tf` sources directly. It
+reports sections 3-8 below where the template settles them, and everything else as MANUAL with
+the command to run. `--json` for machine-readable output; exit 1 means findings.
+
+What it provably cannot see is where the biggest savings are -- item size, consumed vs.
+provisioned, which indexes nobody reads. Those need metrics, and the report names them rather
+than staying quiet. Anything the template leaves unresolved (a `Ref`, a `var.`) reads as
+unknown, not as a finding, so a bare `.tf` checkout under-reports rather than lying.
+
 ## 1. Item size, and the write amplification behind it
 
 Every update pays the full size of the larger of the old and new item. Not the delta. This
@@ -126,6 +147,12 @@ specialist before flipping a large table).
 - Export to S3 for anything downstream. No read costs, no ETL pipeline to maintain, since AWS
   dumps to S3 on a button press. Incremental export exists now too.
 
+## 8. Streams
+
+A stream record carries whichever images the view type names, so `NEW_AND_OLD_IMAGES` pays the
+item size twice on every update -- the §1 write-amplification problem, downstream. Narrow to
+`NEW_IMAGE` or `KEYS_ONLY` unless a consumer genuinely diffs against the old image.
+
 ## Audit checklist
 
 Run top to bottom; stop when the bill stops hurting.
@@ -141,6 +168,7 @@ Run top to bottom; stop when the bill stops hurting.
 - [ ] Storage over ~42% of throughput cost anywhere? (→ Standard-IA)
 - [ ] Any table holding items with a known validity period and no TTL?
 - [ ] PITR enabled?
+- [ ] Any stream on `NEW_AND_OLD_IMAGES` whose consumer never reads the old image?
 - [ ] Any hand-rolled ETL that export-to-S3 would replace?
 
 ## Related
