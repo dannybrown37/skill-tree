@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+# The cli-ergonomics skill's binary rules, over a working tree.
+#
+# Thin on purpose: there's nothing interactive here (no prompts, no fzf),
+# so the wrapper exists only to give the skill the executable name the
+# `skill-tree` dispatcher and $PATH both expect, and to pick an
+# interpreter. All argument handling lives in the Python.
+set -euo pipefail
+
+_here="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+
+exec python3 "${_here}/cli_ergonomics_cli.py" "$@"

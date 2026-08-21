@@ -18,6 +18,32 @@ equivalent.** Interactivity is a convenience layered on top of a scriptable CLI,
 replacement for one. A CLI that can only be driven by a human is as broken as one that can
 only be driven by a script.
 
+## Run the linter first
+
+`cli-ergonomics lint` decides the binary half of this skill from source, so a review starts
+from a list of actual violations rather than a crawl through every script in the repo:
+
+```bash
+"${CLAUDE_PLUGIN_ROOT:-${SKILL_TREE_DIR:-$HOME/projects/skill-tree}}/skills/cli-ergonomics/scripts/cli-ergonomics" lint .
+# or, with the plugin installed:
+skill-tree cli-ergonomics .        # `lint` is implied; a bare run lints cwd
+```
+
+It checks three rules per entrypoint — `--version` handled, no required positional that turns
+a bare run into an argument error, and every prompt TTY-guarded — and exits 1 if any fail.
+`--json` for machine-readable output.
+
+Two things it deliberately does not do:
+
+- **It never executes an entrypoint.** Probing a CLI means running it, and an entrypoint is
+  exactly the kind of script that does something when you do. Everything is read statically,
+  which is weaker: a `PASS` on `--version` means the flag is handled, not that it exits 0 on a
+  broken install. The `**Check:**` lines below are still yours to run.
+- **It skips `*.sh` helpers and `*_hook.py` files** — plumbing and harness callbacks, not CLIs
+  a human types. `--include-helpers` opts the shell ones back in.
+
+Levels 3–5 of the ladder are judgement calls and are not linted at all.
+
 ## Hard requirement: `--version`
 
 **Every versioned CLI exposes `--version`.** No exceptions, including internal tools and
