@@ -12,6 +12,38 @@ Read-only. Report findings, don't apply fixes — the user picks what to act on.
 Run from the repo root. Every check either passes, fails, or is not applicable (the repo
 doesn't use that thing). Report all three columns.
 
+## Run the checker first
+
+`repo-audit audit <repo-root>` answers the mechanical half of this list from the working
+tree, so the reading below is spent on what actually failed rather than on re-deriving
+verdicts a script can compute:
+
+```bash
+skill-tree repo-audit            # audits the current directory
+skill-tree repo-audit .          # the repo root; `audit` is implied
+skill-tree repo-audit . --run    # also runs the test suite (slower)
+skill-tree repo-audit . --json   # same verdicts, machine-readable
+```
+
+Exit `0` = nothing failed, `1` = at least one FAIL, `2` = nothing there to audit. Each
+section comes back `PASS`, `FAIL`, `NA` (the repo doesn't use that thing), or **`MANUAL`**.
+
+Sections 1, 2, 3, 6, 7, 8, and 9 are computed from the working tree. Section 4 needs `--run`
+to execute the suite; without it, it still reports modules with no test file. Where a section
+reports `PASS`, it has proven the config exists, not that the tool passes — the `PASS` detail
+names the command to confirm with.
+
+**Section 5 is always `MANUAL`, by design.** The checker finds and lists your entrypoints but
+never executes them, because probing `--version` means *running* the thing — an early version
+of this check ran `new-skill.sh --version` and created a skill directory named `--version`.
+Work section 5 by hand against the list it prints.
+
+`MANUAL` also covers "the tool isn't installed" and "the suite exceeded the timeout": neither
+is evidence the repo is broken, so neither is reported as a failure.
+
+Stack detection reads sources, not just manifests — a pile of scripts with a `mypy.ini` and
+no `pyproject.toml` is still a Python repo.
+
 ## Checks
 
 Work them in order. Each section says what to look for and how to verify it.

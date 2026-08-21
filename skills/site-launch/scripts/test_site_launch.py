@@ -590,3 +590,77 @@ class TestSitemapIndex:
         result = check_robots_and_sitemap(tmp_path, find_pages(tmp_path))
         assert result.status is Status.FAIL
         assert '0 URL' in result.detail
+
+
+@pytest.fixture
+def default_target(tmp_path: Path) -> Path:
+    write(tmp_path, 'index.html', CARD_PAGE)
+    (tmp_path / 'robots.txt').write_text(
+        'Sitemap: https://acme.test/sitemap.xml\n',
+    )
+    (tmp_path / 'sitemap.xml').write_text(
+        SITEMAP.replace(
+            '<url><loc>https://acme.test/widgets/</loc></url>\n',
+            '',
+        ),
+    )
+    (tmp_path / 'favicon.svg').write_text('<svg/>')
+    (tmp_path / 'favicon.ico').write_bytes(b'\x00')
+    write(
+        tmp_path,
+        '404.html',
+        CARD_PAGE.replace('Widgets — Acme', 'Not found — Acme'),
+    )
+    return tmp_path
+
+
+class TestDefaultCommand:
+    """`site-launch <dir>` must work without naming the only subcommand."""
+
+    def test_bare_invocation_checks_the_current_directory(
+        self,
+        default_target: Path,
+        monkeypatch: pytest.MonkeyPatch,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        monkeypatch.chdir(default_target)
+        assert main([]) == EXIT_OK
+        assert 'PASS' in capsys.readouterr().out
+
+    def test_version_still_reaches_the_parser(self) -> None:
+        with pytest.raises(SystemExit) as exit_info:
+            main(['--version'])
+        assert exit_info.value.code == EXIT_OK
+
+    def test_help_still_reaches_the_parser(self) -> None:
+        with pytest.raises(SystemExit) as exit_info:
+            main(['--help'])
+        assert exit_info.value.code == EXIT_OK
+
+    def test_explicit_subcommand_still_works(
+        self,
+        default_target: Path,
+    ) -> None:
+        assert main(['check', str(default_target)]) == EXIT_OK
+
+    def test_directory_without_subcommand(
+        self,
+        default_target: Path,
+    ) -> None:
+        assert main([str(default_target)]) == EXIT_OK
+
+    def test_flag_without_subcommand(
+        self,
+        default_target: Path,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        assert main([str(default_target), '--json']) == EXIT_OK
+        assert json.loads(capsys.readouterr().out)['checks']
+
+    def test_unknown_flag_is_still_an_error(
+        self,
+        default_target: Path,
+    ) -> None:
+        with pytest.raises(SystemExit) as exit_info:
+            main([str(default_target), '--nope'])
+        assert exit_info.value.code != EXIT_OK

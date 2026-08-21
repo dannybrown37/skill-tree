@@ -36,10 +36,23 @@ def test_version_exits_zero_with_no_config() -> None:
     assert result.stdout.startswith('site-launch ')
 
 
-def test_no_arguments_prints_usage_and_fails() -> None:
-    result = run()
-    assert result.returncode != 0
-    assert 'usage' in result.stderr.lower()
+def test_no_arguments_checks_the_current_directory(tmp_path: Path) -> None:
+    (tmp_path / 'index.html').write_text(PAGE)
+    result = subprocess.run(  # noqa: S603
+        [str(WRAPPER)],
+        cwd=tmp_path,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert 'FAIL' in result.stdout
+
+
+def test_directory_without_the_subcommand(tmp_path: Path) -> None:
+    (tmp_path / 'index.html').write_text(PAGE)
+    assert (
+        run(str(tmp_path)).returncode == run('check', str(tmp_path)).returncode
+    )
 
 
 def test_check_reports_failures_and_exits_1(tmp_path: Path) -> None:

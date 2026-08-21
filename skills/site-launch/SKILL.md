@@ -23,8 +23,9 @@ project already uses. Check what's in the repo before reaching for a new depende
 output, so the reading below is spent on what actually failed rather than on crawling HTML:
 
 ```bash
-skill-tree site-launch check ./dist          # the built output, not src/
-skill-tree site-launch check ./dist --json   # same verdicts, machine-readable
+skill-tree site-launch                 # checks the current directory
+skill-tree site-launch ./dist          # the built output, not src/; `check` is implied
+skill-tree site-launch ./dist --json   # same verdicts, machine-readable
 ```
 
 Exit `0` = nothing failed, `1` = at least one FAIL, `2` = nothing there to check. Each item

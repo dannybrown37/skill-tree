@@ -573,9 +573,26 @@ def run_checks(root: Path) -> list[CheckResult]:
 
 
 STATUS_ORDER = (Status.FAIL, Status.MANUAL, Status.NA, Status.PASS)
+DEFAULT_COMMAND = 'check'
+TOP_LEVEL_FLAGS = frozenset({'-h', '--help', '--version'})
 EXIT_OK = 0
 EXIT_FAILED_CHECK = 1
 EXIT_UNUSABLE = 2
+
+
+def with_default_command(argv: list[str]) -> list[str]:
+    """Let the only subcommand be implied.
+
+    `site-launch ./x` and `site-launch check ./x` are the same run, and a bare
+    `site-launch` is that run against the default directory. There is exactly
+    one subcommand, so requiring it is pure ceremony -- but it stays
+    accepted, because it is what existing scripts and docs already type.
+    Flags the top-level parser owns (`--version`, `-h`) still have to
+    reach it, so they pass through untouched.
+    """
+    if argv and (argv[0] in TOP_LEVEL_FLAGS or argv[0] == DEFAULT_COMMAND):
+        return argv
+    return [DEFAULT_COMMAND, *argv]
 
 
 def version() -> str:
@@ -631,13 +648,18 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         prog='site-launch',
         description="The site-launch checklist's deterministic half.",
+        epilog=(
+            '`check` is implied: `site-launch ./dist` and '
+            '`site-launch check ./dist` are the same run, and a bare '
+            '`site-launch` runs it against the current directory.'
+        ),
     )
     parser.add_argument(
         '--version',
         action='version',
         version=f'site-launch {version()}',
     )
-    subparsers = parser.add_subparsers(dest='command', required=True)
+    subparsers = parser.add_subparsers(dest='command')
 
     check = subparsers.add_parser(
         'check',
@@ -657,7 +679,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         help='machine-readable output',
     )
 
-    args = parser.parse_args(argv)
+    raw = list(sys.argv[1:] if argv is None else argv)
+    args = parser.parse_args(with_default_command(raw))
 
     try:
         results = run_checks(args.directory)
