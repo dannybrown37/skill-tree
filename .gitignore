@@ -3,3 +3,13 @@ __pycache__/
 .ruff_cache/
 .pytest_cache/
 .mypy_cache/
+
+# Secrets. gitleaks is the backstop in .pre-commit-config.yaml; this keeps
+# the files from ever being staged in the first place.
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+credentials
+credentials.*

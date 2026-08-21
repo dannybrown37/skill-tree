@@ -6,6 +6,7 @@ hand-maintained copy that drifts. Run by the `regen-file` pre-commit hook
 from git-a-grip, which re-stages README.md when this rewrites it.
 """
 
+import json
 import sys
 from pathlib import Path
 
@@ -35,8 +36,27 @@ def build_table(root: Path) -> str:
     return '\n'.join(rows)
 
 
-def main() -> int:
-    root = Path(__file__).parent.parent
+def version(root: Path) -> str:
+    """This checkout's plugin version, or `unknown` outside one.
+
+    `--version` has to work with no config, so a missing or unreadable
+    manifest is an answer rather than a crash.
+    """
+    try:
+        manifest = (root / '.claude-plugin' / 'plugin.json').read_text()
+        return str(json.loads(manifest)['version'])
+    except (OSError, ValueError, KeyError):
+        return 'unknown'
+
+
+def main(argv: list[str] | None = None, root: Path | None = None) -> int:
+    args = sys.argv[1:] if argv is None else argv
+    root = Path(__file__).parent.parent if root is None else root
+
+    if args and args[0] in {'-V', '--version'}:
+        print(f'gen-readme-skills-table {version(root)}')
+        return 0
+
     readme = root / 'README.md'
     text = readme.read_text()
 

@@ -357,3 +357,24 @@ class TestUsage:
 
         assert result.returncode == 1
         assert 'capture' in result.stderr
+
+
+class TestVersion:
+    @pytest.mark.parametrize('flag', ['--version', '-V'])
+    def test_prints_a_version_and_exits_zero(
+        self,
+        tmp_path: Path,
+        flag: str,
+    ) -> None:
+        result = run(tmp_path, flag)
+
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.startswith('screenshot ')
+        assert 'unknown' not in result.stdout
+
+    def test_needs_no_screenshots_directory(self, tmp_path: Path) -> None:
+        # Every resolution path is pointed at nothing here; --version has
+        # to answer anyway, since it must work with no config.
+        result = run(tmp_path, '--version', SCREENSHOT_DIR='')
+
+        assert result.returncode == 0, result.stderr

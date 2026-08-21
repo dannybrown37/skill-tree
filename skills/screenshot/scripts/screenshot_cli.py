@@ -2,6 +2,7 @@
 """Locate Windows screenshots from WSL, newest first."""
 
 import argparse
+import json
 import os
 import shlex
 import shutil
@@ -339,9 +340,29 @@ def move_from_args(
         sys.exit(1)
 
 
+def version(root: Path | None = None) -> str:
+    """This checkout's plugin version, or `unknown` outside one.
+
+    `--version` has to work with no config and no WSL, so a missing or
+    unreadable manifest is an answer rather than a crash.
+    """
+    root = Path(__file__).resolve().parents[3] if root is None else root
+    try:
+        manifest = (root / '.claude-plugin' / 'plugin.json').read_text()
+        return str(json.loads(manifest)['version'])
+    except (OSError, ValueError, KeyError):
+        return 'unknown'
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(
         description='Locate Windows screenshots from WSL, newest first.',
+    )
+    parser.add_argument(
+        '-V',
+        '--version',
+        action='version',
+        version=f'screenshot {version()}',
     )
     parser.add_argument(
         'action',

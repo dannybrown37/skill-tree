@@ -297,6 +297,7 @@ def cmd_help(root: Path, _args: list[str]) -> int:
         print(f'  {name.ljust(16)}  {blurb}{tag}')
     print('  test [args]       Run the test suite')
     print('  help              This screen (also the bare `skill-tree`)')
+    print("  --version         This checkout's plugin version")
 
     with_cli = [skill.name for skill in skills if skill.cli]
     if with_cli:
@@ -318,6 +319,19 @@ def _delegate(root: Path, script: str, args: list[str]) -> int:
     ).returncode
 
 
+def version(root: Path) -> str:
+    """This checkout's plugin version, or `unknown` outside one.
+
+    `--version` has to work with no config and no credentials, so a
+    missing or unreadable manifest is an answer rather than a crash.
+    """
+    manifest = root / '.claude-plugin' / 'plugin.json'
+    try:
+        return str(json.loads(manifest.read_text())['version'])
+    except (OSError, ValueError, KeyError):
+        return 'unknown'
+
+
 def resolve_root(root: Path | None) -> Path:
     if root is not None:
         return root
@@ -327,15 +341,33 @@ def resolve_root(root: Path | None) -> Path:
     return Path(__file__).resolve().parent.parent
 
 
+def _leading_flag(root: Path, args: list[str]) -> int | None:
+    """Handle a flag that belongs to us, or None to keep dispatching.
+
+    Only a *leading* flag means us. Everything after the command belongs
+    to the command -- `skill-tree screenshot --help` is the screenshot
+    CLI's help, not ours, and swallowing it would make delegation a lie.
+    """
+    if not args:
+        return None
+    if args[0] in {'-h', '--help'}:
+        return cmd_help(root, args[1:])
+    # Checked before the leading-flag route to `list` below -- otherwise
+    # --version falls through to the skill listing and exits 0, which
+    # looks like an answer.
+    if args[0] in {'-V', '--version'}:
+        print(f'skill-tree {version(root)}')
+        return 0
+    return None
+
+
 def main(argv: list[str] | None = None, root: Path | None = None) -> int:
     args = list(sys.argv[1:] if argv is None else argv)
     root = resolve_root(root)
 
-    # Only a *leading* -h means us. Everything after the command belongs to
-    # the command -- `skill-tree screenshot --help` is the screenshot CLI's
-    # help, not ours, and swallowing it would make delegation a lie.
-    if args and args[0] in {'-h', '--help'}:
-        return cmd_help(root, args[1:])
+    handled = _leading_flag(root, args)
+    if handled is not None:
+        return handled
 
     # Bare `skill-tree` is "what's in here?" -- which means the commands
     # too, not just the skills, so it maps to help rather than list. A

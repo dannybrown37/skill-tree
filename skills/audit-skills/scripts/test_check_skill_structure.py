@@ -1,11 +1,26 @@
 """Tests for the skill structure validator and its drift checks."""
 
+import importlib.util
 import json
+import sys
 from pathlib import Path
 
 import pytest
 
-from check_skill_structure import (
+# By path, not by name: scripts/check_skill_structure.py is a shim with
+# the same module name, and whichever test module imports first wins the
+# `check_skill_structure` entry in sys.modules.
+_spec = importlib.util.spec_from_file_location(
+    'audit_skills_checker_under_test',
+    Path(__file__).parent / 'check_skill_structure.py',
+)
+assert _spec is not None
+assert _spec.loader is not None
+_module = importlib.util.module_from_spec(_spec)
+sys.modules[_spec.name] = _module
+_spec.loader.exec_module(_module)
+
+from audit_skills_checker_under_test import (  # noqa: E402
     EXIT_FAILED_CHECK,
     EXIT_NOTHING_TO_CHECK,
     EXIT_OK,

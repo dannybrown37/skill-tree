@@ -1,6 +1,7 @@
 """Tests for the top-level `skill-tree` CLI."""
 
 import json
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -391,3 +392,78 @@ class TestRealRepo:
 
         assert result.returncode == 0, result.stderr
         assert 'verify' in result.stdout
+
+
+class TestVersion:
+    def test_reads_the_version_from_the_plugin_manifest(
+        self,
+        fake_root: Path,
+    ) -> None:
+        manifest = fake_root / '.claude-plugin'
+        manifest.mkdir()
+        (manifest / 'plugin.json').write_text('{"version": "9.9.9"}')
+        assert cli.version(fake_root) == '9.9.9'
+
+    @pytest.mark.parametrize(
+        'contents',
+        [None, 'not json', '{"name": "skill-tree"}'],
+        ids=['missing', 'unparseable', 'no-version-key'],
+    )
+    def test_an_unreadable_manifest_is_unknown_not_a_crash(
+        self,
+        fake_root: Path,
+        contents: str | None,
+    ) -> None:
+        if contents is not None:
+            manifest = fake_root / '.claude-plugin'
+            manifest.mkdir()
+            (manifest / 'plugin.json').write_text(contents)
+        assert cli.version(fake_root) == 'unknown'
+
+    @pytest.mark.parametrize('flag', ['--version', '-V'])
+    def test_the_flag_prints_a_version_and_exits_zero(
+        self,
+        fake_root: Path,
+        capsys: pytest.CaptureFixture[str],
+        flag: str,
+    ) -> None:
+        manifest = fake_root / '.claude-plugin'
+        manifest.mkdir()
+        (manifest / 'plugin.json').write_text('{"version": "9.9.9"}')
+
+        assert cli.main([flag], root=fake_root) == 0
+        assert capsys.readouterr().out == 'skill-tree 9.9.9\n'
+
+    def test_the_flag_beats_the_leading_flag_route_to_list(
+        self,
+        fake_root: Path,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        cli.main(['--version'], root=fake_root)
+        assert 'verify' not in capsys.readouterr().out
+
+    def test_version_after_a_skill_name_belongs_to_that_skill(
+        self,
+        fake_root: Path,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        assert cli.main(['backlog', '--version'], root=fake_root) == 0
+        assert 'skill-tree' not in capsys.readouterr().out
+
+    def test_the_wrapper_reports_a_version_with_no_config(
+        self,
+        tmp_path: Path,
+    ) -> None:
+        # An empty HOME stands in for "no config, no credentials"; PATH
+        # stays real because the wrapper legitimately needs `uv`.
+        env = {'PATH': os.environ['PATH'], 'HOME': str(tmp_path)}
+        result = subprocess.run(  # noqa: S603
+            [str(WRAPPER), '--version'],
+            capture_output=True,
+            text=True,
+            check=False,
+            env=env,
+        )
+        assert result.returncode == 0
+        assert result.stdout.startswith('skill-tree ')
+        assert 'unknown' not in result.stdout

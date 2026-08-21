@@ -1,8 +1,33 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-source "$REPO_ROOT/scripts/lib/open-in-editor.sh"
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+REPO_ROOT="${SKILL_TREE_ROOT:-$(cd "$SCRIPT_DIR/.." && pwd)}"
+source "$SCRIPT_DIR/lib/open-in-editor.sh"
+source "$SCRIPT_DIR/lib/scaffold.sh"
+
+usage() {
+    cat <<'USAGE'
+Usage: new-skill.sh [<skill-name>]
+
+Scaffold skills/<skill-name>/SKILL.md and open it. The name must be
+kebab-case; with no argument and a terminal, you are prompted for one.
+
+  --version   Print the version
+  -h, --help  This screen
+USAGE
+}
+
+case "${1:-}" in
+--version | -V)
+    echo "new-skill.sh $(plugin_version "$REPO_ROOT")"
+    exit 0
+    ;;
+-h | --help)
+    usage
+    exit 0
+    ;;
+esac
 
 prompt() {
     if ! [ -t 0 ]; then
@@ -18,10 +43,7 @@ if [ -z "$SKILL" ]; then
     prompt "Skill name (kebab-case): " SKILL
 fi
 
-if [ -z "$SKILL" ]; then
-    echo "Error: skill name required." >&2
-    exit 1
-fi
+scaffold_reject_name "skill" "$SKILL"
 
 SKILL_DIR="$REPO_ROOT/skills/$SKILL"
 

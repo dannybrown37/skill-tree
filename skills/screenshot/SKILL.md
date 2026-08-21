@@ -109,6 +109,7 @@ up my Pictures" setting silently redirects the folder and leaves the old one pop
 - `screenshot dir` — the resolved directory, for explaining where it's looking.
 - `screenshot set <path>` — remember a directory. This is the user's escape hatch when
   detection is wrong; suggest it rather than working around a bad path every session.
+- `screenshot --version` — the plugin version. Answers with no config and outside WSL.
 
 Only image files are considered (`.png`, `.jpg`, `.jpeg`, `.gif`, `.webp`, `.bmp`, any case),
 so OneDrive's `desktop.ini` never comes back as "the latest screenshot".

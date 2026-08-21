@@ -197,6 +197,22 @@ _cmd_list() {
     _images "${dir}" | head -n "${count}"
 }
 
+# The plugin manifest three levels up, parsed with sed rather than jq --
+# `--version` has to answer with no config and no extra tooling, so a
+# missing manifest is `unknown` instead of a failure.
+_version() {
+    local here manifest version=''
+    here="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+    manifest="${here}/../../../.claude-plugin/plugin.json"
+
+    if [[ -f "${manifest}" ]]; then
+        version="$(sed -n \
+            's/.*"version"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' \
+            "${manifest}" | head -1)"
+    fi
+    echo "screenshot ${version:-unknown}"
+}
+
 _usage() {
     cat <<EOF
 Usage: screenshot <command>
@@ -206,6 +222,7 @@ Usage: screenshot <command>
   list [N]      The N newest, newest first (default 10)
   dir           The resolved screenshots directory
   set <path>    Remember <path> as the screenshots directory
+  --version     This checkout's plugin version
   help          This screen
 
 Resolution order: \$SCREENSHOT_DIR, then ${CONFIG},
@@ -224,6 +241,7 @@ main() {
     dir) _resolve_dir ;;
     set) _cmd_set "$@" ;;
     help | -h | --help) _usage ;;
+    --version | -V) _version ;;
     *) _die "unknown command: ${command} (try: $0 help)" ;;
     esac
 }

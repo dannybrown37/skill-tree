@@ -2,8 +2,32 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+REPO_ROOT="${SKILL_TREE_ROOT:-$(cd "$SCRIPT_DIR/.." && pwd)}"
 source "$SCRIPT_DIR/lib/open-in-editor.sh"
+source "$SCRIPT_DIR/lib/scaffold.sh"
+
+usage() {
+    cat <<'USAGE'
+Usage: new-output-style.sh [<style-name>]
+
+Scaffold output-styles/<style-name>.md and open it. The name must be
+kebab-case; with no argument and a terminal, you are prompted for one.
+
+  --version   Print the version
+  -h, --help  This screen
+USAGE
+}
+
+case "${1:-}" in
+--version | -V)
+    echo "new-output-style.sh $(plugin_version "$REPO_ROOT")"
+    exit 0
+    ;;
+-h | --help)
+    usage
+    exit 0
+    ;;
+esac
 
 STYLES_DIR="$REPO_ROOT/output-styles"
 
@@ -21,10 +45,7 @@ if [ -z "$STYLE" ]; then
     prompt "Style name (kebab-case): " STYLE
 fi
 
-if [ -z "$STYLE" ]; then
-    echo "Error: style name required." >&2
-    exit 1
-fi
+scaffold_reject_name "style" "$STYLE"
 
 STYLE_FILE="$STYLES_DIR/$STYLE.md"
 
