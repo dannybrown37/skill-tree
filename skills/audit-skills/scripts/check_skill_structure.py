@@ -56,6 +56,15 @@ MAX_SKILL_LINES = 150
 # model still has to load one to use it.
 MAX_REFERENCE_LINES = 500
 
+# A repo can record lengths it has already reviewed and accepted, one
+# `<skill>: <lines>` per line, in `<skills-root>/.length-baseline`. It
+# grandfathers, it does not exempt: growing past the pinned length warns
+# again, and a skill that drops back under MAX_SKILL_LINES falls off the
+# baseline on its own. The file lives with the skills it describes rather
+# than in this checker, because which skills are allowed to be long is
+# the audited repo's decision, not the validator's.
+BASELINE_FILE = '.length-baseline'
+
 BUNDLE_DIRS = frozenset(
     {'scripts', 'references', 'assets', 'templates', 'examples'},
 )
@@ -258,17 +267,55 @@ def check_frontmatter_drift(skill_dir: Path, text: str) -> list[Finding]:
     return findings
 
 
+def read_length_baseline(skills_root: Path) -> dict[str, int]:
+    """Accepted SKILL.md lengths, by skill name. Missing file means none.
+
+    Parsed by hand for the same reason frontmatter is: this stays a
+    stdlib-only checker, and the format is two fields on a line.
+    """
+    path = skills_root / BASELINE_FILE
+    try:
+        text = path.read_text(errors='replace')
+    except OSError:
+        return {}
+
+    baseline: dict[str, int] = {}
+    for line in text.splitlines():
+        stripped = line.strip()
+        if not stripped or stripped.startswith('#'):
+            continue
+        name, separator, count = stripped.partition(':')
+        if not separator:
+            continue
+        try:
+            baseline[name.strip()] = int(count.strip())
+        except ValueError:
+            continue
+    return baseline
+
+
 def check_length(skill_dir: Path, text: str) -> list[Finding]:
     """Playbooks that have grown background into them."""
     findings = []
     lines = len(text.splitlines())
-    if lines > MAX_SKILL_LINES:
+    accepted = read_length_baseline(skill_dir.parent).get(skill_dir.name)
+    # max(), not `accepted or MAX`: the baseline grandfathers a skill that
+    # is already long, and must never make the check stricter than the
+    # global rule.
+    allowed = max(MAX_SKILL_LINES, accepted or 0)
+
+    if lines > allowed:
+        over = (
+            f'its accepted baseline of {accepted}'
+            if accepted and accepted > MAX_SKILL_LINES
+            else str(MAX_SKILL_LINES)
+        )
         findings.append(
             _warn(
                 skill_dir,
                 'length',
                 f'{skill_dir.name}: SKILL.md is {lines} lines (over '
-                f'{MAX_SKILL_LINES}) -- move background into references/',
+                f'{over}) -- move background into references/',
             ),
         )
 

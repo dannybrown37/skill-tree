@@ -24,6 +24,7 @@ from audit_skills_checker_under_test import (  # noqa: E402
     EXIT_FAILED_CHECK,
     EXIT_NOTHING_TO_CHECK,
     EXIT_OK,
+    BASELINE_FILE,
     MAX_SKILL_LINES,
     Severity,
     audit_skill,
@@ -195,6 +196,103 @@ def test_a_short_skill_md_does_not_warn(tmp_path: Path) -> None:
     skill_dir = write_skill(tmp_path, 'widget', VALID_SKILL)
 
     assert warnings(skill_dir, tmp_path) == []
+
+
+# --- the length baseline ----------------------------------------------
+
+
+def write_long_skill(tmp_path: Path, extra: int) -> Path:
+    """A `widget` skill `MAX_SKILL_LINES + extra` lines long."""
+    body = VALID_SKILL
+    filler = MAX_SKILL_LINES + extra - len(body.splitlines())
+    return write_skill(tmp_path, 'widget', body + 'filler\n' * filler)
+
+
+def write_baseline(skill_dir: Path, text: str) -> None:
+    (skill_dir.parent / BASELINE_FILE).write_text(text)
+
+
+def test_a_baselined_skill_does_not_warn_at_its_pinned_length(
+    tmp_path: Path,
+) -> None:
+    skill_dir = write_long_skill(tmp_path, 40)
+    write_baseline(skill_dir, f'widget: {MAX_SKILL_LINES + 40}\n')
+
+    assert warnings(skill_dir, tmp_path) == []
+
+
+def test_a_baselined_skill_warns_once_it_grows_past_the_pin(
+    tmp_path: Path,
+) -> None:
+    skill_dir = write_long_skill(tmp_path, 41)
+    write_baseline(skill_dir, f'widget: {MAX_SKILL_LINES + 40}\n')
+
+    found = warnings(skill_dir, tmp_path)
+
+    assert any('baseline' in message for message in found), found
+    assert any(str(MAX_SKILL_LINES + 40) in message for message in found)
+
+
+def test_the_baseline_only_covers_the_skill_it_names(tmp_path: Path) -> None:
+    skill_dir = write_long_skill(tmp_path, 40)
+    write_baseline(skill_dir, f'gadget: {MAX_SKILL_LINES + 40}\n')
+
+    assert any(
+        'over 150' in message for message in warnings(skill_dir, tmp_path)
+    )
+
+
+def test_a_baseline_below_the_global_rule_does_not_tighten_it(
+    tmp_path: Path,
+) -> None:
+    """The baseline grandfathers; it never makes the check stricter."""
+    skill_dir = write_skill(tmp_path, 'widget', VALID_SKILL)
+    write_baseline(skill_dir, 'widget: 10\n')
+
+    assert warnings(skill_dir, tmp_path) == []
+
+
+@pytest.mark.parametrize(
+    'text',
+    [
+        '',
+        '# just a comment\n',
+        'widget\n',
+        'widget: not-a-number\n',
+        'widget:\n',
+    ],
+)
+def test_an_unusable_baseline_entry_is_ignored(
+    tmp_path: Path,
+    text: str,
+) -> None:
+    skill_dir = write_long_skill(tmp_path, 40)
+    write_baseline(skill_dir, text)
+
+    assert any(
+        'over 150' in message for message in warnings(skill_dir, tmp_path)
+    )
+
+
+def test_no_baseline_file_at_all_is_fine(tmp_path: Path) -> None:
+    skill_dir = write_long_skill(tmp_path, 40)
+
+    assert any(
+        'over 150' in message for message in warnings(skill_dir, tmp_path)
+    )
+
+
+def test_this_repo_has_no_outstanding_length_warnings() -> None:
+    """The baseline is only worth having if it is actually current."""
+    repo_root = Path(__file__).resolve().parents[3]
+
+    lengths = [
+        finding.message
+        for finding in run_audit(repo_root)
+        if finding.category == 'length'
+    ]
+
+    assert lengths == []
 
 
 def test_a_loose_markdown_file_belongs_in_references(

@@ -41,6 +41,13 @@ back to the default heuristic in step 3 below.
    `--json` for machine-readable output. Warnings are a place to look, not a verdict —
    a 200-line SKILL.md that is genuinely all playbook is fine, and saying so is the
    judgement this skill exists for.
+
+   When that judgement lands on "this one is allowed to be long", record it rather than
+   re-deciding it every run: a `<skills-root>/.length-baseline` file of
+   `<skill>: <lines>` entries pins the accepted length. It grandfathers rather than
+   exempts — growing past the pinned number warns again, and a skill that shrinks back
+   under 150 can be dropped from the file. Keep the *reason* in the file's comments;
+   an unexplained entry is indistinguishable from drift.
 2. **Inventory sync**: list the skills and references directories on disk (whichever
    layout this repo uses), compare against any "Skills"/"References" lists the repo's own
    CLAUDE.md maintains. Flag anything on disk but unlisted, or listed but missing.

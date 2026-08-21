@@ -1,0 +1,17 @@
+# SKILL.md lengths already reviewed and accepted, by skill name.
+#
+# Every entry here is a numbered checklist whose sections map 1:1 onto
+# its own CLI's sections, so the usual fix -- move background into
+# references/ -- would split one checklist across two files. That is
+# worse than being long: the failure this threshold exists to prevent is
+# an agent acting on half a playbook.
+#
+# This grandfathers, it does not exempt. Growing past the number below
+# warns again, so raising one of these is a deliberate edit with a
+# reason, not a drift. A skill that shrinks under 150 can be deleted
+# from this file.
+cli-ergonomics: 174
+dynamodb-cost-audit: 177
+handoff: 193
+repo-audit: 158
+site-launch: 165
