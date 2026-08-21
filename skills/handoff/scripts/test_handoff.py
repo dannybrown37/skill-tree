@@ -1,10 +1,12 @@
 """Tests for the handoff backlog CLI."""
 
+import re
 from pathlib import Path
 
 import pytest
 
 from handoff_cli import (
+    HANDLERS,
     BacklogItem,
     HandoffError,
     add_item,
@@ -39,6 +41,10 @@ def write_backlog(root: Path, content: str = SAMPLE) -> Path:
     path = directory / 'BACKLOG.md'
     path.write_text(content)
     return path
+
+
+SKILL_DIR = Path(__file__).resolve().parents[1]
+WRAPPER_ONLY_COMMANDS = {'edit', 'help'}
 
 
 class TestParsing:
@@ -395,6 +401,26 @@ class TestCli:
         assert main(['remove', '--repo', str(tmp_path)]) == 1
         assert 'Wire the flag' in capsys.readouterr().err
 
+    def test_remove_exits_zero_on_success(
+        self,
+        tmp_path: Path,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        """A working removal must not look like a failure to a hook."""
+        path = write_backlog(tmp_path)
+        code = main(
+            [
+                'remove',
+                '--repo',
+                str(tmp_path),
+                '--item-title',
+                'Drop the shim',
+            ],
+        )
+        assert code == 0
+        assert 'Removed: Drop the shim' in capsys.readouterr().out
+        assert [item.title for item in read_items(path)] == ['Wire the flag']
+
     def test_unknown_title_exits_one(self, tmp_path: Path) -> None:
         write_backlog(tmp_path)
         code = main(
@@ -454,3 +480,21 @@ class TestDocs:
         (path.parent / name).write_text('x\n')
         assert main([action, '--path', '--repo', str(tmp_path)]) == 0
         assert capsys.readouterr().out.strip() == str(path.parent / name)
+
+
+class TestDocsMatchTheCli:
+    """Docs naming a subcommand that doesn't exist is a real bug.
+
+    `handoff list` outlived its rename to `backlog` in SKILL.md, and nothing
+    caught it.
+    """
+
+    @pytest.mark.parametrize(
+        'doc',
+        ['SKILL.md', 'references/backlog.md', 'references/flow.md'],
+    )
+    def test_every_documented_subcommand_exists(self, doc: str) -> None:
+        text = (SKILL_DIR / doc).read_text()
+        known = set(HANDLERS) | WRAPPER_ONLY_COMMANDS
+        for command in re.findall(r'`handoff +([a-zA-Z][\w-]*)', text):
+            assert command in known, f'{doc} documents `handoff {command}`'
