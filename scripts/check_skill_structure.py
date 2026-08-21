@@ -1,118 +1,61 @@
 #!/usr/bin/env python3
-"""Validate the structure of every skill under skills/.
+"""Repo-level wrapper around the audit-skills validator.
 
-Complements check-claude-symlinks.sh: that one checks the .github mirror
-exists, this one checks the skill content the mirror points at is sound.
-
-Skills are read by Claude Code in three layers -- frontmatter metadata,
-the SKILL.md body, and bundled resource files. Only the first layer has a
-contract strict enough to enforce mechanically, so that is what this
-checks, plus the executable bit on anything under a skill's scripts/.
+The checker itself lives with the skill that documents it
+(`skills/audit-skills/scripts/check_skill_structure.py`); two copies of
+it drifted apart once already. This is the pre-commit entry point, so it
+reports only the hard contract -- drift warnings are the audit-skills
+playbook's job, not a reason to block a commit. Run
+`skill-tree audit-skills .` for those.
 """
 
-import stat
+import importlib.util
 import sys
 from pathlib import Path
+from types import ModuleType
 
-FRONTMATTER_DELIMITER = '---'
-REQUIRED_FIELDS = ('name', 'description')
+REPO_ROOT = Path(__file__).resolve().parent.parent
+CHECKER = (
+    REPO_ROOT
+    / 'skills'
+    / 'audit-skills'
+    / 'scripts'
+    / 'check_skill_structure.py'
+)
 
 
-def parse_frontmatter(text: str) -> dict[str, str]:
-    """Read the leading --- block as flat key/value pairs.
+def _load_checker() -> ModuleType:
+    """Import the skill's module by path.
 
-    Skill frontmatter is flat, so this avoids a YAML dependency. Returns
-    an empty dict when there is no closing delimiter.
+    Not a plain import: this file has the same name, so `import
+    check_skill_structure` from here resolves to itself.
     """
-    lines = text.splitlines()
-    if not lines or lines[0].strip() != FRONTMATTER_DELIMITER:
-        return {}
-
-    try:
-        end = lines.index(FRONTMATTER_DELIMITER, 1)
-    except ValueError:
-        return {}
-
-    fields: dict[str, str] = {}
-    for line in lines[1:end]:
-        if not line.strip() or line.lstrip().startswith('#'):
-            continue
-        key, separator, value = line.partition(':')
-        if not separator:
-            continue
-        fields[key.strip()] = value.strip().strip('"').strip("'")
-    return fields
+    spec = importlib.util.spec_from_file_location(
+        'audit_skills_checker',
+        CHECKER,
+    )
+    if spec is None or spec.loader is None:  # pragma: no cover - unreachable
+        message = f'cannot load the skill checker from {CHECKER}'
+        raise ImportError(message)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
 
 
-def validate_frontmatter(skill_dir: Path, text: str) -> list[str]:
-    fields = parse_frontmatter(text)
-    if not fields:
-        return [f'{skill_dir.name}: SKILL.md has no parseable frontmatter']
+_checker = _load_checker()
 
-    errors = []
-    for field in REQUIRED_FIELDS:
-        if not fields.get(field, '').strip():
-            errors.append(
-                f'{skill_dir.name}: SKILL.md frontmatter is missing a '
-                f'non-empty "{field}"',
-            )
+find_skill_dirs = _checker.find_skill_dirs
+parse_frontmatter = _checker.parse_frontmatter
+validate_skill = _checker.validate_skill
 
-    declared = fields.get('name', '').strip()
-    if declared and declared != skill_dir.name:
-        errors.append(
-            f'{skill_dir.name}: frontmatter name "{declared}" does not '
-            f'match its directory name',
-        )
-    return errors
-
-
-def validate_bundled_scripts(skill_dir: Path) -> list[str]:
-    scripts_dir = skill_dir / 'scripts'
-    if not scripts_dir.is_dir():
-        return []
-
-    errors = []
-    for script in sorted(scripts_dir.iterdir()):
-        # pytest modules are validated by the test suite, not invoked
-        # directly, so the executable/shebang rule doesn't apply to them.
-        if not script.is_file() or script.name.startswith('test_'):
-            continue
-
-        relative = f'{skill_dir.name}/scripts/{script.name}'
-        if not script.stat().st_mode & stat.S_IXUSR:
-            errors.append(f'{relative} is not executable (chmod +x it)')
-
-        first_line = script.read_text(errors='replace').split('\n', 1)[0]
-        if not first_line.startswith('#!'):
-            errors.append(f'{relative} has no shebang')
-    return errors
-
-
-def validate_skill(skill_dir: Path) -> list[str]:
-    skill_md = skill_dir / 'SKILL.md'
-    if not skill_md.is_file():
-        return [f'{skill_dir.name}: no SKILL.md']
-
-    text = skill_md.read_text()
-    return [
-        *validate_frontmatter(skill_dir, text),
-        *validate_bundled_scripts(skill_dir),
-    ]
-
-
-def find_skill_dirs(root: Path) -> list[Path]:
-    skills_root = root / 'skills'
-    if not skills_root.is_dir():
-        return []
-    return sorted(d for d in skills_root.iterdir() if d.is_dir())
+__all__ = ['find_skill_dirs', 'parse_frontmatter', 'validate_skill']
 
 
 def main() -> int:
-    root = Path(__file__).parent.parent
     errors = [
         error
-        for skill_dir in find_skill_dirs(root)
-        for error in validate_skill(skill_dir)
+        for skill_dir in find_skill_dirs(REPO_ROOT)
+        for error in validate_skill(skill_dir, REPO_ROOT)
     ]
 
     for error in errors:
