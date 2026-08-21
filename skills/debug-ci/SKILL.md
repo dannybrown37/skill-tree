@@ -16,18 +16,24 @@ git write. Same human-in-the-loop boundary most repos hold — this skill invoke
 1. **Confirm `gh` auth first**: `gh auth status`. If it's not authenticated, tell the user
    and stop — don't attempt to fix auth yourself.
 
-2. **Find the failing run.** Default to the current branch:
+2. **Fetch and trim the logs in one step.** `gh run view --log-failed` dumps every line of
+   every failed job; this extracts only the error regions, per job and step:
    ```
-   gh run list --branch "$(git branch --show-current)" --status failure --limit 5
+   "${CLAUDE_PLUGIN_ROOT:-${SKILL_TREE_DIR:-$HOME/projects/skill-tree}}/skills/debug-ci/scripts/debug-ci"
    ```
-   If the user named a PR or run instead, use that. If more than one recent run failed,
-   ask which one before proceeding — don't guess.
+   With no arguments it takes the newest failing run on the current branch. Useful flags:
+   `<run-id>` positionally, `--branch`, `--repo owner/name`, `--context N` (lines kept
+   before each error), `--max-lines N` (ceiling per step), `--json`.
 
-3. **Pull the real failure logs**, not just the summary:
-   ```
-   gh run view <run-id> --log-failed
-   ```
-   Read the actual error output. A red X with an unread log is not a diagnosis.
+   Exit codes: `0` extracted, `1` no failing run on that branch, `2` unusable (`gh` missing,
+   unauthenticated, or the run isn't readable) — in that case report it and stop, don't try
+   to fix auth yourself.
+
+3. **Read what it kept, and mind the elisions.** Every gap is marked
+   `... N lines omitted ...`. If the kept region doesn't contain the cause, re-run with a
+   larger `--context`/`--max-lines`, or fall back to the raw
+   `gh run view <run-id> --log-failed` rather than guessing. If the CLI reports other
+   failing runs on the branch, ask the user which one matters instead of assuming.
 
 4. **Diagnose the root cause** from the log, not from guessing at the diff. If the log
    doesn't make the cause obvious, say so and ask rather than fixing the first plausible
@@ -53,3 +59,6 @@ git write. Same human-in-the-loop boundary most repos hold — this skill invoke
   deliberate policy change requiring explicit sign-off, not a default.
 - Multiple failing jobs in one run: fix and verify one at a time rather than batching blind
   fixes across unrelated failures.
+- On older `gh` (seen on 2.23.0), `run view --log-failed` exits 0 and prints *nothing*. The
+  CLI detects that empty answer and refetches via the REST jobs/logs API, so an empty log is
+  never reported as a clean run.
