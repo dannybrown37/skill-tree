@@ -150,6 +150,12 @@ _install_claude() {
 	# CLI in here from a shell, without starting a Claude session.
 	_link "${_repo_root}/scripts/skill-tree" "${HOME}/.local/bin/skill-tree"
 
+	# Tab completion for it. Dropped in the standard per-user directory
+	# rather than appended to a shell rc: bash-completion picks it up on its
+	# own, and this script has no business editing ~/.bashrc.
+	_link "${_repo_root}/scripts/completions/skill-tree.bash" \
+		"${XDG_DATA_HOME:-${HOME}/.local/share}/bash-completion/completions/skill-tree"
+
 	# `handoff` earns a bare name where the retired `backlog`/`bl` didn't:
 	# capturing an item is a thing you do mid-thought, several times a day,
 	# and `skill-tree handoff add` is enough friction to lose the thought.

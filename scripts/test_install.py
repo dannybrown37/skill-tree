@@ -45,6 +45,10 @@ def skill_names() -> list[str]:
     [
         ('.local/bin/skill-tree', 'scripts/skill-tree'),
         ('.local/bin/handoff', 'skills/handoff/scripts/handoff'),
+        (
+            '.local/share/bash-completion/completions/skill-tree',
+            'scripts/completions/skill-tree.bash',
+        ),
     ],
 )
 def test_install_links_are_created(home: Path, link: str, target: str) -> None:

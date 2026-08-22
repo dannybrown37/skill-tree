@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -277,6 +278,107 @@ def cmd_test(root: Path, args: list[str]) -> int:
     ).returncode
 
 
+BUILTIN_COMMANDS = ('list', 'show', 'doctor', 'test', 'help')
+TOP_LEVEL_FLAGS = ('--help', '--version')
+
+
+def _completions(root: Path, words: list[str]) -> list[str]:
+    """Candidates for the last word in `words`, unfiltered by prefix."""
+    skills = find_skills(root)
+
+    if len(words) <= 1:
+        partial = words[0] if words else ''
+        if partial.startswith('-'):
+            return list(TOP_LEVEL_FLAGS)
+        # Every skill, CLI or not: `skill-tree <playbook-skill>` errors,
+        # but the error hands back `skill-tree show <name>`, which is
+        # more use than a tab key that does nothing.
+        return [
+            *BUILTIN_COMMANDS,
+            *DELEGATED,
+            *(skill.name for skill in skills),
+        ]
+
+    command, rest = words[0], words[1:]
+    if command == 'show' and len(rest) == 1:
+        return ['--raw', *(skill.name for skill in skills)]
+    if command == 'list' and len(rest) == 1:
+        return ['--json']
+
+    target = _sub_cli(root, skills, command)
+    if target is None:
+        return []
+    return _sub_cli_completions(target, rest)
+
+
+def _sub_cli(root: Path, skills: list[Skill], command: str) -> Path | None:
+    """The script `skill-tree <command>` would hand its arguments to."""
+    if command in DELEGATED:
+        return root / DELEGATED[command][0]
+    by_name = {skill.name: skill for skill in skills}
+    skill = by_name.get(command)
+    return skill.cli if skill else None
+
+
+HELP_TIMEOUT_SECONDS = 5
+_FLAG = re.compile(r'(?<![\w-])--[a-z][a-z0-9-]*')
+_SUBCOMMANDS = re.compile(r'\{([a-z0-9_-]+(?:,[a-z0-9_-]+)*)\}')
+
+
+def _sub_cli_completions(cli: Path, rest: list[str]) -> list[str]:
+    """What a sub-CLI says it accepts, asked rather than duplicated.
+
+    The alternative is a second copy of every skill CLI's flags living in
+    this file, which would drift the first time one of them changed. So
+    `--help` is the source of truth: run it, scrape the flags (and, at the
+    first argument, the sub-command list argparse prints as `{a,b}`). Once
+    a sub-command has been typed, ask *it* -- `lint --help` and the CLI's
+    own `--help` list different flags.
+    """
+    text = _help_text([str(cli)])
+    subcommands = _subcommands(text)
+    typed = [word for word in rest[:-1] if word in subcommands]
+    if typed:
+        text = _help_text([str(cli), typed[0]])
+
+    candidates = sorted(set(_FLAG.findall(text)))
+    if len(rest) == 1:
+        candidates = [*subcommands, *candidates]
+    return candidates
+
+
+def _subcommands(help_text: str) -> list[str]:
+    match = _SUBCOMMANDS.search(help_text)
+    return match.group(1).split(',') if match else []
+
+
+def _help_text(command: list[str]) -> str:
+    try:
+        result = subprocess.run(  # noqa: S603
+            [*command, '--help'],
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=HELP_TIMEOUT_SECONDS,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return ''
+    return result.stdout + result.stderr
+
+
+def cmd_complete(root: Path, args: list[str]) -> int:
+    """Shell-completion candidates; see scripts/completions/skill-tree.bash.
+
+    Hidden from help on purpose -- it is a machine interface, and the
+    completion script is the only thing that should call it.
+    """
+    partial = args[-1] if args else ''
+    for candidate in _completions(root, args):
+        if candidate.startswith(partial):
+            print(candidate)
+    return 0
+
+
 def cmd_help(root: Path, _args: list[str]) -> int:
     """Everything this repo can do, on one screen.
 
@@ -382,6 +484,7 @@ def main(argv: list[str] | None = None, root: Path | None = None) -> int:
         'doctor': cmd_doctor,
         'test': cmd_test,
         'help': cmd_help,
+        '__complete': cmd_complete,
     }
     if command in builtins:
         return builtins[command](root, rest)

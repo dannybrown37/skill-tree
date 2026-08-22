@@ -42,7 +42,19 @@ def fake_root(tmp_path: Path) -> Path:
         '\n# Backlog\n',
     )
     wrapper = with_cli / 'scripts' / 'backlog'
-    wrapper.write_text('#!/usr/bin/env bash\necho "backlog ran: $*"\n')
+    wrapper.write_text(
+        '#!/usr/bin/env bash\n'
+        'if [[ ${1:-} == --help ]]; then\n'
+        '  echo "usage: backlog [-h] [--json] {add,pop} ..."\n'
+        '  echo "  --json      machine-readable output"\n'
+        '  exit 0\n'
+        'fi\n'
+        'if [[ ${1:-} == add && ${2:-} == --help ]]; then\n'
+        '  echo "usage: backlog add [-h] [--dry-run] ITEM"\n'
+        '  exit 0\n'
+        'fi\n'
+        'echo "backlog ran: $*"\n',
+    )
     wrapper.chmod(0o755)
 
     return tmp_path
@@ -264,7 +276,7 @@ class TestRun:
         )
 
         assert result.returncode == 0
-        assert 'backlog ran: --help' in result.stdout
+        assert 'usage: backlog' in result.stdout
         assert 'Usage: skill-tree' not in result.stdout
 
     def test_unknown_subcommand_is_an_error(self, fake_root: Path) -> None:
@@ -467,3 +479,221 @@ class TestVersion:
         assert result.returncode == 0
         assert result.stdout.startswith('skill-tree ')
         assert 'unknown' not in result.stdout
+
+
+class TestComplete:
+    """`__complete` is the single source of truth the bash glue calls."""
+
+    def _candidates(self, root: Path, *words: str) -> list[str]:
+        code, out, _ = run_cli('__complete', *words, root=root)
+        assert code == 0
+        return out.split()
+
+    def test_first_word_offers_commands_and_skill_clis(
+        self,
+        fake_root: Path,
+    ) -> None:
+        candidates = self._candidates(fake_root, '')
+
+        assert {'list', 'show', 'doctor', 'test', 'help'} <= set(candidates)
+        assert {'install', 'dev', 'check'} <= set(candidates)
+        assert 'backlog' in candidates
+
+    def test_first_word_offers_skills_without_a_cli(
+        self,
+        fake_root: Path,
+    ) -> None:
+        # `skill-tree verify` errors, but the error points at
+        # `skill-tree show verify` -- so completing to it teaches the
+        # surface rather than leaving the tab key dead.
+        assert 'verify' in self._candidates(fake_root, '')
+
+    def test_never_suggests_itself(self, fake_root: Path) -> None:
+        assert '__complete' not in self._candidates(fake_root, '')
+
+    @pytest.mark.parametrize(
+        ('partial', 'expected'),
+        [
+            ('d', ['doctor', 'dev']),
+            ('sh', ['show']),
+            ('ba', ['backlog']),
+            ('zzz', []),
+        ],
+    )
+    def test_filters_by_the_partial_word(
+        self,
+        fake_root: Path,
+        partial: str,
+        expected: list[str],
+    ) -> None:
+        assert sorted(self._candidates(fake_root, partial)) == sorted(expected)
+
+    def test_a_leading_dash_offers_the_top_level_flags(
+        self,
+        fake_root: Path,
+    ) -> None:
+        candidates = self._candidates(fake_root, '-')
+
+        assert {'--help', '--version'} <= set(candidates)
+        assert 'list' not in candidates
+
+    def test_show_completes_every_skill_cli_or_not(
+        self,
+        fake_root: Path,
+    ) -> None:
+        # `show` reads the playbook, so a CLI-less skill is valid here.
+        assert sorted(self._candidates(fake_root, 'show', '')) == [
+            '--raw',
+            'backlog',
+            'verify',
+        ]
+
+    def test_list_completes_its_only_flag(self, fake_root: Path) -> None:
+        assert self._candidates(fake_root, 'list', '') == ['--json']
+
+    def test_asks_a_sub_cli_what_it_accepts(
+        self,
+        fake_root: Path,
+    ) -> None:
+        # Scraped from the sub-CLI's own --help, so it can't drift.
+        assert self._candidates(fake_root, 'backlog', '') == [
+            'add',
+            'pop',
+            '--json',
+        ]
+
+    def test_filters_sub_cli_candidates_by_the_partial_word(
+        self,
+        fake_root: Path,
+    ) -> None:
+        assert self._candidates(fake_root, 'backlog', '--j') == ['--json']
+
+    def test_offers_only_flags_past_the_sub_command(
+        self,
+        fake_root: Path,
+    ) -> None:
+        # `add --help`, not the CLI's own --help: different flag list.
+        assert self._candidates(fake_root, 'backlog', 'add', '') == [
+            '--dry-run',
+        ]
+
+    def test_a_sub_cli_that_cannot_be_asked_offers_nothing(
+        self,
+        fake_root: Path,
+    ) -> None:
+        (fake_root / 'skills' / 'backlog' / 'scripts' / 'backlog').chmod(0o644)
+
+        assert self._candidates(fake_root, 'backlog', '') == []
+
+    def test_completes_a_delegated_scripts_flags(
+        self,
+        fake_root: Path,
+    ) -> None:
+        scripts = fake_root / 'scripts'
+        scripts.mkdir(exist_ok=True)
+        installer = scripts / 'install.sh'
+        installer.write_text(
+            '#!/usr/bin/env bash\necho "Usage: install.sh [--claude]"\n',
+        )
+        installer.chmod(0o755)
+
+        assert self._candidates(fake_root, 'install', '--c') == ['--claude']
+
+    def test_a_second_argument_to_show_offers_nothing(
+        self,
+        fake_root: Path,
+    ) -> None:
+        assert self._candidates(fake_root, 'show', 'verify', '') == []
+
+    def test_a_playbook_skill_has_nothing_to_ask(
+        self,
+        fake_root: Path,
+    ) -> None:
+        assert self._candidates(fake_root, 'verify', '') == []
+
+    def test_no_words_behaves_like_an_empty_partial(
+        self,
+        fake_root: Path,
+    ) -> None:
+        assert 'list' in self._candidates(fake_root)
+
+
+COMPLETION = REPO_ROOT / 'scripts' / 'completions' / 'skill-tree.bash'
+
+
+def _comp_reply(fake_root: Path, tmp_path: Path, *words: str) -> list[str]:
+    """Drive the real bash completion function the way bash would."""
+    bin_dir = tmp_path / 'bin'
+    bin_dir.mkdir(exist_ok=True)
+    shim = bin_dir / 'skill-tree'
+    shim.write_text(
+        f'#!/usr/bin/env bash\n'
+        f'exec {sys.executable} {REPO_ROOT / "scripts" / "skill_tree_cli.py"}'
+        f' "$@"\n',
+    )
+    shim.chmod(0o755)
+
+    quoted = ' '.join(f"'{word}'" for word in ('skill-tree', *words))
+    script = (
+        f'source {COMPLETION}\n'
+        f'COMP_WORDS=({quoted})\n'
+        f'COMP_CWORD={len(words)}\n'
+        f'_skill_tree_complete\n'
+        f'printf "%s\\n" "${{COMPREPLY[@]}}"\n'
+    )
+    result = subprocess.run(  # noqa: S603
+        ['bash', '-c', script],  # noqa: S607
+        capture_output=True,
+        text=True,
+        env={
+            'PATH': f'{bin_dir}:/usr/bin:/bin',
+            'HOME': str(tmp_path),
+            'SKILL_TREE_ROOT': str(fake_root),
+        },
+        check=False,
+    )
+    assert result.returncode == 0, result.stderr
+    return result.stdout.split()
+
+
+class TestBashCompletion:
+    def test_completes_a_partial_command(
+        self,
+        fake_root: Path,
+        tmp_path: Path,
+    ) -> None:
+        assert sorted(_comp_reply(fake_root, tmp_path, 'sh')) == ['show']
+
+    def test_completes_a_skill_name_after_show(
+        self,
+        fake_root: Path,
+        tmp_path: Path,
+    ) -> None:
+        assert _comp_reply(fake_root, tmp_path, 'show', 've') == ['verify']
+
+    def test_an_empty_word_offers_everything(
+        self,
+        fake_root: Path,
+        tmp_path: Path,
+    ) -> None:
+        assert 'doctor' in _comp_reply(fake_root, tmp_path, '')
+
+    def test_completes_a_sub_clis_flag(
+        self,
+        fake_root: Path,
+        tmp_path: Path,
+    ) -> None:
+        assert _comp_reply(fake_root, tmp_path, 'backlog', '--j') == ['--json']
+
+    def test_falls_back_to_filenames_when_the_cli_has_nothing(
+        self,
+        fake_root: Path,
+        tmp_path: Path,
+    ) -> None:
+        # Sub-CLIs mostly take a path; offering nothing would be worse
+        # than the completion bash does by default.
+        (tmp_path / 'zzz-target.txt').touch()
+
+        reply = _comp_reply(fake_root, tmp_path, 'verify', f'{tmp_path}/zzz-')
+
+        assert reply == [str(tmp_path / 'zzz-target.txt')]

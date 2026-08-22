@@ -140,6 +140,16 @@ It's a dispatcher, not a reimplementation — each sub-command delegates to the 
 already does the job, and propagates its exit code. `install.sh` puts it on `PATH` at
 `~/.local/bin/skill-tree`.
 
+Bash tab completion comes with it: `install.sh` links
+`scripts/completions/skill-tree.bash` into
+`~/.local/share/bash-completion/completions/skill-tree`, which bash-completion loads on its
+own -- no shell rc is edited. It completes commands, skill CLIs, `show <skill>`, and each
+sub-CLI's own sub-commands and flags -- those are scraped from that CLI's `--help` at
+completion time, so they can't drift; where there's nothing to offer it falls back to
+filename completion. The candidates come from `skill-tree __complete` rather than
+a hard-coded list, so a new skill is completable the moment it exists. If your shell doesn't
+pick it up, `source` that file from your `~/.bashrc`.
+
 
 
 ### What installing grants: your screenshots folder
