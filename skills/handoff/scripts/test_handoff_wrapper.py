@@ -223,3 +223,108 @@ class TestRetiredCommands:
     def test_gone_from_usage(self, repo: Path, command: str) -> None:
         usage = run(WRAPPER, '--help', cwd=repo).stdout
         assert f'  {command}' not in usage
+
+
+class TestStatusIsCrossProject:
+    """`status` must not ask which repo -- it scans all of them.
+
+    The wrapper resolves a repo before dispatching every other subcommand,
+    which for a cross-project command means prompting for an answer the
+    output doesn't depend on. Outside a repo with no TTY that was a hard
+    failure, which is exactly how it shipped broken the first time.
+    """
+
+    def test_runs_outside_any_repo(self, tmp_path: Path) -> None:
+        projects = tmp_path / 'projects'
+        (projects / 'alpha' / '.git').mkdir(parents=True)
+        elsewhere = tmp_path / 'elsewhere'
+        elsewhere.mkdir()
+
+        result = run(
+            WRAPPER,
+            'status',
+            cwd=elsewhere,
+            env={'PROJECTS_DIR': str(projects)},
+        )
+        assert result.returncode == 0, result.stderr
+        assert 'alpha' in result.stdout
+        assert 'repo' not in result.stderr
+
+    def test_set_still_needs_a_repo(self, repo: Path) -> None:
+        (repo / 'docs' / 'handoffs' / 'CURRENT.md').write_text(
+            '# Continue here\n',
+        )
+        result = run(WRAPPER, 'status', '--set', 'awaiting-review', cwd=repo)
+        assert result.returncode == 0, result.stderr
+        current = (repo / 'docs' / 'handoffs' / 'CURRENT.md').read_text()
+        assert '**Status:** awaiting-review' in current
+
+    def test_set_equals_form_still_needs_a_repo(self, repo: Path) -> None:
+        (repo / 'docs' / 'handoffs' / 'CURRENT.md').write_text(
+            '# Continue here\n',
+        )
+        result = run(WRAPPER, 'status', '--set=between-tasks', cwd=repo)
+        assert result.returncode == 0, result.stderr
+        current = (repo / 'docs' / 'handoffs' / 'CURRENT.md').read_text()
+        assert '**Status:** between-tasks' in current
+
+
+class TestSessionStartReadsStatus:
+    """`between-tasks` must still surface the waiting backlog item.
+
+    The hook used to offer the next item only when CURRENT.md was absent.
+    Once a finished task leaves the file in place at `between-tasks`, that
+    branch stops firing and the backlog goes silent -- the file exists, so
+    the hook assumes work is underway.
+    """
+
+    def write_current(self, repo: Path, status: str) -> None:
+        current = repo / 'docs' / 'handoffs' / 'CURRENT.md'
+        current.write_text(
+            f'# Continue here\n\n**Status:** {status}\n\nContext.\n',
+        )
+
+    def test_between_tasks_offers_the_next_item(self, repo: Path) -> None:
+        self.write_current(repo, 'between-tasks')
+        result = run(SESSION_START, cwd=repo)
+        assert result.returncode == 0
+        assert 'Context.' in result.stdout
+        assert 'Wire the flag' in result.stdout
+        assert 'Confirm with the user' in result.stdout
+
+    def test_between_tasks_with_empty_backlog_offers_nothing(
+        self,
+        repo: Path,
+    ) -> None:
+        (repo / 'docs' / 'handoffs' / 'BACKLOG.md').write_text('# Backlog\n')
+        self.write_current(repo, 'between-tasks')
+        result = run(SESSION_START, cwd=repo)
+        assert 'Confirm with the user' not in result.stdout
+
+    def test_awaiting_review_does_not_offer_work(self, repo: Path) -> None:
+        """The user owes the next move -- an agent must not start something."""
+        self.write_current(repo, 'awaiting-review')
+        result = run(SESSION_START, cwd=repo)
+        assert 'Wire the flag' not in result.stdout
+        assert 'review' in result.stdout.casefold()
+
+    def test_in_progress_keeps_the_active_trailer(self, repo: Path) -> None:
+        self.write_current(repo, 'in-progress')
+        result = run(SESSION_START, cwd=repo)
+        assert 'Keep CURRENT.md' in result.stdout
+        assert 'Confirm with the user' not in result.stdout
+
+    def test_status_inside_a_fence_is_not_read(self, repo: Path) -> None:
+        current = repo / 'docs' / 'handoffs' / 'CURRENT.md'
+        current.write_text(
+            '# Continue here\n\n```\n**Status:** between-tasks\n```\n',
+        )
+        result = run(SESSION_START, cwd=repo)
+        assert 'Confirm with the user' not in result.stdout
+
+    def test_still_does_not_pop(self, repo: Path) -> None:
+        self.write_current(repo, 'between-tasks')
+        before = (repo / 'docs' / 'handoffs' / 'BACKLOG.md').read_text()
+        run(SESSION_START, cwd=repo)
+        after = (repo / 'docs' / 'handoffs' / 'BACKLOG.md').read_text()
+        assert before == after

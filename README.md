@@ -208,6 +208,19 @@ item's title, else nothing. It never pops — claiming work is the user's call.
 
 Diagrams: [`skills/handoff/references/flow.md`](skills/handoff/references/flow.md).
 
+### `handoff status`
+
+`handoff status` will print all of your repos' handoff info for quick reference of work TBD:
+
+```console
+$ handoff status
+PROJECT                 HANDOFF  STATUS           BACKLOG
+repo12                  no       none             0
+project1                yes      in-progress      2
+task9151                yes      awaiting-review  11
+missioncritical         yes      unset            0
+```
+
 ## Dev mode
 
 The plugin manager installs a *tagged* release into a version-pinned directory under

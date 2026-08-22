@@ -8,6 +8,7 @@ the scope -- there are no cross-repo tags to keep straight.
 import argparse
 import json
 import os
+import re
 import sys
 from dataclasses import dataclass
 from pathlib import Path
@@ -18,10 +19,41 @@ CURRENT_NAME = 'CURRENT.md'
 DEFAULT_SUBDIR = Path('docs') / 'handoffs'
 NARRATIVE_NAME = 'NARRATIVE.md'
 FENCE_PREFIXES = ('```', '~~~')
+PROJECTS_DIR_FALLBACK = Path('~/projects')
+IN_PROGRESS = 'in-progress'
+AWAITING_REVIEW = 'awaiting-review'
+BETWEEN_TASKS = 'between-tasks'
+STATUS_VALUES = (IN_PROGRESS, AWAITING_REVIEW, BETWEEN_TASKS)
+NO_CURRENT = 'none'
+STATUS_UNSET = 'unset'
+STATUS_PATTERN = re.compile(
+    r'^\s*(?:[-*]\s+)?\*{0,2}Status\*{0,2}:\*{0,2}\s*(\S.*?)\s*$',
+    re.IGNORECASE,
+)
 
 
 class HandoffError(Exception):
     """Something the user asked for can't be done as asked."""
+
+
+@dataclass(frozen=True)
+class ProjectStatus:
+    """One project's handoff state, as `status` reports it."""
+
+    name: str
+    path: Path
+    has_handoff: bool
+    status: str
+    backlog_count: int
+
+    def as_dict(self) -> dict[str, object]:
+        return {
+            'name': self.name,
+            'path': str(self.path),
+            'has_handoff': self.has_handoff,
+            'status': self.status,
+            'backlog_count': self.backlog_count,
+        }
 
 
 @dataclass(frozen=True)
@@ -244,6 +276,8 @@ NEXT_ACTION_HEADING = '## Next action'
 CURRENT_SKELETON = """\
 # Continue here
 
+**Status:** in-progress
+
 You are continuing a session that ended with a handoff. Reconstruct context
 from the files below, then do the next action.
 
@@ -333,8 +367,170 @@ def pop_item(path: Path, current_path: Path) -> BacklogItem | None:
 
     item = items[0]
     write_next_action(current_path, item)
+    set_status(current_path, IN_PROGRESS)
     write_items(path, items[1:])
     return item
+
+
+def _normalise_status(raw: str) -> str | None:
+    """A written status word, or None if it isn't one we recognise.
+
+    Accepting `in progress` alongside `in-progress` matters because this line
+    is usually written by hand mid-session, and a typo that silently reads as
+    "no status" is worse than none at all.
+    """
+    cleaned = raw.strip().strip('*`_').strip().casefold().replace(' ', '-')
+    return cleaned if cleaned in STATUS_VALUES else None
+
+
+def parse_status(text: str) -> str | None:
+    """The `**Status:**` keyword in a CURRENT.md, or None if it's absent.
+
+    Fence-aware, so the example line in the skill's own template doesn't read
+    as that project's real status.
+    """
+    fence: str | None = None
+    for line in text.split('\n'):
+        stripped = line.strip()
+        if fence is not None:
+            if stripped.startswith(fence):
+                fence = None
+            continue
+        if stripped.startswith(FENCE_PREFIXES):
+            fence = stripped[:3]
+            continue
+        match = STATUS_PATTERN.match(line)
+        if match is None:
+            continue
+        status = _normalise_status(match.group(1))
+        if status is not None:
+            return status
+    return None
+
+
+def _status_line_index(lines: list[str]) -> int | None:
+    fence: str | None = None
+    for index, line in enumerate(lines):
+        stripped = line.strip()
+        if fence is not None:
+            if stripped.startswith(fence):
+                fence = None
+            continue
+        if stripped.startswith(FENCE_PREFIXES):
+            fence = stripped[:3]
+            continue
+        if STATUS_PATTERN.match(line):
+            return index
+    return None
+
+
+def set_status(current_path: Path, status: str) -> None:
+    """Write the status keyword into CURRENT.md, replacing any existing one."""
+    if status not in STATUS_VALUES:
+        allowed = ', '.join(STATUS_VALUES)
+        message = f'unknown status {status!r} -- use {allowed}'
+        raise HandoffError(message)
+    if not current_path.exists():
+        message = f'no CURRENT.md at {current_path}'
+        raise HandoffError(message)
+
+    lines = current_path.read_text().split('\n')
+    rendered = f'**Status:** {status}'
+    index = _status_line_index(lines)
+    if index is not None:
+        lines[index] = rendered
+    else:
+        after_title = 1 if lines and lines[0].startswith('# ') else 0
+        lines[after_title:after_title] = (
+            ['', rendered] if after_title else [rendered, '']
+        )
+
+    temporary = current_path.with_name(f'.{current_path.name}.tmp')
+    temporary.write_text('\n'.join(lines).rstrip() + '\n')
+    temporary.replace(current_path)
+
+
+def default_project_root() -> Path:
+    """Where projects live: `$PROJECTS_DIR`, same as the wrapper's picker."""
+    return Path(os.environ.get('PROJECTS_DIR') or PROJECTS_DIR_FALLBACK)
+
+
+def project_status(project: Path) -> ProjectStatus:
+    directory = project / DEFAULT_SUBDIR
+    current = directory / CURRENT_NAME
+    if current.exists():
+        status = parse_status(current.read_text()) or STATUS_UNSET
+    else:
+        status = NO_CURRENT
+    return ProjectStatus(
+        name=project.name,
+        path=project,
+        has_handoff=directory.is_dir(),
+        status=status,
+        backlog_count=len(read_items(directory / BACKLOG_NAME)),
+    )
+
+
+def scan_projects(roots: list[Path]) -> list[ProjectStatus]:
+    """Every git repo one level under `roots`, with its handoff state.
+
+    One level only: `~/projects/*` is the shape this answers for, and walking
+    deeper turns a status check into a filesystem crawl through node_modules.
+    """
+    reports: dict[Path, ProjectStatus] = {}
+    for root in roots:
+        expanded = root.expanduser()
+        if not expanded.is_dir():
+            continue
+        for entry in expanded.iterdir():
+            if entry.is_dir() and (entry / '.git').exists():
+                reports[entry.resolve()] = project_status(entry)
+    return sorted(
+        reports.values(),
+        key=lambda report: (report.name, str(report.path)),
+    )
+
+
+def _render_status_table(reports: list[ProjectStatus]) -> str:
+    headers = ('PROJECT', 'HANDOFF', 'STATUS', 'BACKLOG')
+    rows = [
+        (
+            report.name,
+            'yes' if report.has_handoff else 'no',
+            report.status,
+            str(report.backlog_count),
+        )
+        for report in reports
+    ]
+    columns = zip(headers, *rows, strict=True)
+    widths = [max(len(cell) for cell in column) for column in columns]
+    lines = [
+        '  '.join(
+            cell.ljust(width) for cell, width in zip(row, widths, strict=True)
+        ).rstrip()
+        for row in (headers, *rows)
+    ]
+    return '\n'.join(lines)
+
+
+def cmd_status(_path: Path, args: argparse.Namespace) -> int:
+    if args.set is not None:
+        current = handoff_dir(args.repo) / CURRENT_NAME
+        set_status(current, args.set)
+        print(f'{current}: {args.set}')
+        return 0
+
+    roots = args.root or [default_project_root()]
+    reports = scan_projects(roots)
+    if args.json:
+        print(json.dumps([report.as_dict() for report in reports], indent=2))
+        return 0
+    if not reports:
+        listed = ', '.join(str(root) for root in roots)
+        print(f'No projects found under {listed}.')
+        return 0
+    print(_render_status_table(reports))
+    return 0
 
 
 def cmd_add(path: Path, args: argparse.Namespace) -> int:
@@ -459,6 +655,7 @@ HANDLERS = {
     'add': cmd_add,
     'next': cmd_add,
     'remove': cmd_remove,
+    'status': cmd_status,
 }
 
 
@@ -517,12 +714,35 @@ def build_parser() -> argparse.ArgumentParser:
     remove = add_action('remove', 'Delete an item')
     remove.add_argument('--item-title')
 
+    status = add_action(
+        'status',
+        "Handoff state of every project under a root, or set this one's",
+    )
+    status.add_argument(
+        '--root',
+        type=Path,
+        action='append',
+        help='project directory to scan, repeatable (default: $PROJECTS_DIR)',
+    )
+    status.add_argument(
+        '--json',
+        action='store_true',
+        help='machine-readable output',
+    )
+    status.add_argument(
+        '--set',
+        choices=STATUS_VALUES,
+        help="set this repo's CURRENT.md status instead of scanning",
+    )
+
     return parser
 
 
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     try:
+        if args.action == 'status':
+            return cmd_status(Path(), args)
         path = backlog_path(args.repo)
         return HANDLERS[args.action](path, args)
     except HandoffError as error:

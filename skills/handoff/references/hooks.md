@@ -13,11 +13,23 @@ repo that doesn't have skill-tree installed.
 
 What it prints, in order:
 
-1. `CURRENT.md`, if there is one, plus a single line reminding the session to keep it and
-   `NARRATIVE.md` current as each task lands.
-2. Otherwise the **title only** of the top `BACKLOG.md` item, plus "confirm with the user
-   before starting it."
+1. `CURRENT.md`, if there is one, followed by a trailer chosen from its `**Status:**`
+   keyword:
+   - `in-progress` (or no keyword) — a line reminding the session to keep `CURRENT.md` and
+     `NARRATIVE.md` current as each task lands.
+   - `between-tasks` — "the last task landed; nothing is in flight", plus the **title only**
+     of the top `BACKLOG.md` item and "confirm with the user before starting it." Without
+     this the backlog would go silent the moment a finished task leaves `CURRENT.md` in
+     place, because the file's mere existence used to mean work was underway.
+   - `awaiting-review` — "finished and awaiting the user's review; do not start anything
+     new." The one status where the hook deliberately withholds the backlog: the user owes
+     the next move, and offering an agent something to pick up invites it to jump the review.
+2. Otherwise, with no `CURRENT.md`, the top backlog item's title on the same terms.
 3. Otherwise nothing at all.
+
+The keyword is read in awk, fence-aware so a template's example line isn't mistaken for real
+state, and without `{n,m}` intervals — mawk is Debian's default `awk` and doesn't support
+them, which is exactly how this shipped broken once.
 
 Two deliberate limits. It never injects the playbook itself — that's ~2k tokens on every
 session for something the agent can invoke by name when it's actually writing a handoff. And

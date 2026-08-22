@@ -1,11 +1,13 @@
 """Tests for the handoff backlog CLI."""
 
+import json
 import re
 from pathlib import Path
 
 import pytest
 
 from handoff_cli import (
+    CURRENT_NAME,
     HANDLERS,
     BacklogItem,
     HandoffError,
@@ -14,10 +16,13 @@ from handoff_cli import (
     handoff_dir,
     main,
     parse_backlog_text,
+    parse_status,
     pop_item,
     read_items,
     remove_item,
     render_backlog,
+    scan_projects,
+    set_status,
     write_items,
     write_next_action,
 )
@@ -498,3 +503,226 @@ class TestDocsMatchTheCli:
         known = set(HANDLERS) | WRAPPER_ONLY_COMMANDS
         for command in re.findall(r'`handoff +([a-zA-Z][\w-]*)', text):
             assert command in known, f'{doc} documents `handoff {command}`'
+
+
+class TestStatusKeyword:
+    """The `**Status:**` line in CURRENT.md, and reading it back."""
+
+    @pytest.mark.parametrize(
+        ('line', 'expected'),
+        [
+            ('**Status:** in-progress', 'in-progress'),
+            ('**Status:** between-tasks', 'between-tasks'),
+            ('**Status:** awaiting-review', 'awaiting-review'),
+            ('**Status:** awaiting review', 'awaiting-review'),
+            ('**Status:**  IN-PROGRESS ', 'in-progress'),
+            ('**Status:** in progress', 'in-progress'),
+            ('Status: between-tasks', 'between-tasks'),
+            ('- **Status:** in-progress', 'in-progress'),
+            ('**Status:** nonsense', None),
+            ('no keyword here', None),
+        ],
+    )
+    def test_parse_status(self, line: str, expected: str | None) -> None:
+        assert (
+            parse_status(f'# Continue here\n\n{line}\n\n## Goal\n') == expected
+        )
+
+    def test_fenced_status_is_ignored(self) -> None:
+        text = '# Continue here\n\n```\n**Status:** in-progress\n```\n'
+        assert parse_status(text) is None
+
+    def test_first_status_wins(self) -> None:
+        text = '**Status:** between-tasks\n\n**Status:** in-progress\n'
+        assert parse_status(text) == 'between-tasks'
+
+    def test_set_status_adds_line_when_absent(self, tmp_path: Path) -> None:
+        current = tmp_path / CURRENT_NAME
+        current.write_text('# Continue here\n\n## Goal\n\nShip it.\n')
+        set_status(current, 'in-progress')
+        assert parse_status(current.read_text()) == 'in-progress'
+        assert '## Goal' in current.read_text()
+
+    def test_set_status_replaces_existing_line(self, tmp_path: Path) -> None:
+        current = tmp_path / CURRENT_NAME
+        current.write_text(
+            '# Continue here\n\n**Status:** between-tasks\n\n## Goal\n',
+        )
+        set_status(current, 'in-progress')
+        text = current.read_text()
+        assert parse_status(text) == 'in-progress'
+        assert text.count('**Status:**') == 1
+
+    def test_set_status_rejects_unknown_value(self, tmp_path: Path) -> None:
+        current = tmp_path / CURRENT_NAME
+        current.write_text('# Continue here\n')
+        with pytest.raises(HandoffError, match=r'in\-progress'):
+            set_status(current, 'wat')
+
+    def test_set_status_requires_the_file(self, tmp_path: Path) -> None:
+        with pytest.raises(HandoffError, match=r'CURRENT\.md'):
+            set_status(tmp_path / CURRENT_NAME, 'in-progress')
+
+    def test_pop_marks_work_in_progress(self, tmp_path: Path) -> None:
+        path = write_backlog(tmp_path)
+        current = path.with_name(CURRENT_NAME)
+        pop_item(path, current)
+        assert parse_status(current.read_text()) == 'in-progress'
+
+    def test_pop_updates_an_existing_status(self, tmp_path: Path) -> None:
+        path = write_backlog(tmp_path)
+        current = path.with_name(CURRENT_NAME)
+        current.write_text('# Continue here\n\n**Status:** between-tasks\n')
+        pop_item(path, current)
+        assert parse_status(current.read_text()) == 'in-progress'
+
+
+class TestProjectScan:
+    """`handoff status` across every project under a root."""
+
+    def make_project(
+        self,
+        root: Path,
+        name: str,
+        *,
+        git: bool = True,
+        backlog: str | None = None,
+        current: str | None = None,
+    ) -> Path:
+        project = root / name
+        project.mkdir(parents=True)
+        if git:
+            (project / '.git').mkdir()
+        if backlog is not None or current is not None:
+            directory = project / 'docs' / 'handoffs'
+            directory.mkdir(parents=True)
+            if backlog is not None:
+                (directory / 'BACKLOG.md').write_text(backlog)
+            if current is not None:
+                (directory / CURRENT_NAME).write_text(current)
+        return project
+
+    def test_reports_a_project_with_no_handoff(self, tmp_path: Path) -> None:
+        self.make_project(tmp_path, 'bare')
+        (report,) = scan_projects([tmp_path])
+        assert report.name == 'bare'
+        assert report.has_handoff is False
+        assert report.status == 'none'
+        assert report.backlog_count == 0
+
+    def test_skips_non_repositories(self, tmp_path: Path) -> None:
+        self.make_project(tmp_path, 'notarepo', git=False)
+        assert scan_projects([tmp_path]) == []
+
+    def test_counts_backlog_items_and_reads_status(
+        self,
+        tmp_path: Path,
+    ) -> None:
+        self.make_project(
+            tmp_path,
+            'busy',
+            backlog=SAMPLE,
+            current='# Continue here\n\n**Status:** in-progress\n',
+        )
+        (report,) = scan_projects([tmp_path])
+        assert report.has_handoff is True
+        assert report.status == 'in-progress'
+        assert report.backlog_count == len(parse_backlog_text(SAMPLE))
+
+    def test_current_without_the_keyword_reports_unset(
+        self,
+        tmp_path: Path,
+    ) -> None:
+        self.make_project(tmp_path, 'legacy', current='# Continue here\n')
+        (report,) = scan_projects([tmp_path])
+        assert report.status == 'unset'
+
+    def test_backlog_without_current_is_not_in_progress(
+        self,
+        tmp_path: Path,
+    ) -> None:
+        self.make_project(tmp_path, 'parked', backlog=SAMPLE)
+        (report,) = scan_projects([tmp_path])
+        assert report.has_handoff is True
+        assert report.status == 'none'
+        assert report.backlog_count == len(parse_backlog_text(SAMPLE))
+
+    def test_sorted_by_name_across_roots(self, tmp_path: Path) -> None:
+        first, second = tmp_path / 'a', tmp_path / 'b'
+        self.make_project(second, 'zeta')
+        self.make_project(first, 'alpha')
+        assert [r.name for r in scan_projects([first, second])] == [
+            'alpha',
+            'zeta',
+        ]
+
+    def test_missing_root_is_not_an_error(self, tmp_path: Path) -> None:
+        assert scan_projects([tmp_path / 'nope']) == []
+
+
+class TestStatusCommand:
+    """The `status` action's own surface."""
+
+    def test_table_lists_each_project(
+        self,
+        tmp_path: Path,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        scan = TestProjectScan()
+        scan.make_project(
+            tmp_path,
+            'busy',
+            backlog=SAMPLE,
+            current='# Continue here\n\n**Status:** in-progress\n',
+        )
+        scan.make_project(tmp_path, 'bare')
+        assert main(['status', '--root', str(tmp_path)]) == 0
+        out = capsys.readouterr().out
+        assert 'busy' in out
+        assert 'in-progress' in out
+        assert 'bare' in out
+
+    def test_json_is_machine_readable(
+        self,
+        tmp_path: Path,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        scan = TestProjectScan()
+        scan.make_project(
+            tmp_path,
+            'busy',
+            backlog=SAMPLE,
+            current='**Status:** in-progress\n',
+        )
+        assert main(['status', '--root', str(tmp_path), '--json']) == 0
+        payload = json.loads(capsys.readouterr().out)
+        assert payload == [
+            {
+                'name': 'busy',
+                'path': str(tmp_path / 'busy'),
+                'has_handoff': True,
+                'status': 'in-progress',
+                'backlog_count': 2,
+            },
+        ]
+
+    def test_empty_root_says_so(
+        self,
+        tmp_path: Path,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        assert main(['status', '--root', str(tmp_path)]) == 0
+        assert 'No projects' in capsys.readouterr().out
+
+    def test_set_writes_the_current_repo(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        path = write_backlog(tmp_path)
+        current = path.with_name(CURRENT_NAME)
+        current.write_text('# Continue here\n')
+        (tmp_path / '.git').mkdir()
+        monkeypatch.chdir(tmp_path)
+        assert main(['status', '--set', 'between-tasks']) == 0
+        assert parse_status(current.read_text()) == 'between-tasks'

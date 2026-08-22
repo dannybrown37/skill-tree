@@ -60,9 +60,15 @@ _pick_repo() {
 
 # True when the args already name a repo, so we don't second-guess them.
 _has_repo_flag() {
-	local arg
+	_has_flag --repo "$@"
+}
+
+# Both spellings: `--flag value` and `--flag=value`.
+_has_flag() {
+	local wanted="$1" arg
+	shift
 	for arg in "$@"; do
-		[[ "${arg}" == "--repo" || "${arg}" == "--repo="* ]] && return 0
+		[[ "${arg}" == "${wanted}" || "${arg}" == "${wanted}="* ]] && return 0
 	done
 	return 1
 }
@@ -128,6 +134,7 @@ Usage: handoff <command> [options]
 	add               Add an item to the bottom -- do this eventually
 	next              Add an item to the top -- do this next
 	remove            Delete an item
+	status            Handoff state of every project under $PROJECTS_DIR
 	edit              Open BACKLOG.md in $EDITOR
 	pop               (Main agent action, not for humans) Claim the top item:
 		     	  remove it from BACKLOG.md and make it CURRENT.md's next action.
@@ -170,8 +177,17 @@ shift
 # Resolve which repo before anything else, so every subcommand below shares
 # one answer -- and so `skill-tree handoff` from outside a project offers the
 # picker instead of failing with "not inside a git repo".
+# `status` is the one cross-project command: it scans $PROJECTS_DIR rather
+# than acting on one repo, so resolving a repo for it -- and prompting with
+# the picker to do so -- asks a question its answer doesn't depend on. The
+# exception is `--set`, which writes this repo's CURRENT.md like anything else.
+_needs_repo=1
+if [[ "${_command}" == status ]] && ! _has_flag --set "$@"; then
+	_needs_repo=''
+fi
+
 _scope=()
-if ! _has_repo_flag "$@"; then
+if [[ -n "${_needs_repo}" ]] && ! _has_repo_flag "$@"; then
 	if [[ -n "${_pick}" ]]; then
 		_scope=(--repo "$(_pick_repo)")
 	elif [[ -z "${HANDOFF_DIR:-}" ]] && ! _in_repo; then
@@ -227,6 +243,10 @@ remove)
 		fi
 	fi
 	_handoff_py "${_command}" "${_scope[@]+"${_scope[@]}"}" "$@"
+	;;
+status)
+	_out="$(_handoff_py status "${_scope[@]+"${_scope[@]}"}" "$@")"
+	_page <<<"${_out}"
 	;;
 backlog | current | narrative)
 	# Not piped directly into the pager: a failure on the Python side must

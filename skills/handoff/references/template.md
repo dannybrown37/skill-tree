@@ -19,6 +19,8 @@ Keep it short. This is loaded before any work happens.
 You are continuing a session that ended with a handoff. Reconstruct context from the files
 below, then do the next action.
 
+**Status:** in-progress | awaiting-review | between-tasks
+
 **Written:** <YYYY-MM-DD HH:MM> · **Branch:** `<branch>` · **HEAD:** `<short-sha>` ·
 **Tree:** clean | dirty · **Handoff:** #<n> of this thread
 

@@ -47,6 +47,31 @@ prints the available titles rather than a hang.
 `backlog`/`current`/`narrative` take `--path` to print the file's path instead of its contents, and
 exit 1 if the file doesn't exist.
 
+## `handoff status`
+
+Cross-project, unlike everything else here: it scans one level under `$PROJECTS_DIR`
+(default `~/projects`) and reports, per git repo, whether `docs/handoffs/` exists, the
+`**Status:**` keyword from its `CURRENT.md`, and how many backlog items it holds.
+
+| Flag | Effect |
+| --- | --- |
+| `--root <dir>` | Scan this directory instead; repeatable |
+| `--json` | Machine-readable array, one object per project |
+| `--set <value>` | Don't scan — write the keyword into *this* repo's `CURRENT.md` |
+
+Three values are written, by hand or by `--set`, and they differ in *who owes the next move*:
+`in-progress` (a task is half-done), `awaiting-review` (done and green, the user's turn — no
+agent should pick this up), and `between-tasks` (settled, next task free to start).
+
+Two more are derived, never written: `unset` means `CURRENT.md` exists without the keyword,
+and `none` means there's no `CURRENT.md` at all. `none` is ambiguous on its own — a repo that
+never kept handoffs and one whose work finished look identical — so read it against
+`has_handoff`: no handoff directory means never started, a handoff directory with a backlog
+means queued work nobody wrote a re-entry prompt for.
+
+`pop` sets `in-progress` as part of claiming, because an item that has been claimed is work
+in flight. Nothing resets it automatically — that's write-back's job.
+
 ## Which repo
 
 In order: `--repo <path>` → `$HANDOFF_DIR` → the git repo containing the working directory.

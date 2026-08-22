@@ -55,6 +55,7 @@ cwd.
   `CURRENT.md` / `NARRATIVE.md` (paged for a human; plain stdout in a tool call)
 - `handoff pop` — **claim the top item**: removes it from `BACKLOG.md` and writes it into
   `CURRENT.md` as the next action, in one step. Ask the user before doing this.
+- `handoff status` — the handoff state of every project under `~/projects` (see below)
 
 Full surface, repo selection, and the flags in `references/backlog.md`. If `handoff` isn't on
 `PATH` in a tool call, run
@@ -95,6 +96,19 @@ Short. Everything here is loaded before the next session does anything useful.
 7. **Open questions**: anything blocked on the user, marked blocked, so the next session asks
    instead of guessing.
 
+### The status keyword
+
+`CURRENT.md` carries one line near the top, `**Status:** <value>`, answering *who owes the
+next move*. The session-start hook reads it and adjusts what it puts in front of the agent:
+
+- `in-progress` — mid-flight, something is half-written. `pop` sets this.
+- `awaiting-review` — done and green, the user's turn. Nothing for an agent to pick up.
+- `between-tasks` — settled; the next task is free to start.
+
+A keyword, not prose to infer from — that must be answerable without reading the file, by a
+hook or by `handoff status`, which reports it for every repo under `$PROJECTS_DIR` alongside
+each one's backlog count (`references/backlog.md` for the rest).
+
 ### The narrative
 
 Appended to across sessions. Ordered by how much of it can't be recovered otherwise:
@@ -112,7 +126,8 @@ Appended to across sessions. Ordered by how much of it can't be recovered otherw
    cost an hour to find.
 
 `references/template.md` has both files as fill-in skeletons.
-`references/flow.md` diagrams the lifecycle and which writer owns which file.
+`references/flow.md` diagrams the lifecycle, which writer owns which file, and chaining a
+handoff between agents rather than sessions.
 
 ## Resuming
 
@@ -151,15 +166,19 @@ Per task completed, in the same turn:
 
 Also:
 
+- **Status keyword** — `handoff status --set awaiting-review` when a task lands, `between-tasks`
+  once it's settled, `in-progress` when the next starts. It's what keeps the cross-project
+  view honest.
 - When work surfaces that isn't next — a follow-up, a cleanup, something the user mentioned
   in passing — `handoff add` it in the same turn. Anything parked in `CURRENT.md` "for later"
   is either lost or in the way.
 - Update the re-entry prompt whenever the next action changes, even mid-task — a plan that
   changed and a task that finished are the same event as far as this file is concerned.
-- On close, **replace** the re-entry prompt. One active re-entry prompt, always. Superseding
-  means overwriting, not appending a second file.
-- When the work is finished, delete the re-entry prompt. The narrative stays; a dead "continue
-  here" left in the repo is a trap.
+- On close, **replace** the re-entry prompt — one active prompt, always. Superseding means
+  overwriting, not appending a second file.
+- Task finished but backlog isn't? Leave the re-entry prompt at `between-tasks` — that plus a
+  non-empty backlog says "idle, work available", which deleting the file cannot. Delete only
+  once the backlog is empty too; a dead "continue here" on finished work is a trap.
 
 The session-end write is then a review, not a reconstruction — which is the point, because
 session end is exactly when you have the least context to reconstruct from.
@@ -167,13 +186,6 @@ session end is exactly when you have the least context to reconstruct from.
 Automate it if the environment allows: a `PreCompact` hook that writes the handoff and a
 `SessionStart` hook that reads it turns this from discipline into mechanism, which matters most
 in long autonomous loops where drift is the failure. See `references/hooks.md`.
-
-## Chaining
-
-A handoff is also the joint between skills and agents, not only between sessions: research →
-handoff → prototype → handoff back. For a subagent, fold in what it can't cheaply ask for —
-exact paths, commands verbatim, and the definition of done. Everything above still applies,
-the failed attempts most of all.
 
 ## Failure modes
 
@@ -191,3 +203,4 @@ the failed attempts most of all.
 | An item was claimed and then vanished | `pop` ran but `CURRENT.md` was never kept current after |
 | The re-entry prompt grew a to-do list | Future work left in `CURRENT.md` instead of `handoff add`ed |
 | Evidence is vague, reasons are missing | Narrative written from memory at session end instead of per task |
+| `handoff status` says `in-progress` on a repo that's idle | Status keyword not reset as part of write-back |

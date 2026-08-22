@@ -70,3 +70,10 @@ Invariants worth stating outright:
 - The hook reads; it never writes and never pops.
 - `CURRENT.md` holds exactly one next action — everything else future-tense goes through
   `handoff add`.
+
+## Chaining
+
+A handoff is also the joint between skills and agents, not only between sessions: research →
+handoff → prototype → handoff back. For a subagent, fold in what it can't cheaply ask for —
+exact paths, commands verbatim, and the definition of done. Everything above still applies,
+the failed attempts most of all.
