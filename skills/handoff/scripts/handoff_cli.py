@@ -9,6 +9,7 @@ import argparse
 import json
 import os
 import re
+import subprocess
 import sys
 from dataclasses import dataclass
 from pathlib import Path
@@ -25,7 +26,9 @@ AWAITING_REVIEW = 'awaiting-review'
 BETWEEN_TASKS = 'between-tasks'
 STATUS_VALUES = (IN_PROGRESS, AWAITING_REVIEW, BETWEEN_TASKS)
 NO_CURRENT = 'none'
+REVIEWED = 'reviewed'
 STATUS_UNSET = 'unset'
+ANCHOR_COMMIT_PATTERN = re.compile(r'HEAD\s+`([0-9a-f]{7,40})`')
 STATUS_PATTERN = re.compile(
     r'^\s*(?:[-*]\s+)?\*{0,2}Status\*{0,2}:\*{0,2}\s*(\S.*?)\s*$',
     re.IGNORECASE,
@@ -408,6 +411,47 @@ def parse_status(text: str) -> str | None:
     return None
 
 
+def parse_anchor_commit(text: str) -> str | None:
+    """Extract the HEAD commit hash from the ``## Anchor`` section."""
+    match = ANCHOR_COMMIT_PATTERN.search(text)
+    return match.group(1) if match else None
+
+
+def _head_has_advanced(repo: Path, anchor_commit: str) -> bool:
+    """True when the repo's HEAD is strictly ahead of *anchor_commit*."""
+    try:
+        result = subprocess.run(
+            ['git', 'rev-parse', 'HEAD'],  # noqa: S607
+            cwd=repo,
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=5,
+        )
+        if result.returncode != 0:
+            return False
+        head = result.stdout.strip()
+        if head.startswith(anchor_commit) or anchor_commit.startswith(head):
+            return False
+        ancestor = subprocess.run(  # noqa: S603
+            [  # noqa: S607
+                'git',
+                'merge-base',
+                '--is-ancestor',
+                anchor_commit,
+                head,
+            ],
+            cwd=repo,
+            capture_output=True,
+            check=False,
+            timeout=5,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return False
+    else:
+        return ancestor.returncode == 0
+
+
 def _status_line_index(lines: list[str]) -> int | None:
     fence: str | None = None
     for index, line in enumerate(lines):
@@ -459,7 +503,12 @@ def project_status(project: Path) -> ProjectStatus:
     directory = project / DEFAULT_SUBDIR
     current = directory / CURRENT_NAME
     if current.exists():
-        status = parse_status(current.read_text()) or STATUS_UNSET
+        text = current.read_text()
+        status = parse_status(text) or STATUS_UNSET
+        if status == AWAITING_REVIEW:
+            anchor = parse_anchor_commit(text)
+            if anchor and _head_has_advanced(project, anchor):
+                status = REVIEWED
     else:
         status = NO_CURRENT
     return ProjectStatus(

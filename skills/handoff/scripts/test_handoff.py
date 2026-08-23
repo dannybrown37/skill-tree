@@ -15,6 +15,7 @@ from handoff_cli import (
     find_item,
     handoff_dir,
     main,
+    parse_anchor_commit,
     parse_backlog_text,
     parse_status,
     pop_item,
@@ -575,6 +576,113 @@ class TestStatusKeyword:
         current.write_text('# Continue here\n\n**Status:** between-tasks\n')
         pop_item(path, current)
         assert parse_status(current.read_text()) == 'in-progress'
+
+
+class TestParseAnchorCommit:
+    @pytest.mark.parametrize(
+        ('text', 'expected'),
+        [
+            ('HEAD `abc1234`', 'abc1234'),
+            ('- 2026-08-22, branch `main`, HEAD `861deec`', '861deec'),
+            (
+                'HEAD `abcdef1234567890abcdef1234567890abcdef12`',
+                'abcdef1234567890abcdef1234567890abcdef12',
+            ),
+            ('no anchor here', None),
+            ('HEAD ``', None),
+        ],
+    )
+    def test_parse_anchor_commit(
+        self,
+        text: str,
+        expected: str | None,
+    ) -> None:
+        assert parse_anchor_commit(text) == expected
+
+
+class TestReviewedInference:
+    """awaiting-review downgrades to reviewed when HEAD advances."""
+
+    def _make_git_project(self, root: Path, name: str) -> Path:
+        import subprocess
+
+        project = root / name
+        project.mkdir(parents=True)
+        subprocess.run(  # noqa: S603
+            ['git', 'init', str(project)],  # noqa: S607
+            capture_output=True,
+            check=True,
+        )
+        subprocess.run(
+            ['git', 'commit', '--allow-empty', '-m', 'initial'],  # noqa: S607
+            cwd=project,
+            capture_output=True,
+            check=True,
+        )
+        return project
+
+    def _head(self, project: Path) -> str:
+        import subprocess
+
+        result = subprocess.run(
+            ['git', 'rev-parse', 'HEAD'],  # noqa: S607
+            cwd=project,
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        return result.stdout.strip()
+
+    def test_awaiting_review_becomes_reviewed_after_new_commit(
+        self,
+        tmp_path: Path,
+    ) -> None:
+        import subprocess
+
+        project = self._make_git_project(tmp_path, 'myrepo')
+        anchor = self._head(project)[:7]
+        directory = project / 'docs' / 'handoffs'
+        directory.mkdir(parents=True)
+        (directory / CURRENT_NAME).write_text(
+            f'# Continue here\n\n**Status:** awaiting-review\n\n'
+            f'## Anchor\n\n- HEAD `{anchor}`\n',
+        )
+        subprocess.run(
+            ['git', 'commit', '--allow-empty', '-m', 'user work'],  # noqa: S607
+            cwd=project,
+            capture_output=True,
+            check=True,
+        )
+        (report,) = scan_projects([tmp_path])
+        assert report.status == 'reviewed'
+
+    def test_awaiting_review_stays_when_head_matches_anchor(
+        self,
+        tmp_path: Path,
+    ) -> None:
+        project = self._make_git_project(tmp_path, 'myrepo')
+        anchor = self._head(project)[:7]
+        directory = project / 'docs' / 'handoffs'
+        directory.mkdir(parents=True)
+        (directory / CURRENT_NAME).write_text(
+            f'# Continue here\n\n**Status:** awaiting-review\n\n'
+            f'## Anchor\n\n- HEAD `{anchor}`\n',
+        )
+        (report,) = scan_projects([tmp_path])
+        assert report.status == 'awaiting-review'
+
+    def test_awaiting_review_stays_without_anchor(
+        self,
+        tmp_path: Path,
+    ) -> None:
+        project = self._make_git_project(tmp_path, 'myrepo')
+        directory = project / 'docs' / 'handoffs'
+        directory.mkdir(parents=True)
+        (directory / CURRENT_NAME).write_text(
+            '# Continue here\n\n**Status:** awaiting-review\n',
+        )
+        (report,) = scan_projects([tmp_path])
+        assert report.status == 'awaiting-review'
 
 
 class TestProjectScan:
