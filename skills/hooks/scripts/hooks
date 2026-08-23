@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+# Every hook that would fire in this session, merged from every source.
+#
+# Thin on purpose: there's nothing interactive here, so the wrapper exists
+# only to give the skill the executable name the `skill-tree` dispatcher and
+# $PATH both expect, and to pick an interpreter. All logic lives in the
+# Python.
+set -euo pipefail
+
+_here="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+
+exec python3 "${_here}/hooks_cli.py" "$@"
