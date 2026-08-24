@@ -2,7 +2,7 @@
 """Deterministic half of the repo-audit checklist, over a working tree.
 
 Every check here answers from files on disk. The sections that need a
-tool actually run -- the test suite, mypy, ruff, `pre-commit run` -- are
+tool actually run -- the test suite, mypy, ruff, `prek run` -- are
 reported as MANUAL with the command, because "the tool isn't installed"
 and "the repo is fine" are different answers and only the caller can tell
 them apart.
@@ -258,7 +258,8 @@ def check_precommit(root: Path, stack: Stack) -> CheckResult:
         'Pre-commit hooks',
         Status.PASS,
         f'{config.name} covers every hook this stack needs. '
-        f'Run `pre-commit run --all-files` to confirm they pass.',
+        f'Run `prek run --all-files` (or `pre-commit run --all-files`) to '
+        f'confirm they pass.',
     )
 
 

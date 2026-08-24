@@ -44,7 +44,7 @@ git write. Same human-in-the-loop boundary most repos hold — this skill invoke
    invoke the relevant language skill/reference for the code being touched.
 
 6. **Verify locally before reporting done.** Run the same check CI ran (test suite,
-   pre-commit, lint) so "should pass now" is backed by a real local run, not an inference
+   prek/pre-commit, lint) so "should pass now" is backed by a real local run, not an inference
    from the diff. If the `verify` skill is installed alongside this one, invoke it for the
    claim-by-claim version of this check.
 

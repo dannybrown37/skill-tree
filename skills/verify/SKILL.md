@@ -10,7 +10,7 @@ allowed-tools: Read, Grep, Glob, Bash
 Answer, then prove the answer. Every claim ships with the check that could have refuted it
 and the output that didn't.
 
-If this repo already gates lint/tests on changed files (a Stop hook, pre-commit, CI), this
+If this repo already gates lint/tests on changed files (a Stop hook, prek/pre-commit, CI), this
 skill covers the claims no hook can check for you.
 
 ## The rule

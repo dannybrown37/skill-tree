@@ -53,7 +53,7 @@ Work them in order. Each section says what to look for and how to verify it.
 
 The repo should have a `.pre-commit-config.yaml`. If it does:
 
-- Run `pre-commit run --all-files` and report failures.
+- Run `prek run --all-files` (or `pre-commit run --all-files`) and report failures.
 - Check that the hook list includes at minimum: a linter, a formatter, a secret scanner
   (gitleaks or equivalent), and end-of-file-fixer.
 - If the repo has Python: ruff-check, ruff-format, mypy, and pytest hooks should be present.
