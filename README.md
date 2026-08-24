@@ -252,7 +252,7 @@ working tree, uncommitted changes and all.
 
 ```bash
 skill-tree test            # or, equivalently:
-uv run --with pytest pytest scripts/ skills/ -q
+uv run --with pytest --with pytest-xdist pytest scripts/ skills/ -q
 ```
 
 Pre-commit runs ruff (`.ruff.toml`) + the same test suite + `scripts/check_skill_structure.py`

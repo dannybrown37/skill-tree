@@ -267,6 +267,8 @@ def cmd_test(root: Path, args: list[str]) -> int:
             'run',
             '--with',
             'pytest',
+            '--with',
+            'pytest-xdist',
             'pytest',
             'scripts/',
             'skills/',

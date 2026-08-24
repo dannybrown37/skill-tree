@@ -15,7 +15,7 @@ repos:
         args: [--config, .ruff.toml]
       - id: mypy
       - id: pytest
-        args: ['--runner=uv run --with pytest pytest', scripts/, skills/, -q]
+        args: ['--runner=uv run --with pytest --with pytest-xdist pytest', scripts/, skills/, -q]
         files: ^(scripts|skills)/.*\.py$
       - id: block-private-terms
       - id: regen-file
