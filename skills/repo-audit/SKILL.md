@@ -28,10 +28,11 @@ skill-tree repo-audit . --json   # same verdicts, machine-readable
 Exit `0` = nothing failed, `1` = at least one FAIL, `2` = nothing there to audit. Each
 section comes back `PASS`, `FAIL`, `NA` (the repo doesn't use that thing), or **`MANUAL`**.
 
-Sections 1, 2, 3, 6, 7, 8, and 9 are computed from the working tree. Section 4 needs `--run`
-to execute the suite; without it, it still reports modules with no test file. Where a section
-reports `PASS`, it has proven the config exists, not that the tool passes — the `PASS` detail
-names the command to confirm with.
+Sections 1, 2, 3, 6, 7, 8, and 9 are computed from the working tree. Sections 4 and 11 need
+`--run` to execute the suite / zizmor; without it, section 4 still reports modules with no
+test file, and section 11 reports whether zizmor is wired in at all. Where a section reports
+`PASS`, it has proven the config exists, not that the tool passes — the `PASS` detail names
+the command to confirm with.
 
 **Section 5 is always `MANUAL`, by design.** The checker finds and lists your entrypoints but
 never executes them, because probing `--version` means *running* the thing — an early version
@@ -146,6 +147,18 @@ future-you-who-already-knows-everything.
   `dist/`, `.next/`, `target/`, etc.).
 - No merge conflict markers in tracked files:
   `grep -rn '<<<<<<< ' $(git ls-files) 2>/dev/null`.
+
+### 11. GitHub Actions static analysis (zizmor)
+
+Only applicable if the repo has `.github/workflows/*.yml`. If it doesn't, this is `n/a`.
+
+- [zizmor](https://github.com/woodruffw/zizmor) should be wired in somewhere -- a
+  `zizmor` pre-commit hook, or a CI step that runs it (`uvx zizmor .`). If neither exists,
+  flag it: workflow injection, missing permissions pins, and unpinned third-party actions
+  go unreviewed.
+- Run `uvx zizmor .` (or `--run` on the checker below) and report findings — untrusted
+  input flowing into `run:` blocks, overly broad `permissions:`, actions pinned to a
+  mutable tag instead of a commit SHA.
 
 ## Report format
 

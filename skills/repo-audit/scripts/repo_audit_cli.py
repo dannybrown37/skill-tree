@@ -810,6 +810,88 @@ def check_docs_freshness(root: Path) -> CheckResult:
     )
 
 
+ZIZMOR_COMMAND = ('uvx', 'zizmor', '.')
+
+
+def _workflow_files(root: Path) -> list[Path]:
+    """Every GitHub Actions workflow file, if the repo has any."""
+    workflows_dir = root / '.github' / 'workflows'
+    if not workflows_dir.is_dir():
+        return []
+    return sorted(
+        path
+        for path in workflows_dir.iterdir()
+        if path.is_file() and path.suffix in {'.yml', '.yaml'}
+    )
+
+
+def _zizmor_wired(root: Path, workflows: Iterable[Path]) -> bool:
+    """Whether zizmor already runs somewhere -- pre-commit or CI itself."""
+    if 'zizmor' in _read(root / '.pre-commit-config.yaml'):
+        return True
+    return any('zizmor' in _read(workflow) for workflow in workflows)
+
+
+def check_workflows(root: Path, *, run: bool) -> CheckResult:
+    """Section 11 -- GitHub Actions workflows get scanned by zizmor."""
+    workflows = _workflow_files(root)
+    if not workflows:
+        return CheckResult(
+            11,
+            'GitHub Actions static analysis',
+            Status.NA,
+            'no .github/workflows -- nothing for zizmor to scan.',
+        )
+
+    printable = ' '.join(ZIZMOR_COMMAND)
+
+    if not run:
+        if _zizmor_wired(root, workflows):
+            return CheckResult(
+                11,
+                'GitHub Actions static analysis',
+                Status.MANUAL,
+                f'{len(workflows)} workflow(s), zizmor is wired into '
+                f'pre-commit or CI. Run `{printable}` to confirm it is '
+                f'clean (pass --run).',
+            )
+        return CheckResult(
+            11,
+            'GitHub Actions static analysis',
+            Status.FAIL,
+            f'{len(workflows)} workflow(s) found but zizmor is not wired '
+            f'into pre-commit or CI. Add a zizmor hook or workflow step, '
+            f'or run `{printable}` manually (pass --run to execute now).',
+        )
+
+    completed = _run(ZIZMOR_COMMAND, root, TOOL_TIMEOUT_SECONDS)
+    if completed is None:
+        return CheckResult(
+            11,
+            'GitHub Actions static analysis',
+            Status.MANUAL,
+            f'`{printable}` could not be run here (missing tool, or it '
+            f'exceeded {TOOL_TIMEOUT_SECONDS}s). Run it yourself.',
+        )
+    if completed.returncode != 0:
+        tail = (completed.stdout or completed.stderr).strip().splitlines()
+        return CheckResult(
+            11,
+            'GitHub Actions static analysis',
+            Status.FAIL,
+            f'`{printable}` exited {completed.returncode}: '
+            f'{tail[-1] if tail else "no output"}',
+        )
+
+    return CheckResult(
+        11,
+        'GitHub Actions static analysis',
+        Status.PASS,
+        f'`{printable}` found no findings across {len(workflows)} '
+        f'workflow(s).',
+    )
+
+
 def run_checks(root: Path, *, run: bool = False) -> list[CheckResult]:
     """Every section, in the order the skill states them."""
     if not root.is_dir():
@@ -835,6 +917,7 @@ def run_checks(root: Path, *, run: bool = False) -> list[CheckResult]:
             check_tests(root, stack, run=run),
             check_entrypoints(root),
             check_docs_freshness(root),
+            check_workflows(root, run=run),
         ],
         key=lambda result: result.number,
     )
@@ -958,8 +1041,9 @@ def main(argv: Sequence[str] | None = None) -> int:
     audit.add_argument(
         '--run',
         action='store_true',
-        help='actually run the test suite (slower; without it section 4 '
-        'reports MANUAL). Never runs your CLI entrypoints -- see section 5.',
+        help='actually run the test suite and zizmor (slower; without it '
+        'sections 4 and 11 report MANUAL). Never runs your CLI '
+        'entrypoints -- see section 5.',
     )
     audit.add_argument(
         '--json',

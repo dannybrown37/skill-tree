@@ -15,6 +15,7 @@ from repo_audit_cli import (
     check_docs_freshness,
     check_entrypoints,
     check_tests,
+    check_workflows,
     find_entrypoints,
     referenced_paths,
     untested_modules,
@@ -435,7 +436,7 @@ class TestRunChecks:
         clean_python_repo: Path,
     ) -> None:
         numbers = {result.number for result in run_checks(clean_python_repo)}
-        assert numbers == {1, 2, 3, 4, 5, 6, 7, 8, 9}
+        assert numbers == {1, 2, 3, 4, 5, 6, 7, 8, 9, 11}
 
     def test_tool_sections_are_manual_until_run(
         self,
@@ -624,6 +625,46 @@ class TestCheckTests:
         result = check_tests(tmp_path, detect_stack(tmp_path), run=False)
         assert result.status is Status.FAIL
         assert 'src/thing.py' in result.detail
+
+
+class TestCheckWorkflows:
+    def test_na_without_workflows(self, tmp_path: Path) -> None:
+        result = check_workflows(tmp_path, run=False)
+        assert result.status is Status.NA
+
+    def test_fails_when_not_wired_in(self, tmp_path: Path) -> None:
+        write(tmp_path, '.github/workflows/ci.yml', 'on: push\njobs: {}\n')
+        result = check_workflows(tmp_path, run=False)
+        assert result.status is Status.FAIL
+        assert 'zizmor' in result.detail
+
+    def test_manual_when_wired_into_precommit(self, tmp_path: Path) -> None:
+        write(tmp_path, '.github/workflows/ci.yml', 'on: push\njobs: {}\n')
+        write(
+            tmp_path,
+            '.pre-commit-config.yaml',
+            'repos:\n  - hooks:\n      - id: zizmor\n',
+        )
+        result = check_workflows(tmp_path, run=False)
+        assert result.status is Status.MANUAL
+
+    def test_manual_when_wired_into_a_workflow_itself(
+        self,
+        tmp_path: Path,
+    ) -> None:
+        write(
+            tmp_path,
+            '.github/workflows/zizmor.yml',
+            'on: push\njobs:\n  audit:\n'
+            '    steps:\n      - run: uvx zizmor .\n',
+        )
+        result = check_workflows(tmp_path, run=False)
+        assert result.status is Status.MANUAL
+
+    def test_only_yaml_files_count_as_workflows(self, tmp_path: Path) -> None:
+        write(tmp_path, '.github/workflows/README.md', 'not a workflow\n')
+        result = check_workflows(tmp_path, run=False)
+        assert result.status is Status.NA
 
 
 class TestFindEntrypoints:
