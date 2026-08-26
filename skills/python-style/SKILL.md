@@ -10,6 +10,7 @@ user-invocable: true
 
 - Always use type hints for all function parameters and return types.
 - The more business-critical the function, the stricter the typing — use Pydantic models or typed stubs (e.g., `mypy_boto3_*`) over bare `dict`/`list`.
+- Use `mypy` type checking, see the `git-a-grip` repo on this system or at https://github.com/dannybrown37/git-a-grip
 
 ## Naming
 
@@ -28,13 +29,13 @@ user-invocable: true
 
 Use the Python packager [UV](https://docs.astral.sh/uv/) for dependency management and publishing.
 
-Use at least Python 3.12 unless there is a good reason to use an older version.
+Use at least Python 3.13 unless there is a good reason to use an older version. Don't use 3.14 yet, there are syntax changes I don't want to reckon with at this time.
 
 ## Testing
 
-Use [pytest](https://docs.pytest.org/) for testing.
-
-**When fixing a bug, always add a regression test** that fails before the fix and passes after. The test name should make the bug obvious (e.g., `test_get_stored_goal_names_excludes_weekly_habits_json`). No exceptions — if you can't reproduce it in a test, document why in a comment in the test file.
+- Use [pytest](https://docs.pytest.org/) for testing.
+- When fixing a bug, always add a regression test that fails before the fix and passes after. The test name should make the bug obvious (e.g., `test_get_stored_goal_names_excludes_weekly_habits_json`). No exceptions — if you can't reproduce it in a test, document why in a comment in the test file.
+- Use `pytest-xdist` if tests can get ~2x+ speedup from it without loss of reliability.
 
 ## Linting
 

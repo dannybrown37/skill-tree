@@ -103,7 +103,7 @@ TOOL_TIMEOUT_SECONDS = 120
 PROBE_TIMEOUT_SECONDS = 15
 
 TEST_RUNNERS = (
-    ('pytest', ('uv', 'run', '--with', 'pytest', 'pytest', '-q')),
+    ('pytest', ('uv', 'run', 'pytest', '-q')),
     ('npm test', ('npm', 'test')),
 )
 
