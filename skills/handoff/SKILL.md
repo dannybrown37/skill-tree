@@ -1,6 +1,6 @@
 ---
 name: handoff
-description: "Invoke when a session needs to end or continue elsewhere and the next session must pick the work up — \"write a handoff\", \"I'm running low on context\", \"we're about to compact\", \"let's switch to a new session\", \"continue where we left off\", \"resume the handoff\", handing work to another agent, model, or machine. Writes and resumes a handoff that survives compaction."
+description: "Invoke when a session needs to end or continue elsewhere — \"write a handoff\", \"I'm running low on context\", \"continue where we left off\". Writes and resumes a handoff that survives compaction."
 user-invocable: true
 allowed-tools: Read, Write, Edit, Grep, Glob, Bash
 ---

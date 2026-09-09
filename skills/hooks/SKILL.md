@@ -1,6 +1,6 @@
 ---
 name: hooks
-description: "Invoke when the question is what hooks actually run in this session, from where, or whether one is even wired up — \"what hooks do I have\", \"is my hook actually firing\", \"why did that run twice\", \"what does this plugin install as a hook\", \"show me all my Claude/Copilot hooks\". Merges every hook source on disk (user/project/local settings, every installed plugin, every Copilot hooks/*.json) into one list."
+description: "Invoke to list or debug hooks — \"what hooks do I have\", \"is my hook firing\", \"why did that run twice\". Merges every hook source (settings, plugins, Copilot) into one list."
 user-invocable: true
 allowed-tools: Read, Grep, Glob, Bash
 ---

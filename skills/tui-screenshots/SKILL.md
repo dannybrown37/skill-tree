@@ -1,6 +1,6 @@
 ---
 name: tui-screenshots
-description: Invoke when generating, refreshing, or fixing screenshots of a terminal UI for docs or a README — "regenerate the screenshots", "the README screenshots are stale", "get a picture of the TUI", "screenshot every tab", "capture the app for the docs". Covers driving a Textual/TUI app headlessly against seeded fake data and exporting SVG. Not for reading a screenshot the user took — that is `screenshot`.
+description: "Invoke when generating or refreshing TUI screenshots for docs — \"regenerate the screenshots\", \"the README screenshots are stale\". Drives a Textual/TUI app headlessly and exports SVG. Not for reading a user's screenshot — that is `screenshot`."
 ---
 
 # TUI screenshots

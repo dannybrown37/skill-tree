@@ -1,6 +1,6 @@
 ---
 name: grill-me
-description: "Invoke when the user is prepping for a presentation, design review, interview loop, promo panel, or any meeting where they need to defend a design or decision at a Staff SWE level -- e.g. \"grill me on this\", \"quiz me before my design review\", \"help me prep for this presentation\", \"poke holes in my RFC\", \"be my practice panel\". Runs an adaptive, adversarial interview that pushes on real weak points instead of a canned question bank."
+description: "Invoke when prepping for a design review, interview, promo panel, or presentation — \"grill me\", \"quiz me\", \"poke holes in my RFC\". Adaptive adversarial interview that pushes on real weak points."
 user-invocable: true
 allowed-tools: Read, Grep, Glob, Bash, WebFetch
 ---

@@ -1,6 +1,6 @@
 ---
 name: adversarial-review
-description: "Manually-triggered red-team review of the current branch's diff against its remote tracking branch. Actively tries to break the change (construct a real failing input, race, or state) rather than checklist-verifying it — complements /code-review and /security-review, doesn't replace them. Never spawn this proactively/automatically; only when explicitly asked, since constructing real repros costs meaningful time and tokens."
+description: "Manually-triggered red-team review of the current branch's diff. Constructs real failing inputs/races/states rather than checklist-verifying. Never spawn automatically — only when explicitly asked."
 user-invocable: true
 allowed-tools: Read, Grep, Glob, Bash, Write, ReportFindings
 ---

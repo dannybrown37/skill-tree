@@ -5,7 +5,7 @@ Skills are read in three layers -- frontmatter metadata, the SKILL.md
 body, and bundled resource files. The first layer has a contract strict
 enough to be an **error**: a skill that breaks it is loaded wrong, or not
 at all. The rest is judgement, so everything this script decides about
-shape and staleness is a **warning** -- a place for the audit-skills
+shape and staleness is a **warning** -- a place for the skill-audit
 playbook to look, not a verdict.
 
 Run from the repo being audited, or point it at one -- it looks for
@@ -524,7 +524,7 @@ def as_json(findings: list[Finding]) -> str:
 def with_default_command(argv: list[str]) -> list[str]:
     """Let the only subcommand be implied.
 
-    `audit-skills .` and `audit-skills check .` are the same run. Flags
+    `skill-audit .` and `skill-audit check .` are the same run. Flags
     the top-level parser owns still have to reach it, so they pass
     through untouched.
     """
@@ -536,18 +536,18 @@ def with_default_command(argv: list[str]) -> list[str]:
 def main(argv: Sequence[str] | None = None) -> int:
     """Entry point. 0 clean, 1 a check failed, 2 no skills found."""
     parser = argparse.ArgumentParser(
-        prog='audit-skills',
-        description="The audit-skills playbook's deterministic half.",
+        prog='skill-audit',
+        description="The skill-audit playbook's deterministic half.",
         epilog=(
-            '`check` is implied: `audit-skills .` and `audit-skills check .` '
-            'are the same run, and a bare `audit-skills` checks the current '
+            '`check` is implied: `skill-audit .` and `skill-audit check .` '
+            'are the same run, and a bare `skill-audit` checks the current '
             'directory.'
         ),
     )
     parser.add_argument(
         '--version',
         action='version',
-        version=f'audit-skills {version()}',
+        version=f'skill-audit {version()}',
     )
     subparsers = parser.add_subparsers(dest='command')
 
@@ -580,7 +580,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     root = args.directory
     if not find_skill_dirs(root):
         print(
-            f'audit-skills: no skills under {root} '
+            f'skill-audit: no skills under {root} '
             f'(looked in .claude/skills/ and skills/)',
             file=sys.stderr,
         )

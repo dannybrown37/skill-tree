@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
-"""Repo-level wrapper around the audit-skills validator.
+"""Repo-level wrapper around the skill-audit validator.
 
 The checker itself lives with the skill that documents it
-(`skills/audit-skills/scripts/check_skill_structure.py`); two copies of
+(`skills/skill-audit/scripts/check_skill_structure.py`); two copies of
 it drifted apart once already. This is the pre-commit entry point, so it
-reports only the hard contract -- drift warnings are the audit-skills
+reports only the hard contract -- drift warnings are the skill-audit
 playbook's job, not a reason to block a commit. Run
-`skill-tree audit-skills .` for those.
+`skill-tree skill-audit .` for those.
 """
 
 import importlib.util
@@ -18,7 +18,7 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 CHECKER = (
     REPO_ROOT
     / 'skills'
-    / 'audit-skills'
+    / 'skill-audit'
     / 'scripts'
     / 'check_skill_structure.py'
 )

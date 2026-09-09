@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# The audit-skills playbook's deterministic half, over a working tree.
+# The skill-audit playbook's deterministic half, over a working tree.
 #
 # Thin on purpose: there's nothing interactive here (no prompts, no fzf),
 # so the wrapper exists only to give the skill the executable name the

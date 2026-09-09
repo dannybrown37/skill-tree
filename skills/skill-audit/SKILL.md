@@ -1,5 +1,5 @@
 ---
-name: audit-skills
+name: skill-audit
 description: "Invoke when reviewing a repo's skills or references for structural drift — e.g. \"review my skills\", \"audit skills/references\", \"is this a skill or a reference\", \"are my skills bloated/stale\", or after adding/renaming a skill. Works against either the `.claude/skills/` (dotfiles-style) or top-level `skills/` (skill-tree-style) layout."
 user-invocable: true
 allowed-tools: Read, Grep, Glob, Bash
@@ -19,9 +19,9 @@ back to the default heuristic in step 3 below.
 1. **Mechanical layer first**: run the checker over the target repo.
 
    ```bash
-   "$SKILL_TREE_DIR/skills/audit-skills/scripts/audit-skills" .
+   "$SKILL_TREE_DIR/skills/skill-audit/scripts/skill-audit" .
    # or, with the plugin installed:
-   skill-tree audit-skills .        # `check` is implied; a bare run checks cwd
+   skill-tree skill-audit .        # `check` is implied; a bare run checks cwd
    ```
 
    It discovers skills under both `.claude/skills/` and `skills/`, and splits what it
