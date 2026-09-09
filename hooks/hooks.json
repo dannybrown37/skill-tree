@@ -9,6 +9,15 @@
             "command": "\"${CLAUDE_PLUGIN_ROOT}\"/skills/screenshot/scripts/screenshot_hook.py"
           }
         ]
+      },
+      {
+        "matcher": "Bash|run_in_terminal",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "command -v cartoon >/dev/null 2>&1 && cartoon hook rewrite || exit 0"
+          }
+        ]
       }
     ],
     "SessionStart": [
