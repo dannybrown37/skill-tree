@@ -26,6 +26,10 @@ table that doesn't exist yet:
 skill-tree dynamodb-cost-audit .        # a bare run audits cwd
 ```
 
+**Claude:** delegate this run to the `checker-summarizer` subagent, passing it the
+command above. **No subagent delegation available:** run it yourself and read the output
+directly.
+
 It reads CloudFormation-shaped JSON/YAML (so CDK's `cdk.out/*.template.json`, SAM and
 Serverless Framework too), `terraform show -json` output, and `.tf` sources directly. It
 reports sections 3-8 below where the template settles them, and everything else as MANUAL with

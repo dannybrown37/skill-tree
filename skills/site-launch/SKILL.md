@@ -28,6 +28,10 @@ skill-tree site-launch ./dist          # the built output, not src/; `check` is 
 skill-tree site-launch ./dist --json   # same verdicts, machine-readable
 ```
 
+**Claude:** delegate this run to the `checker-summarizer` subagent, passing it the
+command above. **No subagent delegation available:** run it yourself and read the output
+directly.
+
 Exit `0` = nothing failed, `1` = at least one FAIL, `2` = nothing there to check. Each item
 comes back `PASS`, `FAIL`, `NA` (the site doesn't have that thing), or **`MANUAL`** — items
 5, 8, and 9 can only be answered against the deployed origin, so it prints the command to run

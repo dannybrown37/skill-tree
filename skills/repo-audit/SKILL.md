@@ -25,6 +25,10 @@ skill-tree repo-audit . --run    # also runs the test suite (slower)
 skill-tree repo-audit . --json   # same verdicts, machine-readable
 ```
 
+**Claude:** delegate this run to the `checker-summarizer` subagent, passing it the
+command above. **No subagent delegation available:** run it yourself and read the output
+directly.
+
 Exit `0` = nothing failed, `1` = at least one FAIL, `2` = nothing there to audit. Each
 section comes back `PASS`, `FAIL`, `NA` (the repo doesn't use that thing), or **`MANUAL`**.
 

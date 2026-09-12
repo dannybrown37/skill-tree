@@ -24,6 +24,10 @@ back to the default heuristic in step 3 below.
    skill-tree skill-audit .        # `check` is implied; a bare run checks cwd
    ```
 
+   **Claude:** delegate this run to the `checker-summarizer` subagent, passing it the
+   command above. **No subagent delegation available:** run it yourself and read the output
+   directly.
+
    It discovers skills under both `.claude/skills/` and `skills/`, and splits what it
    finds in two:
 

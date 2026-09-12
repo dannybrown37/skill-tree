@@ -29,6 +29,10 @@ from a list of actual violations rather than a crawl through every script in the
 skill-tree cli-ergonomics .        # `lint` is implied; a bare run lints cwd
 ```
 
+**Claude:** delegate this run to the `checker-summarizer` subagent, passing it the
+command above. **No subagent delegation available:** run it yourself and read the output
+directly.
+
 It checks three rules per entrypoint — `--version` handled, no required positional that turns
 a bare run into an argument error, and every prompt TTY-guarded — and exits 1 if any fail.
 `--json` for machine-readable output.
