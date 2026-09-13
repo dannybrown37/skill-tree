@@ -1,5 +1,5 @@
 ---
-name: hooks
+name: debug-hooks
 description: "Invoke to list or debug hooks — \"what hooks do I have\", \"is my hook firing\", \"why did that run twice\". Merges every hook source (settings, plugins, Copilot) into one list."
 user-invocable: true
 allowed-tools: Read, Grep, Glob, Bash

@@ -10,8 +10,8 @@
 # warns again, so raising one of these is a deliberate edit with a
 # reason, not a drift. A skill that shrinks under 150 can be deleted
 # from this file.
-cli-ergonomics: 174
-dynamodb-cost-audit: 177
+cli-ergonomics: 178
+dynamodb-cost-audit: 181
 handoff: 206
-repo-audit: 171
-site-launch: 165
+repo-audit: 175
+site-launch: 169

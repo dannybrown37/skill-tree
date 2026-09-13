@@ -8,14 +8,9 @@ user-invocable: true
 
 ## Type Safety
 
-- Always use explicit type hints for function parameters.
 - Always use explicit return types (`@typescript-eslint/explicit-function-return-type`).
 - Never use `any` — use `unknown` and narrow, or define a proper type.
 - Use `type` imports for type-only imports (`import type { Foo } from ...`).
-
-## ESLint Rules
-
-Use [ESLint](https://eslint.org/) to enforce consistent code style.
 
 ## Error Handling
 

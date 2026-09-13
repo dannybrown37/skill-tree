@@ -17,8 +17,6 @@ Rules for Bash scripts start with _readable by humans_.
 
 - For scripts in `scripts/`, use `#!/usr/bin/env bash` shebang and `set -euo pipefail`.
 - For scripts in `bin/`, omit the shebang — these are sourced, not executed.
-- Quote all variable expansions: `"${var}"` not `$var`.
-- Use `[[ ]]` over `[ ]` for conditionals.
 - Use functions for any logic that repeats or exceeds ~10 lines.
 - Use lowercase variable names for locals, UPPERCASE for exported/env vars.
 - No commented-out code; git history exists.
