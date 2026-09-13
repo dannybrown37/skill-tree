@@ -1,6 +1,6 @@
 ---
 name: grill-me
-description: "Invoke when prepping for a design review, interview, promo panel, or presentation — \"grill me\", \"quiz me\", \"poke holes in my RFC\". Adaptive adversarial interview that pushes on real weak points."
+description: "Invoke when prepping a specific artifact (design doc, PR/diff, promo packet, slides) for a real review panel, interview, or presentation — \"grill me on this RFC\", \"quiz me for promo\". Adaptive adversarial interview that pushes on real weak points. For stress-testing a vague plan or decision that isn't written down yet, use skill-tree:grill-for-planning instead."
 user-invocable: true
 allowed-tools: Read, Grep, Glob, Bash, WebFetch
 ---
