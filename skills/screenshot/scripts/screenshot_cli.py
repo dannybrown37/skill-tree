@@ -215,7 +215,7 @@ Runner = Callable[[Sequence[str]], subprocess.CompletedProcess[str]]
 
 
 def run_command(command: Sequence[str]) -> subprocess.CompletedProcess[str]:
-    return subprocess.run(  # noqa: S603
+    return subprocess.run(
         command,
         capture_output=True,
         text=True,
@@ -292,7 +292,7 @@ def copy_to_clipboard(text: str) -> None:
     if shutil.which(CLIP) is None:
         return
     try:
-        subprocess.run(  # noqa: S603
+        subprocess.run(
             [CLIP],
             input=text,
             text=True,

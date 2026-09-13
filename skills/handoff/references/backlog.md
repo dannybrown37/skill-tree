@@ -1,7 +1,8 @@
 # The backlog and the `handoff` CLI
 
-`BACKLOG.md` is the third handoff file: work that isn't next yet. One per repo, beside the
-other two, so the path is the scope — there are no cross-repo tags to keep straight.
+`BACKLOG.md` is the third handoff file: work that isn't next yet. One per branch, inside
+`docs/handoffs/<branch>/`, so the path is the scope — there are no cross-repo tags to keep
+straight.
 
 ```markdown
 # Backlog
@@ -36,6 +37,8 @@ corrupted.
 | `current` | Same for `CURRENT.md` |
 | `narrative` | Same for `NARRATIVE.md` |
 | `path` | Where the backlog is, creating an empty one if the repo has none |
+| `close` | Delete this branch's handoff directory. Prompts to save lessons first; `--force` skips the prompt |
+| `status` | Handoff state of every project and branch under `$PROJECTS_DIR` |
 | `--version` | Prints and exits 0, no config needed |
 
 `add`/`next` take `--title` and `--body`; `remove` takes `--item-title`, matched
@@ -50,8 +53,8 @@ exit 1 if the file doesn't exist.
 ## `handoff status`
 
 Cross-project, unlike everything else here: it scans one level under `$PROJECTS_DIR`
-(default `~/projects`) and reports, per git repo, whether `docs/handoffs/` exists, the
-`**Status:**` keyword from its `CURRENT.md`, and how many backlog items it holds.
+(default `~/projects`) and reports, per git repo and per branch, the `**Status:**` keyword
+from each branch's `CURRENT.md`, and how many backlog items it holds.
 
 | Flag | Effect |
 | --- | --- |
@@ -63,18 +66,18 @@ Three values are written, by hand or by `--set`, and they differ in *who owes th
 `in-progress` (a task is half-done), `awaiting-review` (done and green, the user's turn — no
 agent should pick this up), and `between-tasks` (settled, next task free to start).
 
-Two more are derived, never written: `unset` means `CURRENT.md` exists without the keyword,
-and `none` means there's no `CURRENT.md` at all. `none` is ambiguous on its own — a repo that
-never kept handoffs and one whose work finished look identical — so read it against
-`has_handoff`: no handoff directory means never started, a handoff directory with a backlog
-means queued work nobody wrote a re-entry prompt for.
+Three more are derived, never written: `reviewed` means `awaiting-review` but HEAD has
+advanced past the anchor commit (the user committed, which *is* the review — the session-start
+hook treats this as `between-tasks`); `unset` means `CURRENT.md` exists without the keyword;
+and `none` means there's no `CURRENT.md` at all.
 
 `pop` sets `in-progress` as part of claiming, because an item that has been claimed is work
 in flight. Nothing resets it automatically — that's write-back's job.
 
 ## Which repo
 
-In order: `--repo <path>` → `$HANDOFF_DIR` → the git repo containing the working directory.
+In order: `$HANDOFF_DIR` → `--repo <path>` (+ current branch) → the git repo containing the
+working directory (+ current branch).
 
 `--pick` (and any invocation from outside a repo, at a terminal) opens an fzf picker over
 the repos under `$PROJECTS_DIR` (default `~/projects`) that already have a `docs/handoffs`

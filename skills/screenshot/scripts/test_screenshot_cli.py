@@ -277,7 +277,7 @@ class TestVersion:
     ) -> None:
         # An empty HOME and a users root that does not exist stand in for
         # "no config, not WSL" -- --version has to answer regardless.
-        result = subprocess.run(  # noqa: S603
+        result = subprocess.run(
             [sys.executable, str(SCRIPT), flag],
             capture_output=True,
             text=True,

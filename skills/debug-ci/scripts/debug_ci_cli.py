@@ -116,8 +116,8 @@ def version() -> str:
 def gh(args: Sequence[str]) -> str:
     """Run `gh` and return stdout, turning every failure into an error."""
     try:
-        result = subprocess.run(  # noqa: S603
-            ['gh', *args],  # noqa: S607
+        result = subprocess.run(
+            ['gh', *args],
             capture_output=True,
             text=True,
             timeout=GH_TIMEOUT_SECONDS,
@@ -140,7 +140,7 @@ def current_branch() -> str:
     """The checked-out branch, or an error if there isn't one."""
     try:
         result = subprocess.run(
-            ['git', 'rev-parse', '--abbrev-ref', 'HEAD'],  # noqa: S607
+            ['git', 'rev-parse', '--abbrev-ref', 'HEAD'],
             capture_output=True,
             text=True,
             timeout=GH_TIMEOUT_SECONDS,

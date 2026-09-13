@@ -15,8 +15,8 @@ SCRIPT = Path(__file__).parent / 'check_repo_update.sh'
 
 
 def git(cwd: Path, *args: str) -> str:
-    result = subprocess.run(  # noqa: S603
-        [  # noqa: S607
+    result = subprocess.run(
+        [
             'git',
             '-c',
             'user.email=test@example.com',
@@ -56,8 +56,8 @@ def clone(tmp_path: Path) -> Path:
     git(origin, 'commit', '--quiet', '-m', 'one')
 
     clone_path = tmp_path / 'clone'
-    subprocess.run(  # noqa: S603
-        ['git', 'clone', '--quiet', str(origin), str(clone_path)],  # noqa: S607
+    subprocess.run(
+        ['git', 'clone', '--quiet', str(origin), str(clone_path)],
         check=True,
         capture_output=True,
     )
@@ -74,8 +74,8 @@ def advance_origin(clone: Path) -> str:
 
 
 def run(clone: Path, home: Path) -> subprocess.CompletedProcess[str]:
-    return subprocess.run(  # noqa: S603
-        ['bash', str(clone / 'scripts' / SCRIPT.name)],  # noqa: S607
+    return subprocess.run(
+        ['bash', str(clone / 'scripts' / SCRIPT.name)],
         capture_output=True,
         text=True,
         env={'HOME': str(home), 'PATH': '/usr/bin:/bin'},

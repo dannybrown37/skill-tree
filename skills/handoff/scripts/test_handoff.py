@@ -12,6 +12,7 @@ from handoff_cli import (
     BacklogItem,
     HandoffError,
     add_item,
+    current_branch,
     find_item,
     handoff_dir,
     main,
@@ -22,6 +23,7 @@ from handoff_cli import (
     read_items,
     remove_item,
     render_backlog,
+    sanitize_branch,
     scan_projects,
     set_status,
     write_items,
@@ -43,10 +45,19 @@ It has no callers left.
 
 def write_backlog(root: Path, content: str = SAMPLE) -> Path:
     directory = root / 'docs' / 'handoffs'
-    directory.mkdir(parents=True)
+    directory.mkdir(parents=True, exist_ok=True)
     path = directory / 'BACKLOG.md'
     path.write_text(content)
     return path
+
+
+@pytest.fixture
+def handoff_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+    """A tmp dir with HANDOFF_DIR set so CLI tests skip branch detection."""
+    directory = tmp_path / 'docs' / 'handoffs'
+    directory.mkdir(parents=True)
+    monkeypatch.setenv('HANDOFF_DIR', str(directory))
+    return directory
 
 
 SKILL_DIR = Path(__file__).resolve().parents[1]
@@ -277,23 +288,24 @@ class TestPop:
 
     def test_cli_pop_prints_the_item(
         self,
-        tmp_path: Path,
+        handoff_env: Path,
         capsys: pytest.CaptureFixture[str],
     ) -> None:
-        write_backlog(tmp_path)
-        assert main(['pop', '--repo', str(tmp_path)]) == 0
+        path = handoff_env / 'BACKLOG.md'
+        path.write_text(SAMPLE)
+        assert main(['pop']) == 0
         out = capsys.readouterr().out
         assert 'Wire the flag' in out
         assert 'cli.py:88' in out
 
     def test_cli_pop_on_empty_backlog_is_quiet_and_succeeds(
         self,
-        tmp_path: Path,
+        handoff_env: Path,
         capsys: pytest.CaptureFixture[str],
     ) -> None:
         """The hook calls this constantly -- nothing queued isn't an error."""
-        write_backlog(tmp_path, '# Backlog\n')
-        assert main(['pop', '--repo', str(tmp_path)]) == 0
+        (handoff_env / 'BACKLOG.md').write_text('# Backlog\n')
+        assert main(['pop']) == 0
         assert capsys.readouterr().out == ''
 
 
@@ -316,12 +328,115 @@ class TestWriteNextAction:
         assert current.read_text().count('## Next action') == 1
 
 
+class TestSanitizeBranch:
+    @pytest.mark.parametrize(
+        ('branch', 'expected'),
+        [
+            ('main', 'main'),
+            ('feat/foo', 'feat-foo'),
+            ('user/danny/feat/bar', 'user-danny-feat-bar'),
+            ('release/1.0.0', 'release-1.0.0'),
+            ('no-slashes', 'no-slashes'),
+        ],
+    )
+    def test_sanitize(self, branch: str, expected: str) -> None:
+        assert sanitize_branch(branch) == expected
+
+
+class TestCurrentBranch:
+    def test_returns_branch_name(self, tmp_path: Path) -> None:
+        import subprocess
+
+        subprocess.run(
+            ['git', 'init', str(tmp_path)],
+            capture_output=True,
+            check=True,
+        )
+        subprocess.run(
+            ['git', 'checkout', '-b', 'feat/test'],
+            cwd=tmp_path,
+            capture_output=True,
+            check=True,
+        )
+        assert current_branch(tmp_path) == 'feat/test'
+
+    def test_detached_head_returns_none(self, tmp_path: Path) -> None:
+        import subprocess
+
+        subprocess.run(
+            ['git', 'init', str(tmp_path)],
+            capture_output=True,
+            check=True,
+        )
+        subprocess.run(
+            ['git', 'commit', '--allow-empty', '-m', 'init'],
+            cwd=tmp_path,
+            capture_output=True,
+            check=True,
+        )
+        head = subprocess.run(
+            ['git', 'rev-parse', 'HEAD'],
+            cwd=tmp_path,
+            capture_output=True,
+            text=True,
+            check=True,
+        ).stdout.strip()
+        subprocess.run(
+            ['git', 'checkout', head],
+            cwd=tmp_path,
+            capture_output=True,
+            check=True,
+        )
+        assert current_branch(tmp_path) is None
+
+    def test_non_repo_returns_none(self, tmp_path: Path) -> None:
+        assert current_branch(tmp_path) is None
+
+
 class TestHandoffDir:
-    def test_walks_up_to_the_git_root(self, tmp_path: Path) -> None:
-        (tmp_path / '.git').mkdir()
+    def test_walks_up_to_git_root_with_branch(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        import subprocess
+
+        monkeypatch.delenv('HANDOFF_DIR', raising=False)
+        subprocess.run(
+            ['git', 'init', str(tmp_path)],
+            capture_output=True,
+            check=True,
+        )
         nested = tmp_path / 'src' / 'deep'
         nested.mkdir(parents=True)
-        assert handoff_dir(start=nested) == tmp_path / 'docs' / 'handoffs'
+        branch = current_branch(tmp_path)
+        assert branch is not None
+        assert handoff_dir(start=nested) == (
+            tmp_path / 'docs' / 'handoffs' / sanitize_branch(branch)
+        )
+
+    def test_slash_branch_sanitized_in_path(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        import subprocess
+
+        monkeypatch.delenv('HANDOFF_DIR', raising=False)
+        subprocess.run(
+            ['git', 'init', str(tmp_path)],
+            capture_output=True,
+            check=True,
+        )
+        subprocess.run(
+            ['git', 'checkout', '-b', 'feat/foo'],
+            cwd=tmp_path,
+            capture_output=True,
+            check=True,
+        )
+        assert handoff_dir(start=tmp_path) == (
+            tmp_path / 'docs' / 'handoffs' / 'feat-foo'
+        )
 
     def test_env_override_wins(
         self,
@@ -341,6 +456,41 @@ class TestHandoffDir:
         with pytest.raises(HandoffError, match='not inside a git repo'):
             handoff_dir(start=tmp_path)
 
+    def test_detached_head_raises(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        import subprocess
+
+        monkeypatch.delenv('HANDOFF_DIR', raising=False)
+        subprocess.run(
+            ['git', 'init', str(tmp_path)],
+            capture_output=True,
+            check=True,
+        )
+        subprocess.run(
+            ['git', 'commit', '--allow-empty', '-m', 'init'],
+            cwd=tmp_path,
+            capture_output=True,
+            check=True,
+        )
+        head = subprocess.run(
+            ['git', 'rev-parse', 'HEAD'],
+            cwd=tmp_path,
+            capture_output=True,
+            text=True,
+            check=True,
+        ).stdout.strip()
+        subprocess.run(
+            ['git', 'checkout', head],
+            cwd=tmp_path,
+            capture_output=True,
+            check=True,
+        )
+        with pytest.raises(HandoffError, match='detached HEAD'):
+            handoff_dir(start=tmp_path)
+
 
 class TestCli:
     def test_version(self, capsys: pytest.CaptureFixture[str]) -> None:
@@ -352,22 +502,22 @@ class TestCli:
 
     def test_backlog_prints_the_file(
         self,
-        tmp_path: Path,
+        handoff_env: Path,
         capsys: pytest.CaptureFixture[str],
     ) -> None:
-        write_backlog(tmp_path)
-        assert main(['backlog', '--repo', str(tmp_path)]) == 0
+        (handoff_env / 'BACKLOG.md').write_text(SAMPLE)
+        assert main(['backlog']) == 0
         out = capsys.readouterr().out
         assert 'Wire the flag' in out
         assert 'Drop the shim' in out
 
     def test_backlog_titles_are_bare(
         self,
-        tmp_path: Path,
+        handoff_env: Path,
         capsys: pytest.CaptureFixture[str],
     ) -> None:
-        write_backlog(tmp_path)
-        assert main(['backlog', '--titles', '--repo', str(tmp_path)]) == 0
+        (handoff_env / 'BACKLOG.md').write_text(SAMPLE)
+        assert main(['backlog', '--titles']) == 0
         assert capsys.readouterr().out.split('\n')[:2] == [
             'Wire the flag',
             'Drop the shim',
@@ -376,62 +526,50 @@ class TestCli:
     @pytest.mark.parametrize('action', ['list', 'titles', 'show'])
     def test_retired_commands_are_gone(
         self,
-        tmp_path: Path,
         action: str,
     ) -> None:
-        write_backlog(tmp_path)
         with pytest.raises(SystemExit):
-            main([action, '--repo', str(tmp_path)])
+            main([action])
 
-    def test_add(self, tmp_path: Path) -> None:
-        path = write_backlog(tmp_path)
-        code = main(
-            ['add', '--repo', str(tmp_path), '--title', 'New', '--body', 'b'],
-        )
+    def test_add(self, handoff_env: Path) -> None:
+        (handoff_env / 'BACKLOG.md').write_text(SAMPLE)
+        code = main(['add', '--title', 'New', '--body', 'b'])
         assert code == 0
-        assert read_items(path)[-1].title == 'New'
+        assert read_items(handoff_env / 'BACKLOG.md')[-1].title == 'New'
 
-    def test_next_adds_to_top(self, tmp_path: Path) -> None:
-        path = write_backlog(tmp_path)
-        main(
-            ['next', '--repo', str(tmp_path), '--title', 'Now', '--body', 'b'],
-        )
-        assert read_items(path)[0].title == 'Now'
+    def test_next_adds_to_top(self, handoff_env: Path) -> None:
+        (handoff_env / 'BACKLOG.md').write_text(SAMPLE)
+        main(['next', '--title', 'Now', '--body', 'b'])
+        assert read_items(handoff_env / 'BACKLOG.md')[0].title == 'Now'
 
     def test_remove_without_a_title_lists_and_fails(
         self,
-        tmp_path: Path,
+        handoff_env: Path,
         capsys: pytest.CaptureFixture[str],
     ) -> None:
-        write_backlog(tmp_path)
-        assert main(['remove', '--repo', str(tmp_path)]) == 1
+        (handoff_env / 'BACKLOG.md').write_text(SAMPLE)
+        assert main(['remove']) == 1
         assert 'Wire the flag' in capsys.readouterr().err
 
     def test_remove_exits_zero_on_success(
         self,
-        tmp_path: Path,
+        handoff_env: Path,
         capsys: pytest.CaptureFixture[str],
     ) -> None:
         """A working removal must not look like a failure to a hook."""
-        path = write_backlog(tmp_path)
-        code = main(
-            [
-                'remove',
-                '--repo',
-                str(tmp_path),
-                '--item-title',
-                'Drop the shim',
-            ],
-        )
+        (handoff_env / 'BACKLOG.md').write_text(SAMPLE)
+        code = main(['remove', '--item-title', 'Drop the shim'])
         assert code == 0
         assert 'Removed: Drop the shim' in capsys.readouterr().out
-        assert [item.title for item in read_items(path)] == ['Wire the flag']
+        assert [
+            item.title for item in read_items(handoff_env / 'BACKLOG.md')
+        ] == [
+            'Wire the flag',
+        ]
 
-    def test_unknown_title_exits_one(self, tmp_path: Path) -> None:
-        write_backlog(tmp_path)
-        code = main(
-            ['remove', '--repo', str(tmp_path), '--item-title', 'nope'],
-        )
+    def test_unknown_title_exits_one(self, handoff_env: Path) -> None:
+        (handoff_env / 'BACKLOG.md').write_text(SAMPLE)
+        code = main(['remove', '--item-title', 'nope'])
         assert code == 1
 
 
@@ -446,25 +584,24 @@ class TestDocs:
     )
     def test_prints_the_file(
         self,
-        tmp_path: Path,
+        handoff_env: Path,
         capsys: pytest.CaptureFixture[str],
         action: str,
         name: str,
     ) -> None:
-        path = write_backlog(tmp_path)
-        (path.parent / name).write_text('# Heading\n\nbody text\n')
-        assert main([action, '--repo', str(tmp_path)]) == 0
+        (handoff_env / 'BACKLOG.md').write_text(SAMPLE)
+        (handoff_env / name).write_text('# Heading\n\nbody text\n')
+        assert main([action]) == 0
         assert 'body text' in capsys.readouterr().out
 
     @pytest.mark.parametrize('action', ['current', 'narrative', 'backlog'])
     def test_missing_file_exits_one(
         self,
-        tmp_path: Path,
+        handoff_env: Path,
         capsys: pytest.CaptureFixture[str],
         action: str,
     ) -> None:
-        (tmp_path / 'docs' / 'handoffs').mkdir(parents=True)
-        assert main([action, '--repo', str(tmp_path)]) == 1
+        assert main([action]) == 1
         assert 'no ' in capsys.readouterr().err
 
     @pytest.mark.parametrize(
@@ -477,15 +614,14 @@ class TestDocs:
     )
     def test_path_flag_prints_the_path(
         self,
-        tmp_path: Path,
+        handoff_env: Path,
         capsys: pytest.CaptureFixture[str],
         action: str,
         name: str,
     ) -> None:
-        path = write_backlog(tmp_path)
-        (path.parent / name).write_text('x\n')
-        assert main([action, '--path', '--repo', str(tmp_path)]) == 0
-        assert capsys.readouterr().out.strip() == str(path.parent / name)
+        (handoff_env / name).write_text('x\n')
+        assert main([action, '--path']) == 0
+        assert capsys.readouterr().out.strip() == str(handoff_env / name)
 
 
 class TestDocsMatchTheCli:
@@ -608,13 +744,13 @@ class TestReviewedInference:
 
         project = root / name
         project.mkdir(parents=True)
-        subprocess.run(  # noqa: S603
-            ['git', 'init', str(project)],  # noqa: S607
+        subprocess.run(
+            ['git', 'init', str(project)],
             capture_output=True,
             check=True,
         )
         subprocess.run(
-            ['git', 'commit', '--allow-empty', '-m', 'initial'],  # noqa: S607
+            ['git', 'commit', '--allow-empty', '-m', 'initial'],
             cwd=project,
             capture_output=True,
             check=True,
@@ -625,13 +761,27 @@ class TestReviewedInference:
         import subprocess
 
         result = subprocess.run(
-            ['git', 'rev-parse', 'HEAD'],  # noqa: S607
+            ['git', 'rev-parse', 'HEAD'],
             cwd=project,
             capture_output=True,
             text=True,
             check=True,
         )
         return result.stdout.strip()
+
+    def _branch_dir(self, project: Path) -> Path:
+        import subprocess
+
+        branch = subprocess.run(
+            ['git', 'branch', '--show-current'],
+            cwd=project,
+            capture_output=True,
+            text=True,
+            check=True,
+        ).stdout.strip()
+        directory = project / 'docs' / 'handoffs' / sanitize_branch(branch)
+        directory.mkdir(parents=True)
+        return directory
 
     def test_awaiting_review_becomes_reviewed_after_new_commit(
         self,
@@ -641,14 +791,13 @@ class TestReviewedInference:
 
         project = self._make_git_project(tmp_path, 'myrepo')
         anchor = self._head(project)[:7]
-        directory = project / 'docs' / 'handoffs'
-        directory.mkdir(parents=True)
+        directory = self._branch_dir(project)
         (directory / CURRENT_NAME).write_text(
             f'# Continue here\n\n**Status:** awaiting-review\n\n'
             f'## Anchor\n\n- HEAD `{anchor}`\n',
         )
         subprocess.run(
-            ['git', 'commit', '--allow-empty', '-m', 'user work'],  # noqa: S607
+            ['git', 'commit', '--allow-empty', '-m', 'user work'],
             cwd=project,
             capture_output=True,
             check=True,
@@ -662,8 +811,7 @@ class TestReviewedInference:
     ) -> None:
         project = self._make_git_project(tmp_path, 'myrepo')
         anchor = self._head(project)[:7]
-        directory = project / 'docs' / 'handoffs'
-        directory.mkdir(parents=True)
+        directory = self._branch_dir(project)
         (directory / CURRENT_NAME).write_text(
             f'# Continue here\n\n**Status:** awaiting-review\n\n'
             f'## Anchor\n\n- HEAD `{anchor}`\n',
@@ -676,8 +824,7 @@ class TestReviewedInference:
         tmp_path: Path,
     ) -> None:
         project = self._make_git_project(tmp_path, 'myrepo')
-        directory = project / 'docs' / 'handoffs'
-        directory.mkdir(parents=True)
+        directory = self._branch_dir(project)
         (directory / CURRENT_NAME).write_text(
             '# Continue here\n\n**Status:** awaiting-review\n',
         )
@@ -694,6 +841,7 @@ class TestProjectScan:
         name: str,
         *,
         git: bool = True,
+        branch: str = 'main',
         backlog: str | None = None,
         current: str | None = None,
     ) -> Path:
@@ -702,7 +850,7 @@ class TestProjectScan:
         if git:
             (project / '.git').mkdir()
         if backlog is not None or current is not None:
-            directory = project / 'docs' / 'handoffs'
+            directory = project / 'docs' / 'handoffs' / branch
             directory.mkdir(parents=True)
             if backlog is not None:
                 (directory / 'BACKLOG.md').write_text(backlog)
@@ -751,9 +899,9 @@ class TestProjectScan:
     ) -> None:
         self.make_project(tmp_path, 'parked', backlog=SAMPLE)
         (report,) = scan_projects([tmp_path])
-        assert report.has_handoff is True
+        assert report.has_handoff is False
         assert report.status == 'none'
-        assert report.backlog_count == len(parse_backlog_text(SAMPLE))
+        assert report.backlog_count == 0
 
     def test_sorted_by_name_across_roots(self, tmp_path: Path) -> None:
         first, second = tmp_path / 'a', tmp_path / 'b'
@@ -766,6 +914,24 @@ class TestProjectScan:
 
     def test_missing_root_is_not_an_error(self, tmp_path: Path) -> None:
         assert scan_projects([tmp_path / 'nope']) == []
+
+    def test_multiple_branches_per_project(self, tmp_path: Path) -> None:
+        project = self.make_project(
+            tmp_path,
+            'multi',
+            branch='main',
+            current='# Continue here\n\n**Status:** between-tasks\n',
+        )
+        feat_dir = project / 'docs' / 'handoffs' / 'feat-foo'
+        feat_dir.mkdir(parents=True)
+        (feat_dir / CURRENT_NAME).write_text(
+            '# Continue here\n\n**Status:** in-progress\n',
+        )
+        (feat_dir / 'BACKLOG.md').write_text(SAMPLE)
+        (report,) = scan_projects([tmp_path])
+        assert report.has_handoff is True
+        assert report.branches is not None
+        assert len(report.branches) == 2
 
 
 class TestStatusCommand:
@@ -804,15 +970,14 @@ class TestStatusCommand:
         )
         assert main(['status', '--root', str(tmp_path), '--json']) == 0
         payload = json.loads(capsys.readouterr().out)
-        assert payload == [
-            {
-                'name': 'busy',
-                'path': str(tmp_path / 'busy'),
-                'has_handoff': True,
-                'status': 'in-progress',
-                'backlog_count': 2,
-            },
-        ]
+        assert len(payload) == 1
+        report = payload[0]
+        assert report['name'] == 'busy'
+        assert report['has_handoff'] is True
+        assert report['status'] == 'in-progress'
+        assert report['backlog_count'] == 2
+        assert len(report['branches']) == 1
+        assert report['branches'][0]['branch'] == 'main'
 
     def test_empty_root_says_so(
         self,
@@ -824,13 +989,64 @@ class TestStatusCommand:
 
     def test_set_writes_the_current_repo(
         self,
+        handoff_env: Path,
+    ) -> None:
+        current = handoff_env / CURRENT_NAME
+        current.write_text('# Continue here\n')
+        assert main(['status', '--set', 'between-tasks']) == 0
+        assert parse_status(current.read_text()) == 'between-tasks'
+
+
+class TestClose:
+    """The `close` command deletes a branch's handoff directory."""
+
+    def test_close_deletes_the_directory(self, handoff_env: Path) -> None:
+        (handoff_env / CURRENT_NAME).write_text('# Continue here\n')
+        (handoff_env / 'BACKLOG.md').write_text(SAMPLE)
+        assert main(['close', '--force']) == 0
+        assert not handoff_env.exists()
+
+    def test_close_cleans_up_empty_parent(
+        self,
+        handoff_env: Path,
+    ) -> None:
+        (handoff_env / CURRENT_NAME).write_text('# x\n')
+        parent = handoff_env.parent
+        assert main(['close', '--force']) == 0
+        assert not parent.exists()
+
+    def test_close_preserves_sibling_branches(
+        self,
         tmp_path: Path,
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
-        path = write_backlog(tmp_path)
-        current = path.with_name(CURRENT_NAME)
-        current.write_text('# Continue here\n')
-        (tmp_path / '.git').mkdir()
-        monkeypatch.chdir(tmp_path)
-        assert main(['status', '--set', 'between-tasks']) == 0
-        assert parse_status(current.read_text()) == 'between-tasks'
+        handoffs_root = tmp_path / 'docs' / 'handoffs'
+        branch_a = handoffs_root / 'main'
+        branch_b = handoffs_root / 'feat-foo'
+        branch_a.mkdir(parents=True)
+        branch_b.mkdir(parents=True)
+        (branch_a / CURRENT_NAME).write_text('# x\n')
+        (branch_b / CURRENT_NAME).write_text('# y\n')
+        monkeypatch.setenv('HANDOFF_DIR', str(branch_a))
+        assert main(['close', '--force']) == 0
+        assert not branch_a.exists()
+        assert branch_b.exists()
+        assert handoffs_root.exists()
+
+    def test_close_on_missing_directory_is_noop(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        nonexistent = tmp_path / 'docs' / 'handoffs' / 'gone'
+        monkeypatch.setenv('HANDOFF_DIR', str(nonexistent))
+        assert main(['close', '--force']) == 0
+
+    def test_close_without_force_prints_reminder(
+        self,
+        handoff_env: Path,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        (handoff_env / CURRENT_NAME).write_text('# x\n')
+        assert main(['close']) == 0
+        assert 'CLAUDE.md' in capsys.readouterr().out

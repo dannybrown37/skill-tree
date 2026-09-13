@@ -30,8 +30,8 @@ def run(
     }
     if root is not None:
         env['SKILL_TREE_ROOT'] = str(root)
-    return subprocess.run(  # noqa: S603
-        ['bash', str(script), *args],  # noqa: S607
+    return subprocess.run(
+        ['bash', str(script), *args],
         capture_output=True,
         text=True,
         check=False,

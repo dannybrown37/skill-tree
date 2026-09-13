@@ -40,8 +40,8 @@ def run(
     record: Path,
     *args: str,
 ) -> subprocess.CompletedProcess[str]:
-    return subprocess.run(  # noqa: S603
-        ['bash', str(SCRIPT), *args],  # noqa: S607
+    return subprocess.run(
+        ['bash', str(SCRIPT), *args],
         capture_output=True,
         text=True,
         env={

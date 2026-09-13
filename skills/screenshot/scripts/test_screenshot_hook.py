@@ -17,8 +17,8 @@ def run(
     **env: str,
 ) -> dict[str, object] | None:
     """Feed `payload` to the hook, returning its decision (None if silent)."""
-    result = subprocess.run(  # noqa: S603
-        ['python3', str(HOOK)],  # noqa: S607
+    result = subprocess.run(
+        ['python3', str(HOOK)],
         input=json.dumps(payload),
         capture_output=True,
         text=True,
@@ -284,8 +284,8 @@ class TestMalformedInput:
         assert decision(output) is None
 
     def test_survives_junk_on_stdin(self) -> None:
-        result = subprocess.run(  # noqa: S603
-            ['python3', str(HOOK)],  # noqa: S607
+        result = subprocess.run(
+            ['python3', str(HOOK)],
             input='not json',
             capture_output=True,
             text=True,

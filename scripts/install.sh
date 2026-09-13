@@ -301,6 +301,40 @@ SEOF
 	echo "Added statusLine config to ${settings}"
 }
 
+# Copilot has no commands/ equivalent, so repo-level commands/*.md are
+# installed as thin generated skills under ~/.copilot/skills/<name>/.
+# Each generated SKILL.md wraps the command's content with the required
+# frontmatter. Only overwrites files this function created (tagged with
+# a marker comment).
+_COMMAND_MARKER='<!-- generated from skill-tree commands/ -->'
+_install_copilot_commands() {
+	local cmd name target body
+	for cmd in "${_repo_root}"/commands/*.md; do
+		[[ -f "${cmd}" ]] || continue
+		name="$(basename "${cmd}" .md)"
+		target="${HOME}/.copilot/skills/${name}"
+
+		# Don't clobber a real skill or user-written file.
+		if [[ -d "${target}" ]] && ! grep -qF "${_COMMAND_MARKER}" "${target}/SKILL.md" 2>/dev/null; then
+			continue
+		fi
+
+		mkdir -p "${target}"
+		body="$(cat "${cmd}")"
+		cat >"${target}/SKILL.md" <<EOF
+---
+name: ${name}
+description: "Slash command ported from skill-tree commands/${name}.md"
+user-invocable: true
+---
+${_COMMAND_MARKER}
+
+${body}
+EOF
+		echo "Generated ${target}/SKILL.md from commands/${name}.md"
+	done
+}
+
 # Every skill, bare. Copilot has no namespace to hide the less-used ones
 # behind, so the Claude side's "only shortcuts worth a second alias" rule has
 # nothing to trade off against here -- unlinked means unreachable.
@@ -312,6 +346,7 @@ _install_copilot() {
 		_link "${_repo_root}/skills/${name}" "${HOME}/.copilot/skills/${name}"
 	done
 
+	_install_copilot_commands
 	_write_copilot_hooks
 	_write_copilot_instructions
 	_configure_copilot_statusline

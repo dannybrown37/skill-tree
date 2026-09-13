@@ -30,7 +30,7 @@ below, then do the next action.
 
 ## Read in this order
 
-1. `docs/handoffs/NARRATIVE.md` — <which sections; grep for X rather than reading whole>
+1. `NARRATIVE.md` — <which sections; grep for X rather than reading whole>
 2. `<path>` — <why>
 3. `<path>` — <why>
 

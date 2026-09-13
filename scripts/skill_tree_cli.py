@@ -193,7 +193,7 @@ def _dev_mode(root: Path) -> str:
     if not script.is_file():
         return 'unknown (no dev_link.sh)'
 
-    result = subprocess.run(  # noqa: S603
+    result = subprocess.run(
         [str(script), '--status'],
         capture_output=True,
         text=True,
@@ -261,8 +261,8 @@ def cmd_doctor(root: Path, _args: list[str]) -> int:
 def cmd_test(root: Path, args: list[str]) -> int:
     # `uv` off PATH deliberately: which one is right depends on how the
     # user installed it, same as every other entry point here.
-    return subprocess.run(  # noqa: S603
-        [  # noqa: S607
+    return subprocess.run(
+        [
             'uv',
             'run',
             '--with',
@@ -356,7 +356,7 @@ def _subcommands(help_text: str) -> list[str]:
 
 def _help_text(command: list[str]) -> str:
     try:
-        result = subprocess.run(  # noqa: S603
+        result = subprocess.run(
             [*command, '--help'],
             capture_output=True,
             text=True,
@@ -417,7 +417,7 @@ def cmd_help(root: Path, _args: list[str]) -> int:
 
 
 def _delegate(root: Path, script: str, args: list[str]) -> int:
-    return subprocess.run(  # noqa: S603
+    return subprocess.run(
         [str(root / script), *args],
         check=False,
     ).returncode
@@ -511,7 +511,7 @@ def main(argv: list[str] | None = None, root: Path | None = None) -> int:
         )
         return 1
 
-    return subprocess.run([str(skill.cli), *rest], check=False).returncode  # noqa: S603
+    return subprocess.run([str(skill.cli), *rest], check=False).returncode
 
 
 if __name__ == '__main__':

@@ -17,7 +17,7 @@ from pathlib import Path
 BACKLOG_HEADER = '# Backlog'
 BACKLOG_NAME = 'BACKLOG.md'
 CURRENT_NAME = 'CURRENT.md'
-DEFAULT_SUBDIR = Path('docs') / 'handoffs'
+HANDOFFS_SUBDIR = Path('docs') / 'handoffs'
 NARRATIVE_NAME = 'NARRATIVE.md'
 FENCE_PREFIXES = ('```', '~~~')
 PROJECTS_DIR_FALLBACK = Path('~/projects')
@@ -39,6 +39,28 @@ class HandoffError(Exception):
     """Something the user asked for can't be done as asked."""
 
 
+def sanitize_branch(branch: str) -> str:
+    """Turn a git branch name into a safe directory name."""
+    return branch.replace('/', '-')
+
+
+def current_branch(repo: Path) -> str | None:
+    """The checked-out branch, or None on detached HEAD / outside a repo."""
+    try:
+        result = subprocess.run(
+            ['git', 'branch', '--show-current'],
+            cwd=repo,
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=5,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+    name = result.stdout.strip() if result.returncode == 0 else ''
+    return name or None
+
+
 @dataclass(frozen=True)
 class ProjectStatus:
     """One project's handoff state, as `status` reports it."""
@@ -48,15 +70,26 @@ class ProjectStatus:
     has_handoff: bool
     status: str
     backlog_count: int
+    branches: tuple['BranchStatus', ...] | None = None
 
     def as_dict(self) -> dict[str, object]:
-        return {
+        result: dict[str, object] = {
             'name': self.name,
             'path': str(self.path),
             'has_handoff': self.has_handoff,
             'status': self.status,
             'backlog_count': self.backlog_count,
         }
+        if self.branches:
+            result['branches'] = [
+                {
+                    'branch': b.branch,
+                    'status': b.status,
+                    'backlog_count': b.backlog_count,
+                }
+                for b in self.branches
+            ]
+        return result
 
 
 @dataclass(frozen=True)
@@ -197,32 +230,49 @@ def find_item(items: list[BacklogItem], title: str) -> BacklogItem | None:
     )
 
 
+def _find_git_root(start: Path) -> Path | None:
+    """Walk up from *start* to find the nearest `.git` directory."""
+    for directory in (start, *start.parents):
+        if (directory / '.git').exists():
+            return directory
+    return None
+
+
 def handoff_dir(
     repo: Path | None = None,
     start: Path | None = None,
 ) -> Path:
-    """Where this repo's handoff files live.
+    """Where this repo's handoff files live, scoped to the current branch.
 
     `--repo` beats `$HANDOFF_DIR` beats walking up to the git root, so an
-    explicit path is always the last word.
+    explicit path is always the last word. The branch is detected from the
+    repo and appended as a sanitized subdirectory.
     """
+    if os.environ.get('HANDOFF_DIR'):
+        return Path(os.environ['HANDOFF_DIR']).expanduser()
+
     if repo is not None:
-        return repo.expanduser().resolve() / DEFAULT_SUBDIR
+        root = repo.expanduser().resolve()
+    else:
+        resolved = (start or Path.cwd()).resolve()
+        found = _find_git_root(resolved)
+        if found is None:
+            message = (
+                f'not inside a git repo (looked up from {resolved}). '
+                f'Pass --repo <path>, or set $HANDOFF_DIR.'
+            )
+            raise HandoffError(message)
+        root = found
 
-    override = os.environ.get('HANDOFF_DIR')
-    if override:
-        return Path(override).expanduser()
+    branch = current_branch(root)
+    if branch is None:
+        message = (
+            f'detached HEAD in {root} — cannot resolve a handoff branch. '
+            f'Check out a branch, or set $HANDOFF_DIR.'
+        )
+        raise HandoffError(message)
 
-    current = (start or Path.cwd()).resolve()
-    for directory in (current, *current.parents):
-        if (directory / '.git').exists():
-            return directory / DEFAULT_SUBDIR
-
-    message = (
-        f'not inside a git repo (looked up from {current}). '
-        f'Pass --repo <path>, or set $HANDOFF_DIR.'
-    )
-    raise HandoffError(message)
+    return root / HANDOFFS_SUBDIR / sanitize_branch(branch)
 
 
 def backlog_path(repo: Path | None = None) -> Path:
@@ -421,7 +471,7 @@ def _head_has_advanced(repo: Path, anchor_commit: str) -> bool:
     """True when the repo's HEAD is strictly ahead of *anchor_commit*."""
     try:
         result = subprocess.run(
-            ['git', 'rev-parse', 'HEAD'],  # noqa: S607
+            ['git', 'rev-parse', 'HEAD'],
             cwd=repo,
             capture_output=True,
             text=True,
@@ -433,8 +483,8 @@ def _head_has_advanced(repo: Path, anchor_commit: str) -> bool:
         head = result.stdout.strip()
         if head.startswith(anchor_commit) or anchor_commit.startswith(head):
             return False
-        ancestor = subprocess.run(  # noqa: S603
-            [  # noqa: S607
+        ancestor = subprocess.run(
+            [
                 'git',
                 'merge-base',
                 '--is-ancestor',
@@ -499,8 +549,18 @@ def default_project_root() -> Path:
     return Path(os.environ.get('PROJECTS_DIR') or PROJECTS_DIR_FALLBACK)
 
 
-def project_status(project: Path) -> ProjectStatus:
-    directory = project / DEFAULT_SUBDIR
+@dataclass(frozen=True)
+class BranchStatus:
+    """One branch's handoff state within a project."""
+
+    branch: str
+    status: str
+    backlog_count: int
+
+
+def _branch_status(directory: Path, project: Path) -> BranchStatus:
+    """Handoff state for one branch directory."""
+    branch = directory.name
     current = directory / CURRENT_NAME
     if current.exists():
         text = current.read_text()
@@ -511,12 +571,43 @@ def project_status(project: Path) -> ProjectStatus:
                 status = REVIEWED
     else:
         status = NO_CURRENT
+    return BranchStatus(
+        branch=branch,
+        status=status,
+        backlog_count=len(read_items(directory / BACKLOG_NAME)),
+    )
+
+
+def project_status(project: Path) -> ProjectStatus:
+    handoffs_dir = project / HANDOFFS_SUBDIR
+    if not handoffs_dir.is_dir():
+        return ProjectStatus(
+            name=project.name,
+            path=project,
+            has_handoff=False,
+            status=NO_CURRENT,
+            backlog_count=0,
+        )
+    branches = [
+        _branch_status(entry, project)
+        for entry in sorted(handoffs_dir.iterdir())
+        if entry.is_dir() and (entry / CURRENT_NAME).exists()
+    ]
+    if not branches:
+        return ProjectStatus(
+            name=project.name,
+            path=project,
+            has_handoff=False,
+            status=NO_CURRENT,
+            backlog_count=0,
+        )
     return ProjectStatus(
         name=project.name,
         path=project,
-        has_handoff=directory.is_dir(),
-        status=status,
-        backlog_count=len(read_items(directory / BACKLOG_NAME)),
+        has_handoff=True,
+        status=branches[0].status,
+        backlog_count=branches[0].backlog_count,
+        branches=tuple(branches),
     )
 
 
@@ -541,16 +632,23 @@ def scan_projects(roots: list[Path]) -> list[ProjectStatus]:
 
 
 def _render_status_table(reports: list[ProjectStatus]) -> str:
-    headers = ('PROJECT', 'HANDOFF', 'STATUS', 'BACKLOG')
-    rows = [
-        (
-            report.name,
-            'yes' if report.has_handoff else 'no',
-            report.status,
-            str(report.backlog_count),
-        )
-        for report in reports
-    ]
+    headers = ('PROJECT', 'BRANCH', 'STATUS', 'BACKLOG')
+    rows: list[tuple[str, ...]] = []
+    for report in reports:
+        if report.branches:
+            for branch in report.branches:
+                rows.append(
+                    (
+                        report.name,
+                        branch.branch,
+                        branch.status,
+                        str(branch.backlog_count),
+                    ),
+                )
+        else:
+            rows.append(
+                (report.name, '', report.status, str(report.backlog_count)),
+            )
     columns = zip(headers, *rows, strict=True)
     widths = [max(len(cell) for cell in column) for column in columns]
     lines = [
@@ -695,6 +793,31 @@ def cmd_backlog(path: Path, args: argparse.Namespace) -> int:
     return _cmd_doc(path, args, BACKLOG_NAME)
 
 
+def cmd_close(path: Path, args: argparse.Namespace) -> int:
+    """Delete this branch's handoff directory."""
+    import shutil
+
+    directory = path.parent
+    if not directory.is_dir():
+        print(f'No handoff directory at {directory}')
+        return 0
+
+    if not args.force:
+        print(
+            'Before closing, consider saving lessons to CLAUDE.md or memory.\n'
+            f'Deleting {directory}',
+        )
+
+    shutil.rmtree(directory)
+    print(f'Closed handoff: {directory.name}')
+
+    handoffs_root = directory.parent
+    if handoffs_root.is_dir() and not any(handoffs_root.iterdir()):
+        handoffs_root.rmdir()
+
+    return 0
+
+
 HANDLERS = {
     'pop': cmd_pop,
     'backlog': cmd_backlog,
@@ -705,6 +828,7 @@ HANDLERS = {
     'next': cmd_add,
     'remove': cmd_remove,
     'status': cmd_status,
+    'close': cmd_close,
 }
 
 
@@ -782,6 +906,16 @@ def build_parser() -> argparse.ArgumentParser:
         '--set',
         choices=STATUS_VALUES,
         help="set this repo's CURRENT.md status instead of scanning",
+    )
+
+    close = add_action(
+        'close',
+        "Delete this branch's handoff directory",
+    )
+    close.add_argument(
+        '--force',
+        action='store_true',
+        help='skip the reminder to save lessons',
     )
 
     return parser

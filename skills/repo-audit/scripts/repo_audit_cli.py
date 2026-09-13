@@ -548,7 +548,7 @@ def _run(
     MANUAL rather than pretending the repo is broken.
     """
     try:
-        return subprocess.run(  # noqa: S603
+        return subprocess.run(
             list(command),
             cwd=cwd,
             capture_output=True,

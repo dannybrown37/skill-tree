@@ -13,21 +13,33 @@
 # the agent asks first.
 set -euo pipefail
 
+_git_root() {
+	local dir="${PWD}"
+	while [[ "${dir}" != / ]]; do
+		if [[ -e "${dir}/.git" ]]; then
+			echo "${dir}"
+			return 0
+		fi
+		dir="$(dirname "${dir}")"
+	done
+	return 1
+}
+
 _handoff_dir() {
 	if [[ -n "${HANDOFF_DIR:-}" ]]; then
 		echo "${HANDOFF_DIR}"
 		return 0
 	fi
 
-	local dir="${PWD}"
-	while [[ "${dir}" != / ]]; do
-		if [[ -e "${dir}/.git" ]]; then
-			echo "${dir}/docs/handoffs"
-			return 0
-		fi
-		dir="$(dirname "${dir}")"
-	done
-	return 1
+	local root
+	root="$(_git_root)" || return 1
+
+	local branch
+	branch="$(git -C "${root}" branch --show-current 2>/dev/null)" || return 1
+	[[ -n "${branch}" ]] || return 1
+
+	local sanitized="${branch//\//-}"
+	echo "${root}/docs/handoffs/${sanitized}"
 }
 
 # First `## <title>` in the backlog, outside any fence. Bash rather than a
@@ -67,6 +79,20 @@ _current_status() {
 	' "$1"
 }
 
+# Extract the anchor commit hash (HEAD `<sha>`) from CURRENT.md.
+_anchor_commit() {
+	grep -oP 'HEAD\s+`\K[0-9a-f]{7,40}' "$1" 2>/dev/null | head -1 || true
+}
+
+# True when HEAD has advanced past the anchor commit.
+_head_advanced() {
+	local repo="$1" anchor="$2"
+	local head
+	head="$(git -C "${repo}" rev-parse HEAD 2>/dev/null)" || return 1
+	[[ "${head}" != "${anchor}"* && "${anchor}" != "${head}"* ]] || return 1
+	git -C "${repo}" merge-base --is-ancestor "${anchor}" "${head}" 2>/dev/null
+}
+
 _offer_next() {
 	local title
 	title="$(_first_backlog_title "$1")"
@@ -83,21 +109,51 @@ it from BACKLOG.md and writing it into CURRENT.md as the next action);
 EOF
 }
 
+_backlog_is_empty() {
+	local file="$1"
+	[[ ! -s "${file}" ]] && return 0
+	local title
+	title="$(_first_backlog_title "${file}")"
+	[[ -z "${title}" ]]
+}
+
 _dir="$(_handoff_dir)" || exit 0
 _current="${_dir}/CURRENT.md"
 _backlog="${_dir}/BACKLOG.md"
+_root="$(_git_root)" || _root=""
 
 if [[ -s "${_current}" ]]; then
+	_status="$(_current_status "${_current}")"
+
+	# Promote awaiting-review to reviewed when the user committed past the anchor.
+	if [[ "${_status}" == "awaiting-review" && -n "${_root}" ]]; then
+		_anchor="$(_anchor_commit "${_current}")" || true
+		if [[ -n "${_anchor}" ]] && _head_advanced "${_root}" "${_anchor}"; then
+			_status="reviewed"
+		fi
+	fi
+
 	cat "${_current}"
-	case "$(_current_status "${_current}")" in
+	case "${_status}" in
+	reviewed)
+		echo
+		echo '---'
+		echo 'The user reviewed and committed past the anchor. Ask what they want next.'
+		[[ -s "${_backlog}" ]] && _offer_next "${_backlog}"
+		;;
 	between-tasks)
-		# The last task landed and nothing is half-written, so the useful
-		# thing to put in front of the agent is what's queued -- not a
-		# reminder to maintain a handoff that has nothing in flight.
 		echo
 		echo '---'
 		echo 'The last task landed; nothing is in flight.'
-		[[ -s "${_backlog}" ]] && _offer_next "${_backlog}"
+		if _backlog_is_empty "${_backlog}"; then
+			cat <<'EOF'
+
+This arc looks complete (between-tasks, empty backlog). Run `handoff close`
+to clean up, or start a new task.
+EOF
+		elif [[ -s "${_backlog}" ]]; then
+			_offer_next "${_backlog}"
+		fi
 		;;
 	awaiting-review)
 		cat <<'EOF'

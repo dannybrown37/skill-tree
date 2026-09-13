@@ -29,11 +29,48 @@ It has no callers left.
 
 @pytest.fixture
 def repo(tmp_path: Path) -> Path:
-    (tmp_path / '.git').mkdir()
-    handoffs = tmp_path / 'docs' / 'handoffs'
+    subprocess.run(
+        ['git', 'init', str(tmp_path)],
+        capture_output=True,
+        check=True,
+    )
+    subprocess.run(
+        ['git', 'commit', '--allow-empty', '-m', 'init'],
+        cwd=tmp_path,
+        capture_output=True,
+        check=True,
+    )
+    branch = (
+        subprocess.run(
+            ['git', 'branch', '--show-current'],
+            cwd=tmp_path,
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        .stdout.strip()
+        .replace('/', '-')
+    )
+    handoffs = tmp_path / 'docs' / 'handoffs' / branch
     handoffs.mkdir(parents=True)
     (handoffs / 'BACKLOG.md').write_text(SAMPLE)
     return tmp_path
+
+
+def _handoffs_dir(repo: Path) -> Path:
+    """The branch-scoped handoff directory for a test repo."""
+    branch = (
+        subprocess.run(
+            ['git', 'branch', '--show-current'],
+            cwd=repo,
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        .stdout.strip()
+        .replace('/', '-')
+    )
+    return repo / 'docs' / 'handoffs' / branch
 
 
 def run(
@@ -46,7 +83,7 @@ def run(
     environment.pop('HANDOFF_DIR', None)
     if env:
         environment.update(env)
-    return subprocess.run(  # noqa: S603
+    return subprocess.run(
         [str(script), *args],
         cwd=cwd,
         env=environment,
@@ -97,14 +134,14 @@ class TestWrapper:
             cwd=repo,
         )
         assert result.returncode == 0
-        backlog = (repo / 'docs' / 'handoffs' / 'BACKLOG.md').read_text()
+        backlog = (_handoffs_dir(repo) / 'BACKLOG.md').read_text()
         assert 'From the wrapper' in backlog
 
     def test_pop_moves_the_item(self, repo: Path) -> None:
         result = run(WRAPPER, 'pop', cwd=repo)
         assert result.returncode == 0
         assert 'Wire the flag' in result.stdout
-        handoffs = repo / 'docs' / 'handoffs'
+        handoffs = _handoffs_dir(repo)
         assert 'Wire the flag' not in (handoffs / 'BACKLOG.md').read_text()
         assert 'Wire the flag' in (handoffs / 'CURRENT.md').read_text()
 
@@ -126,7 +163,7 @@ class TestWrapper:
 
 class TestSessionStart:
     def test_prints_current_when_one_exists(self, repo: Path) -> None:
-        current = repo / 'docs' / 'handoffs' / 'CURRENT.md'
+        current = _handoffs_dir(repo) / 'CURRENT.md'
         current.write_text('# Continue here\n\nDo the thing.\n')
         result = run(SESSION_START, cwd=repo)
         assert result.returncode == 0
@@ -141,14 +178,18 @@ class TestSessionStart:
 
     def test_does_not_pop(self, repo: Path) -> None:
         """Offering is not claiming -- the backlog must be untouched."""
-        before = (repo / 'docs' / 'handoffs' / 'BACKLOG.md').read_text()
+        before = (_handoffs_dir(repo) / 'BACKLOG.md').read_text()
         run(SESSION_START, cwd=repo)
-        after = (repo / 'docs' / 'handoffs' / 'BACKLOG.md').read_text()
+        after = (_handoffs_dir(repo) / 'BACKLOG.md').read_text()
         assert before == after
-        assert not (repo / 'docs' / 'handoffs' / 'CURRENT.md').exists()
+        assert not (_handoffs_dir(repo) / 'CURRENT.md').exists()
 
     def test_silent_with_no_handoff_files(self, tmp_path: Path) -> None:
-        (tmp_path / '.git').mkdir()
+        subprocess.run(
+            ['git', 'init', str(tmp_path)],
+            capture_output=True,
+            check=True,
+        )
         result = run(SESSION_START, cwd=tmp_path)
         assert result.returncode == 0
         assert result.stdout == ''
@@ -161,13 +202,13 @@ class TestSessionStart:
         assert result.stderr == ''
 
     def test_silent_on_an_empty_backlog(self, repo: Path) -> None:
-        (repo / 'docs' / 'handoffs' / 'BACKLOG.md').write_text('# Backlog\n')
+        (_handoffs_dir(repo) / 'BACKLOG.md').write_text('# Backlog\n')
         result = run(SESSION_START, cwd=repo)
         assert result.returncode == 0
         assert result.stdout == ''
 
     def test_ignores_a_fenced_heading(self, repo: Path) -> None:
-        (repo / 'docs' / 'handoffs' / 'BACKLOG.md').write_text(
+        (_handoffs_dir(repo) / 'BACKLOG.md').write_text(
             '# Backlog\n\n## Real item\n\n```\n## Fake item\n```\n',
         )
         result = run(SESSION_START, cwd=repo)
@@ -202,7 +243,7 @@ class TestDocCommands:
         command: str,
         name: str,
     ) -> None:
-        (repo / 'docs' / 'handoffs' / name).write_text('body text\n')
+        (_handoffs_dir(repo) / name).write_text('body text\n')
         result = run(WRAPPER, command, cwd=repo)
         assert result.returncode == 0
         assert 'body text' in result.stdout
@@ -236,7 +277,12 @@ class TestStatusIsCrossProject:
 
     def test_runs_outside_any_repo(self, tmp_path: Path) -> None:
         projects = tmp_path / 'projects'
-        (projects / 'alpha' / '.git').mkdir(parents=True)
+        projects.mkdir()
+        subprocess.run(
+            ['git', 'init', str(projects / 'alpha')],
+            capture_output=True,
+            check=True,
+        )
         elsewhere = tmp_path / 'elsewhere'
         elsewhere.mkdir()
 
@@ -251,21 +297,21 @@ class TestStatusIsCrossProject:
         assert 'repo' not in result.stderr
 
     def test_set_still_needs_a_repo(self, repo: Path) -> None:
-        (repo / 'docs' / 'handoffs' / 'CURRENT.md').write_text(
+        (_handoffs_dir(repo) / 'CURRENT.md').write_text(
             '# Continue here\n',
         )
         result = run(WRAPPER, 'status', '--set', 'awaiting-review', cwd=repo)
         assert result.returncode == 0, result.stderr
-        current = (repo / 'docs' / 'handoffs' / 'CURRENT.md').read_text()
+        current = (_handoffs_dir(repo) / 'CURRENT.md').read_text()
         assert '**Status:** awaiting-review' in current
 
     def test_set_equals_form_still_needs_a_repo(self, repo: Path) -> None:
-        (repo / 'docs' / 'handoffs' / 'CURRENT.md').write_text(
+        (_handoffs_dir(repo) / 'CURRENT.md').write_text(
             '# Continue here\n',
         )
         result = run(WRAPPER, 'status', '--set=between-tasks', cwd=repo)
         assert result.returncode == 0, result.stderr
-        current = (repo / 'docs' / 'handoffs' / 'CURRENT.md').read_text()
+        current = (_handoffs_dir(repo) / 'CURRENT.md').read_text()
         assert '**Status:** between-tasks' in current
 
 
@@ -279,7 +325,7 @@ class TestSessionStartReadsStatus:
     """
 
     def write_current(self, repo: Path, status: str) -> None:
-        current = repo / 'docs' / 'handoffs' / 'CURRENT.md'
+        current = _handoffs_dir(repo) / 'CURRENT.md'
         current.write_text(
             f'# Continue here\n\n**Status:** {status}\n\nContext.\n',
         )
@@ -296,7 +342,7 @@ class TestSessionStartReadsStatus:
         self,
         repo: Path,
     ) -> None:
-        (repo / 'docs' / 'handoffs' / 'BACKLOG.md').write_text('# Backlog\n')
+        (_handoffs_dir(repo) / 'BACKLOG.md').write_text('# Backlog\n')
         self.write_current(repo, 'between-tasks')
         result = run(SESSION_START, cwd=repo)
         assert 'Confirm with the user' not in result.stdout
@@ -315,7 +361,7 @@ class TestSessionStartReadsStatus:
         assert 'Confirm with the user' not in result.stdout
 
     def test_status_inside_a_fence_is_not_read(self, repo: Path) -> None:
-        current = repo / 'docs' / 'handoffs' / 'CURRENT.md'
+        current = _handoffs_dir(repo) / 'CURRENT.md'
         current.write_text(
             '# Continue here\n\n```\n**Status:** between-tasks\n```\n',
         )
@@ -324,7 +370,39 @@ class TestSessionStartReadsStatus:
 
     def test_still_does_not_pop(self, repo: Path) -> None:
         self.write_current(repo, 'between-tasks')
-        before = (repo / 'docs' / 'handoffs' / 'BACKLOG.md').read_text()
+        before = (_handoffs_dir(repo) / 'BACKLOG.md').read_text()
         run(SESSION_START, cwd=repo)
-        after = (repo / 'docs' / 'handoffs' / 'BACKLOG.md').read_text()
+        after = (_handoffs_dir(repo) / 'BACKLOG.md').read_text()
         assert before == after
+
+    def test_between_tasks_empty_backlog_suggests_close(
+        self,
+        repo: Path,
+    ) -> None:
+        (_handoffs_dir(repo) / 'BACKLOG.md').write_text('# Backlog\n')
+        self.write_current(repo, 'between-tasks')
+        result = run(SESSION_START, cwd=repo)
+        assert 'handoff close' in result.stdout
+
+    def test_reviewed_when_head_advanced(self, repo: Path) -> None:
+        head = subprocess.run(
+            ['git', 'rev-parse', '--short', 'HEAD'],
+            cwd=repo,
+            capture_output=True,
+            text=True,
+            check=True,
+        ).stdout.strip()
+        current = _handoffs_dir(repo) / 'CURRENT.md'
+        current.write_text(
+            f'# Continue here\n\n**Status:** awaiting-review\n\n'
+            f'## Anchor\n\n- HEAD `{head}`\n',
+        )
+        subprocess.run(
+            ['git', 'commit', '--allow-empty', '-m', 'user review'],
+            cwd=repo,
+            capture_output=True,
+            check=True,
+        )
+        result = run(SESSION_START, cwd=repo)
+        assert 'reviewed and committed' in result.stdout
+        assert 'Do not start anything' not in result.stdout

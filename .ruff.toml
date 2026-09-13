@@ -55,8 +55,12 @@ ignore = [
   "S101",  # assert is awesome
   "I001",  # I do not care for its sorting choices
   "S113",  # requests calls without timeouts are fine
+  "S603",  # subprocess calls with hardcoded arguments are safe in tests
+  "S607",  # partial executable paths are fine when running standard tools like git
   "PLR0913",  # sometimes tests need 6+ fixtures
   "PLC0415",  # deliberate lazy imports (CLI startup time, circular imports)
+  "ARG002",  # pytest fixtures don't need to be used in test body
+  "PLR2004",  # magic numbers in test assertions are acceptable
 ]
 
 [lint.flake8-quotes]

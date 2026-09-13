@@ -275,7 +275,7 @@ class TestRenderAndGroup:
 
 class TestCli:
     def test_version_flag_exits_zero(self) -> None:
-        result = subprocess.run(  # noqa: S603
+        result = subprocess.run(
             [str(CLI), '--version'],
             capture_output=True,
             text=True,
@@ -289,7 +289,7 @@ class TestCli:
         home: Path,
         root: Path,
     ) -> None:
-        result = subprocess.run(  # noqa: S603
+        result = subprocess.run(
             [str(CLI)],
             capture_output=True,
             text=True,
@@ -315,7 +315,7 @@ class TestCli:
                 },
             },
         )
-        result = subprocess.run(  # noqa: S603
+        result = subprocess.run(
             [str(CLI), '--json'],
             capture_output=True,
             text=True,
@@ -336,7 +336,7 @@ class TestCli:
             home / '.copilot' / 'hooks' / 'x.json',
             {'hooks': {'sessionStart': [{'type': 'command', 'bash': 'a.sh'}]}},
         )
-        result = subprocess.run(  # noqa: S603
+        result = subprocess.run(
             [str(CLI), '--claude'],
             capture_output=True,
             text=True,

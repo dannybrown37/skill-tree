@@ -119,8 +119,8 @@ def allowed_bash(command: str) -> bool:
 def screenshot_dir() -> Path | None:
     """The directory the resolver would use, or None if it has none."""
     try:
-        result = subprocess.run(  # noqa: S603
-            ['bash', str(RESOLVER), 'dir'],  # noqa: S607
+        result = subprocess.run(
+            ['bash', str(RESOLVER), 'dir'],
             capture_output=True,
             text=True,
             check=False,

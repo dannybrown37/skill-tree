@@ -234,7 +234,7 @@ class TestShow:
 
 class TestRun:
     def test_delegates_to_the_skills_own_cli(self, fake_root: Path) -> None:
-        result = subprocess.run(  # noqa: S603
+        result = subprocess.run(
             [sys.executable, str(cli.__file__), 'backlog', 'claim', '-a'],
             capture_output=True,
             text=True,
@@ -267,7 +267,7 @@ class TestRun:
         fake_root: Path,
     ) -> None:
         """Ours is only the *leading* -h -- the rest is the skill's."""
-        result = subprocess.run(  # noqa: S603
+        result = subprocess.run(
             [sys.executable, str(cli.__file__), 'backlog', '--help'],
             capture_output=True,
             text=True,
@@ -395,7 +395,7 @@ class TestRealRepo:
         assert {'screenshot', 'verify'} <= names
 
     def test_wrapper_is_executable_and_lists_skills(self) -> None:
-        result = subprocess.run(  # noqa: S603
+        result = subprocess.run(
             [str(WRAPPER), 'list'],
             capture_output=True,
             text=True,
@@ -469,7 +469,7 @@ class TestVersion:
         # An empty HOME stands in for "no config, no credentials"; PATH
         # stays real because the wrapper legitimately needs `uv`.
         env = {'PATH': os.environ['PATH'], 'HOME': str(tmp_path)}
-        result = subprocess.run(  # noqa: S603
+        result = subprocess.run(
             [str(WRAPPER), '--version'],
             capture_output=True,
             text=True,
@@ -641,8 +641,8 @@ def _comp_reply(fake_root: Path, tmp_path: Path, *words: str) -> list[str]:
         f'_skill_tree_complete\n'
         f'printf "%s\\n" "${{COMPREPLY[@]}}"\n'
     )
-    result = subprocess.run(  # noqa: S603
-        ['bash', '-c', script],  # noqa: S607
+    result = subprocess.run(
+        ['bash', '-c', script],
         capture_output=True,
         text=True,
         env={

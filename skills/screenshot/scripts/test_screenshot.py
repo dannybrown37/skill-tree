@@ -25,8 +25,8 @@ def run(
     **env: str,
 ) -> subprocess.CompletedProcess[str]:
     """Invoke the script with every default pointed somewhere disposable."""
-    return subprocess.run(  # noqa: S603
-        ['bash', str(SCRIPT), *args],  # noqa: S607
+    return subprocess.run(
+        ['bash', str(SCRIPT), *args],
         capture_output=True,
         text=True,
         env={

@@ -39,7 +39,7 @@ def run(
     *args: str,
     cwd: Path | None = None,
 ) -> subprocess.CompletedProcess[str]:
-    return subprocess.run(  # noqa: S603
+    return subprocess.run(
         [str(WRAPPER), *args],
         capture_output=True,
         text=True,

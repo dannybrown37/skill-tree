@@ -135,6 +135,7 @@ Usage: handoff <command> [options]
 	next              Add an item to the top -- do this next
 	remove            Delete an item
 	status            Handoff state of every project under $PROJECTS_DIR
+	close             Delete this branch's handoff directory (prompts to save lessons)
 	edit              Open BACKLOG.md in $EDITOR
 	pop               (Main agent action, not for humans) Claim the top item:
 		     	  remove it from BACKLOG.md and make it CURRENT.md's next action.

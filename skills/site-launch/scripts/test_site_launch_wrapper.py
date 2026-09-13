@@ -18,7 +18,7 @@ PAGE = """\
 
 
 def run(*args: str) -> subprocess.CompletedProcess[str]:
-    return subprocess.run(  # noqa: S603
+    return subprocess.run(
         [str(WRAPPER), *args],
         capture_output=True,
         text=True,
@@ -38,7 +38,7 @@ def test_version_exits_zero_with_no_config() -> None:
 
 def test_no_arguments_checks_the_current_directory(tmp_path: Path) -> None:
     (tmp_path / 'index.html').write_text(PAGE)
-    result = subprocess.run(  # noqa: S603
+    result = subprocess.run(
         [str(WRAPPER)],
         cwd=tmp_path,
         capture_output=True,

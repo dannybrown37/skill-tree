@@ -27,7 +27,7 @@ compressed to be useful, because it's being asked to do jobs that pull in opposi
 | **Answers** | What was done and decided, and why | How to rebuild working context, right now | What to do after this |
 | **Lifespan** | Lives with the project, accumulates | Consumed by the next session, then dead | Drains as items are claimed |
 | **Optimized for** | Completeness, durability, an audit trail | Brevity — it's loaded before any work starts | Capture — writing an item must be cheap |
-| **Default path** | `docs/handoffs/NARRATIVE.md` | `docs/handoffs/CURRENT.md` | `docs/handoffs/BACKLOG.md` |
+| **Default path** | `docs/handoffs/<branch>/NARRATIVE.md` | `docs/handoffs/<branch>/CURRENT.md` | `docs/handoffs/<branch>/BACKLOG.md` |
 
 The re-entry prompt does not restate the narrative — it *points* at it, plus the code, plus
 the tests, and says in what order to read them. The incoming agent reconstructs from durable
@@ -40,6 +40,15 @@ need to know *which* agent was working from a summary rather than firsthand cont
 If the repo already has a convention (a `HANDOFF.md`, `.claude/handoffs/`, an
 `architecture.md`, a path named in `CLAUDE.md`), use that rather than inventing this layout.
 
+### Branch scoping
+
+Handoffs are scoped to the current git branch: `docs/handoffs/<branch>/`. Slashes in branch
+names are replaced with dashes (`feat/foo` → `feat-foo`). This lets parallel workstreams on
+different branches each have their own re-entry prompt, narrative, and backlog without
+colliding.
+
+On detached HEAD (mid-rebase, CI), no handoff is loaded — there's no branch to scope to.
+
 ## The backlog
 
 Work that surfaces mid-task and isn't next belongs in `BACKLOG.md`, not parked in the
@@ -47,15 +56,17 @@ re-entry prompt — `CURRENT.md` holds exactly one next action, and a to-do list
 is how it stops being short enough to read.
 
 The `handoff` CLI is the only thing that should touch `BACKLOG.md`; reading the whole file to
-get one item is the token cost this exists to avoid. It's one backlog per repo, resolved from
-cwd.
+get one item is the token cost this exists to avoid. It's one backlog per branch, resolved
+from cwd and the current git branch.
 
 - `handoff add --title "..." --body "..."` — capture something for later (`next` for the top)
 - `handoff backlog` / `handoff current` / `handoff narrative` — read `BACKLOG.md` /
   `CURRENT.md` / `NARRATIVE.md` (paged for a human; plain stdout in a tool call)
 - `handoff pop` — **claim the top item**: removes it from `BACKLOG.md` and writes it into
   `CURRENT.md` as the next action, in one step. Ask the user before doing this.
-- `handoff status` — the handoff state of every project under `~/projects` (see below)
+- `handoff close` — **delete this branch's handoff directory**. Prompts to save anything
+  worth keeping to `CLAUDE.md` or memory first. Use when an arc is complete.
+- `handoff status` — the handoff state of every project under `~/projects`, per branch
 
 Full surface, repo selection, and the flags in `references/backlog.md`. If `handoff` isn't on
 `PATH` in a tool call, run
@@ -69,6 +80,11 @@ is how a handoff becomes unreadable, and the next session can fetch any of them 
 
 Corollary: never write anything the repo already answers. No file inventories, no diff recaps,
 no architecture tours. Write what `git diff --stat` *means*, not what it prints.
+
+Corollary: **plans don't live in handoff files.** Plans are conversation-scoped — they guide
+the current session, not the next one. When a plan produces decisions, those go in the
+narrative. When a plan identifies the next step, that goes in CURRENT.md. There is no
+`PLAN.md`.
 
 ## Writing a handoff
 
@@ -103,7 +119,11 @@ next move*. The session-start hook reads it and adjusts what it puts in front of
 
 - `in-progress` — mid-flight, something is half-written. `pop` sets this.
 - `awaiting-review` — done and green, the user's turn. Nothing for an agent to pick up.
-- `between-tasks` — settled; the next task is free to start.
+  When the user commits past the anchor, this is implicitly promoted to `reviewed` — the hook
+  detects it and treats it as `between-tasks`, so the agent asks what's next instead of
+  sitting idle. No manual status update needed after committing.
+- `between-tasks` — settled; the next task is free to start. When the backlog is also empty,
+  the hook suggests running `handoff close` to clean up.
 
 A keyword, not prose to infer from — that must be answerable without reading the file, by a
 hook or by `handoff status`, which reports it for every repo under `$PROJECTS_DIR` alongside
@@ -177,8 +197,11 @@ Also:
 - On close, **replace** the re-entry prompt — one active prompt, always. Superseding means
   overwriting, not appending a second file.
 - Task finished but backlog isn't? Leave the re-entry prompt at `between-tasks` — that plus a
-  non-empty backlog says "idle, work available", which deleting the file cannot. Delete only
-  once the backlog is empty too; a dead "continue here" on finished work is a trap.
+  non-empty backlog says "idle, work available."
+- When the backlog is empty and the status is `between-tasks`, the arc is done — run
+  `handoff close` to delete the branch's handoff directory. Before closing, distill anything
+  worth keeping into `CLAUDE.md` or memory. The handoff files are ephemeral — the code and
+  git history are the durable artifacts.
 
 The session-end write is then a review, not a reconstruction — which is the point, because
 session end is exactly when you have the least context to reconstruct from.
