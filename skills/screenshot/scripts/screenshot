@@ -20,6 +20,11 @@ _die() {
 }
 
 # Every image in a directory, newest first, absolute.
+#
+# Callers pipe this into `head`, which closes the pipe after N lines --
+# under `pipefail` that turns `ls`'s resulting SIGPIPE (141) into the
+# whole script's exit code, even though the answer came out fine. Every
+# call site disables pipefail for just that one pipeline.
 _images() {
     local dir="$1" files=() extension
     shopt -s nullglob nocaseglob
@@ -90,7 +95,7 @@ _resolve_dir() {
         [[ -d "${candidate}" ]] || continue
         [[ -n "${first_existing}" ]] || first_existing="${candidate}"
 
-        image="$(_images "${candidate}" | head -1)"
+        image="$(set +o pipefail; _images "${candidate}" | head -1)"
         if [[ -n "${image}" && (-z "${newest}" || "${image}" -nt "${newest}") ]]; then
             newest="${image}"
             newest_dir="${candidate}"
@@ -186,7 +191,7 @@ ${CAPTURE_SCRIPT}" 2>&1)"; then
 _cmd_latest() {
     local dir image
     dir="$(_resolve_dir)"
-    image="$(_images "${dir}" | head -1)"
+    image="$(set +o pipefail; _images "${dir}" | head -1)"
     [[ -n "${image}" ]] || _die "no screenshots in ${dir}"
     echo "${image}"
 }
@@ -194,7 +199,7 @@ _cmd_latest() {
 _cmd_list() {
     local dir count="${1:-10}"
     dir="$(_resolve_dir)"
-    _images "${dir}" | head -n "${count}"
+    (set +o pipefail; _images "${dir}" | head -n "${count}")
 }
 
 # The plugin manifest three levels up, parsed with sed rather than jq --
