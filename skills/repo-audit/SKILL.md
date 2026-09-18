@@ -77,7 +77,8 @@ If no `.pre-commit-config.yaml` exists, flag it and skip to the next section.
 
 - **Python:** `.ruff.toml` or `[tool.ruff]` in `pyproject.toml`. Run
   `uv run --with ruff ruff check .` and `uv run --with ruff ruff format --check .`.
-- **Node/TS:** eslint config must exist. Run `npx eslint .`.
+- **Node/TS:** biome config must exist. Run `npx biome .`.
+  - eslint + prettier are okay in Legacy apps but should be upgraded if reasonable.
 - **Shell:** shellcheck and shfmt should be in pre-commit (checked above). Also spot-check:
   `find . -name '*.sh' -not -path './.git/*' | head -5 | xargs shellcheck` to confirm
   scripts pass standalone.
