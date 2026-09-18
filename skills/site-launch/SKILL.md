@@ -157,6 +157,13 @@ and forms actually submit somewhere. Then run Lighthouse against the deployed UR
 the accessibility and SEO panels specifically; they catch missing `lang`, missing `alt`, and
 unlabeled controls that no amount of looking at the page will surface.
 
+```bash
+npx lighthouse <deployed-url> --output=json --output=html --output-path=./lighthouse-report --only-categories=accessibility,seo,best-practices,performance
+```
+
+Open the HTML report for a human-readable view; parse the JSON programmatically if needed.
+A score below 90 on accessibility or SEO means something from this checklist is still missing.
+
 **Check:** the dev server hides broken absolute URLs, missing build-time assets, and
 redirect misconfiguration — all three of which are exactly what this list is about. Every
 verification here runs against the deployed origin.
