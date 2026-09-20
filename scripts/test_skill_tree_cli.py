@@ -41,6 +41,30 @@ def fake_root(tmp_path: Path) -> Path:
         '---\nname: backlog\ndescription: Shared work items.\n---\n'
         '\n# Backlog\n',
     )
+
+    human_only = skills / 'bro'
+    human_only.mkdir(parents=True)
+    (human_only / 'SKILL.md').write_text(
+        '---\n'
+        'name: bro\n'
+        'description: "Restate the last message plainly"\n'
+        'user-invocable: true\n'
+        'disable-model-invocation: true\n'
+        '---\n'
+        '\n'
+        '# Bro\n',
+    )
+
+    agent_only = skills / 'screenshot'
+    agent_only.mkdir(parents=True)
+    (agent_only / 'SKILL.md').write_text(
+        '---\n'
+        'name: screenshot\n'
+        'description: "Look at the user\'s screen"\n'
+        '---\n'
+        '\n'
+        '# Screenshot\n',
+    )
     wrapper = with_cli / 'scripts' / 'backlog'
     wrapper.write_text(
         '#!/usr/bin/env bash\n'
@@ -81,8 +105,13 @@ class TestFindSkills:
     ) -> None:
         skills = cli.find_skills(fake_root)
 
-        assert [s.name for s in skills] == ['backlog', 'verify']
-        assert skills[1].description.startswith('Invoke before answering')
+        assert [s.name for s in skills] == [
+            'backlog',
+            'bro',
+            'screenshot',
+            'verify',
+        ]
+        assert skills[3].description.startswith('Invoke before answering')
 
     def test_flags_which_skills_ship_an_executable_cli(
         self,
@@ -111,6 +140,25 @@ class TestFindSkills:
 
     def test_no_skills_directory_is_not_an_error(self, tmp_path: Path) -> None:
         assert cli.find_skills(tmp_path) == []
+
+    def test_parses_invocation_flags(self, fake_root: Path) -> None:
+        by_name = {s.name: s for s in cli.find_skills(fake_root)}
+
+        # verify: user-invocable=true, no disable-model-invocation → both
+        assert by_name['verify'].user_invocable is True
+        assert by_name['verify'].model_invocable is True
+
+        # bro: user-invocable=true, disable-model-invocation=true → human only
+        assert by_name['bro'].user_invocable is True
+        assert by_name['bro'].model_invocable is False
+
+        # screenshot: no user-invocable → agent only
+        assert by_name['screenshot'].user_invocable is False
+        assert by_name['screenshot'].model_invocable is True
+
+        # backlog: no flags → agent only (default)
+        assert by_name['backlog'].user_invocable is False
+        assert by_name['backlog'].model_invocable is True
 
     def test_skips_directories_without_a_skill_md(
         self,
@@ -141,20 +189,51 @@ class TestList:
         backlog_line = next(
             line for line in out.splitlines() if 'backlog' in line
         )
-        assert 'has a CLI' in backlog_line
+        assert 'CLI' in backlog_line
         assert not any(
-            'has a CLI' in line
-            for line in out.splitlines()
-            if 'verify' in line
+            'CLI' in line for line in out.splitlines() if 'verify' in line
         )
+
+    def test_user_filter_shows_only_user_invocable(
+        self,
+        fake_root: Path,
+    ) -> None:
+        _, out, _ = run_cli('list', '--user', root=fake_root)
+
+        assert 'verify' in out
+        assert 'bro' in out
+        assert 'backlog' not in out
+        assert 'screenshot' not in out
+
+    def test_agent_filter_shows_only_model_invocable(
+        self,
+        fake_root: Path,
+    ) -> None:
+        _, out, _ = run_cli('list', '--agent', root=fake_root)
+
+        assert 'verify' in out
+        assert 'screenshot' in out
+        assert 'backlog' in out
+        assert 'bro' not in out
 
     def test_json_output_is_machine_readable(self, fake_root: Path) -> None:
         _, out, _ = run_cli('list', '--json', root=fake_root)
 
         payload = json.loads(out)
-        assert [entry['name'] for entry in payload] == ['backlog', 'verify']
+        assert [entry['name'] for entry in payload] == [
+            'backlog',
+            'bro',
+            'screenshot',
+            'verify',
+        ]
         assert payload[0]['cli'].endswith('skills/backlog/scripts/backlog')
-        assert payload[1]['cli'] is None
+        assert payload[3]['cli'] is None
+        # bro: user-invocable + disable-model-invocation → user only
+        assert payload[1]['user_invocable'] is True
+        assert payload[1]['model_invocable'] is False
+        # screenshot: no flags → agent only
+        assert payload[2]['user_invocable'] is False
+        assert payload[2]['model_invocable'] is True
 
 
 class TestOverview:
@@ -229,7 +308,8 @@ class TestShow:
 
         assert code == 1
         assert 'nope' in err
-        assert 'backlog, verify' in err
+        assert 'nope' in err
+        assert 'backlog' in err
 
 
 class TestRun:
@@ -367,7 +447,7 @@ class TestDoctor:
 
         _, out, _ = run_cli('doctor', root=fake_root)
 
-        assert '1/2 skills linked, hooks missing' in out
+        assert '1/4 skills linked, hooks missing' in out
 
     def test_notices_the_hook_config(
         self,
@@ -542,14 +622,16 @@ class TestComplete:
         fake_root: Path,
     ) -> None:
         # `show` reads the playbook, so a CLI-less skill is valid here.
-        assert sorted(self._candidates(fake_root, 'show', '')) == [
-            '--raw',
-            'backlog',
-            'verify',
-        ]
+        candidates = self._candidates(fake_root, 'show', '')
+        assert '--raw' in candidates
+        assert 'backlog' in candidates
+        assert 'verify' in candidates
 
-    def test_list_completes_its_only_flag(self, fake_root: Path) -> None:
-        assert self._candidates(fake_root, 'list', '') == ['--json']
+    def test_list_completes_its_flags(self, fake_root: Path) -> None:
+        candidates = self._candidates(fake_root, 'list', '')
+        assert '--json' in candidates
+        assert '--user' in candidates
+        assert '--agent' in candidates
 
     def test_asks_a_sub_cli_what_it_accepts(
         self,

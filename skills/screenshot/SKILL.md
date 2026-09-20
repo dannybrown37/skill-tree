@@ -1,6 +1,8 @@
 ---
 name: screenshot
 description: "Invoke when the user refers to something on their screen — \"look at the screenshot\", \"see the screenshot I just took\", \"what does this dialog say\", \"look at my screen\" — whether or not they attached an image."
+user-invocable: true
+disable-model-invocation: true
 ---
 
 # Screenshot

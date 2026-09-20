@@ -11,7 +11,7 @@
 # reason, not a drift. A skill that shrinks under 150 can be deleted
 # from this file.
 cli-ergonomics: 178
-dynamodb-cost-audit: 181
-handoff: 229
-repo-audit: 176
-site-launch: 176
+dynamodb-cost-audit: 182
+handoff: 230
+repo-audit: 177
+site-launch: 177

@@ -2,6 +2,7 @@
 name: bro
 description: "Restate the last message in a more grokable way"
 user-invocable: true
+disable-model-invocation: true
 ---
 
 # Bro

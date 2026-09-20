@@ -2,6 +2,7 @@
 name: skill-audit
 description: "Invoke when reviewing a repo's skills or references for structural drift — e.g. \"review my skills\", \"audit skills/references\", \"is this a skill or a reference\", \"are my skills bloated/stale\", or after adding/renaming a skill. Works against either the `.claude/skills/` (dotfiles-style) or top-level `skills/` (skill-tree-style) layout."
 user-invocable: true
+disable-model-invocation: true
 allowed-tools: Read, Grep, Glob, Bash
 ---
 

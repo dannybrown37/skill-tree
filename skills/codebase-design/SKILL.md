@@ -2,6 +2,7 @@
 name: codebase-design
 description: "Shared vocabulary for designing deep modules. Invoke when designing or improving a module's interface, finding deepening opportunities, deciding where a seam goes, making code more testable, or when another skill needs the deep-module vocabulary — \"is this the right seam\", \"design this interface\", \"why does this feel shallow\"."
 user-invocable: true
+disable-model-invocation: true
 allowed-tools: Read, Grep, Glob, Bash
 ---
 

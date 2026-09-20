@@ -2,6 +2,7 @@
 name: dynamodb-cost-audit
 description: "Invoke when a DynamoDB bill needs to come down or an existing table needs an efficiency review: \"our Dynamo costs are too high\", \"why is this table so expensive\", \"can we cut RCUs/WCUs\", \"should we be on-demand or provisioned\", \"do we still need this GSI\". Ordered audit from biggest lever to smallest, with the thresholds that decide each call."
 user-invocable: true
+disable-model-invocation: true
 ---
 
 # DynamoDB Cost Audit

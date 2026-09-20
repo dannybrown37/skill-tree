@@ -13,3 +13,6 @@ __pycache__/
 *.key
 credentials
 credentials.*
+
+# Eval pilot results
+evals/results/

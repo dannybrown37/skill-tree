@@ -49,6 +49,8 @@ class Skill:
     description: str
     path: Path
     cli: Path | None
+    user_invocable: bool
+    model_invocable: bool
 
 
 def parse_frontmatter(text: str) -> dict[str, str]:
@@ -110,12 +112,18 @@ def find_skills(root: Path) -> list[Skill]:
         fields = parse_frontmatter(skill_md.read_text(errors='replace'))
         # A skill's own CLI is conventionally named after the skill.
         cli = skill_dir / 'scripts' / skill_dir.name
+        user_inv = fields.get('user-invocable', 'false').lower() == 'true'
+        disable_model = (
+            fields.get('disable-model-invocation', 'false').lower() == 'true'
+        )
         skills.append(
             Skill(
                 name=fields.get('name', skill_dir.name),
                 description=fields.get('description', ''),
                 path=skill_dir,
                 cli=cli if os.access(cli, os.X_OK) else None,
+                user_invocable=user_inv,
+                model_invocable=not disable_model,
             ),
         )
     return skills
@@ -132,6 +140,11 @@ def _first_sentence(description: str, width: int) -> str:
 def cmd_list(root: Path, args: list[str]) -> int:
     skills = find_skills(root)
 
+    if '--user' in args:
+        skills = [s for s in skills if s.user_invocable]
+    if '--agent' in args:
+        skills = [s for s in skills if s.model_invocable]
+
     if '--json' in args:
         print(
             json.dumps(
@@ -141,6 +154,8 @@ def cmd_list(root: Path, args: list[str]) -> int:
                         'description': skill.description,
                         'path': str(skill.path),
                         'cli': str(skill.cli) if skill.cli else None,
+                        'user_invocable': skill.user_invocable,
+                        'model_invocable': skill.model_invocable,
                     }
                     for skill in skills
                 ],
@@ -153,12 +168,26 @@ def cmd_list(root: Path, args: list[str]) -> int:
     return 0
 
 
+def _invocation_tag(skill: Skill) -> str:
+    if skill.user_invocable and not skill.model_invocable:
+        return 'user'
+    if skill.model_invocable and not skill.user_invocable:
+        return 'agent'
+    return ''
+
+
 def _print_skills(skills: list[Skill]) -> None:
     width = max((len(skill.name) for skill in skills), default=0)
     for skill in skills:
-        invoke = '  [has a CLI]' if skill.cli else ''
+        tags = []
+        inv = _invocation_tag(skill)
+        if inv:
+            tags.append(inv)
+        if skill.cli:
+            tags.append('CLI')
+        suffix = f'  [{", ".join(tags)}]' if tags else ''
         summary = _first_sentence(skill.description, 96 - width)
-        print(f'  {skill.name.ljust(width)}  {summary}{invoke}')
+        print(f'  {skill.name.ljust(width)}  {summary}{suffix}')
 
 
 def cmd_show(root: Path, args: list[str]) -> int:
@@ -305,7 +334,7 @@ def _completions(root: Path, words: list[str]) -> list[str]:
     if command == 'show' and len(rest) == 1:
         return ['--raw', *(skill.name for skill in skills)]
     if command == 'list' and len(rest) == 1:
-        return ['--json']
+        return ['--agent', '--json', '--user']
 
     target = _sub_cli(root, skills, command)
     if target is None:
@@ -394,6 +423,8 @@ def cmd_help(root: Path, _args: list[str]) -> int:
     print('Usage: skill-tree <command> [args]\n')
     print('Commands:')
     print('  list [--json]     Every skill in this repo, one line each')
+    print('       --user       Only user-invocable skills')
+    print('       --agent      Only agent-invocable skills')
     print("  show <skill>      A skill's playbook (--raw keeps frontmatter)")
     print('  doctor            Where this checkout is and what it wired up')
     for name, (_, blurb) in DELEGATED.items():

@@ -2,6 +2,7 @@
 name: prototype
 description: "Invoke when the user wants a throwaway prototype to answer a design question — \"sanity-check this state model\", \"try a few layouts for this page\", \"does this logic feel right\". Picks a shareable-HTML logic demo or a switchable-variant UI route based on the question, then makes sure the prototype survives as a primary source instead of rotting in main."
 user-invocable: true
+disable-model-invocation: true
 allowed-tools: Read, Grep, Glob, Bash, Write, Edit
 ---
 

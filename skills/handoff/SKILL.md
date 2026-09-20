@@ -2,6 +2,7 @@
 name: handoff
 description: "Invoke when a session needs to end or continue elsewhere — \"write a handoff\", \"I'm running low on context\", \"continue where we left off\". Writes and resumes a handoff that survives compaction."
 user-invocable: true
+disable-model-invocation: true
 allowed-tools: Read, Write, Edit, Grep, Glob, Bash
 ---
 

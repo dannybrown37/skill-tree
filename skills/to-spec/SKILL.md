@@ -2,6 +2,7 @@
 name: to-spec
 description: "Invoke when a conversation has settled on what to build and it's time to turn that into a written spec — \"turn this into a spec\", \"write this up\", \"spec this out\". Synthesis only: no interview. Pairs well with skill-tree:grill-for-planning, which is where the settled understanding usually comes from."
 user-invocable: true
+disable-model-invocation: true
 allowed-tools: Read, Grep, Glob, Bash, Write
 ---
 

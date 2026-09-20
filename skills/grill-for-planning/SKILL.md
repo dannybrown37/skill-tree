@@ -1,7 +1,8 @@
 ---
 name: grill-for-planning
-description: "Invoke when the user wants to stress-test a vague plan, decision, or idea before it's written down — \"grill me on this\", \"poke holes in this idea\", \"help me think this through\". Round-based interview that maps the idea into a decision tree and works it to a shared understanding. For prepping a specific artifact (RFC/PR/promo packet) against a review panel, use skill-tree:grill-me instead."
+description: "Invoke when the user wants to stress-test a vague plan, decision, or idea before it's written down — \"grill me on this\", \"poke holes in this idea\", \"help me think this through\". Round-based interview that maps the idea into a decision tree and works it to a shared understanding. For prepping a specific artifact (RFC/PR/promo packet) against a review panel, use skill-tree:grill-for-quality instead."
 user-invocable: true
+disable-model-invocation: true
 allowed-tools: Read, Grep, Glob, Bash, WebFetch
 ---
 
