@@ -1,6 +1,6 @@
 ---
 name: site-launch
-description: "Invoke before a website goes live, or when auditing one that already is — \"is this ready to ship\", \"why does my link look blank when I share it\", \"the site has no analytics\", \"add an RSS feed\". The checklist of things a site needs that aren't visible on the page itself."
+description: "Quality checks a website goes live, or for auditing one that already is — \"is this ready to ship\", \"why does my link look blank when I share it\", \"the site has no analytics\", \"add an RSS feed\". The checklist of things a site needs that aren't visible on the page itself."
 user-invocable: true
 allowed-tools: Read, Grep, Glob, Bash
 ---

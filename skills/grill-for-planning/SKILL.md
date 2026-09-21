@@ -1,6 +1,6 @@
 ---
 name: grill-for-planning
-description: "Invoke when the user wants to stress-test a vague plan, decision, or idea before it's written down — \"grill me on this\", \"poke holes in this idea\", \"help me think this through\". Round-based interview that maps the idea into a decision tree and works it to a shared understanding. For prepping a specific artifact (RFC/PR/promo packet) against a review panel, use skill-tree:grill-for-quality instead."
+description: "Stress-test a vague plan, decision, or idea before it's written down — \"grill me on this\", \"poke holes in this idea\", \"help me think this through\". Round-based interview that maps the idea into a decision tree and works it to a shared understanding. For prepping a specific artifact (RFC/PR/promo packet) against a review panel, use skill-tree:grill-for-quality instead."
 user-invocable: true
 disable-model-invocation: true
 allowed-tools: Read, Grep, Glob, Bash, WebFetch
@@ -45,6 +45,10 @@ doesn't need to block the round, so a running lookup only holds up the questions
 it while the rest of the frontier is asked now. **No subagent available:** look it up inline
 before asking that question, and just don't block the rest of the frontier on it. The
 _decisions_ are the user's: put each to them and wait.
+
+When a frontier question reveals an ambiguous or overloaded term, don't define it inline — point
+at [domain-modeling](../domain-modeling/SKILL.md) to resolve it in `CONTEXT.md`, then resume.
+A grilling round should never have to invent vocabulary that the rest of the project won't share.
 
 The session is done when the frontier is empty: every branch of the design tree visited, nothing
 left silently assumed. Do not act on it until the user confirms you have reached a shared

@@ -1,6 +1,6 @@
 ---
 name: repo-audit
-description: "Invoke to sanity-check a repo against the owner's quality preferences — pre-commit hooks, type checking, linting, test coverage, CLI ergonomics, secrets hygiene, dependency pinning, CLAUDE.md freshness. Reports what's missing or drifted, doesn't fix it."
+description: "Sanity-check a repo against the owner's quality preferences — pre-commit hooks, type checking, linting, test coverage, CLI ergonomics, secrets hygiene, dependency pinning, CLAUDE.md freshness. Reports what's missing or drifted, doesn't fix it."
 user-invocable: true
 disable-model-invocation: true
 allowed-tools: Read, Grep, Glob, Bash

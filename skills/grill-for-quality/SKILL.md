@@ -1,6 +1,6 @@
 ---
 name: grill-for-quality
-description: "Invoke when prepping a specific artifact (design doc, PR/diff, promo packet, slides) for a real review panel, interview, or presentation — \"grill me on this RFC\", \"quiz me for promo\". Adaptive adversarial interview that pushes on real weak points. For stress-testing a vague plan or decision that isn't written down yet, use skill-tree:grill-for-planning instead."
+description: "Prep a specific artifact (design doc, PR/diff, promo packet, slides, or an entire codebase) for a real review panel, interview, or presentation — \"grill me on this RFC\", \"quiz me for promo\". Adaptive adversarial interview that pushes on real weak points. For stress-testing a vague plan or decision that isn't written down yet, use skill-tree:grill-for-planning instead."
 user-invocable: true
 disable-model-invocation: true
 allowed-tools: Read, Grep, Glob, Bash, WebFetch

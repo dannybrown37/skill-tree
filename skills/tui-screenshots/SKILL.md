@@ -1,6 +1,6 @@
 ---
 name: tui-screenshots
-description: "Invoke when generating or refreshing TUI screenshots for docs — \"regenerate the screenshots\", \"the README screenshots are stale\". Drives a Textual/TUI app headlessly and exports SVG. Not for reading a user's screenshot — that is `screenshot`."
+description: "Use for generating or refreshing TUI screenshots for docs — \"regenerate the screenshots\", \"the README screenshots are stale\". Drives a Textual/TUI app headlessly and exports SVG. Not for reading a user's screenshot — that is `screenshot`."
 ---
 
 # TUI screenshots
@@ -48,7 +48,7 @@ For **Textual**, the test harness is the driver — no extra dependency:
 ```python
 app = MyApp()
 async with app.run_test(size=(130, 45)) as pilot:
-    await pilot.pause(2)          # let async/threaded data loads land
+    await pilot.pause(2)  # let async/threaded data loads land
     tabs = app.query_one('#tabs', TabbedContent)
     for tab_id, name in TABS:
         tabs.active = tab_id

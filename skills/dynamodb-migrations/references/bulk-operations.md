@@ -55,10 +55,10 @@ For the Glue connector on reads, rate limiting is configuration rather than code
 
 ```python
 connection_options = {
-    "dynamodb.input.tableName": table_name,
-    "dynamodb.splits": "100",
-    "dynamodb.consistentRead": "false",
-    "dynamodb.throughput.read": "100000",
+    'dynamodb.input.tableName': table_name,
+    'dynamodb.splits': '100',
+    'dynamodb.consistentRead': 'false',
+    'dynamodb.throughput.read': '100000',
 }
 ```
 

@@ -1,6 +1,6 @@
 ---
 name: debug-ci
-description: "Invoke when a GitHub Actions run has failed and you want it diagnosed and fixed locally — e.g. \"why did CI fail\", \"the build is red\", \"check the Actions run\", \"/debug-ci\". Fetches the failure logs via `gh`, diagnoses the root cause, and fixes it locally — never commits or pushes, the user reviews and pushes manually."
+description: "Fix a GitHub Actions run that has failed — e.g. \"why did CI fail\", \"the build is red\", \"check the Actions run\", \"/debug-ci\". Fetches the failure logs via `gh`, diagnoses the root cause, and fixes it locally. User will review and push."
 user-invocable: true
 allowed-tools: Read, Grep, Glob, Bash, Edit, Write
 ---

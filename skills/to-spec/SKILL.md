@@ -1,6 +1,6 @@
 ---
 name: to-spec
-description: "Invoke when a conversation has settled on what to build and it's time to turn that into a written spec — \"turn this into a spec\", \"write this up\", \"spec this out\". Synthesis only: no interview. Pairs well with skill-tree:grill-for-planning, which is where the settled understanding usually comes from."
+description: "A conversation has settled on what to build and it's time to turn it into a written spec — \"turn this into a spec\", \"write this up\", \"spec this out\". Synthesis only: no interview. Pairs well with skill-tree:grill-for-planning, which is where the settled understanding usually comes from."
 user-invocable: true
 disable-model-invocation: true
 allowed-tools: Read, Grep, Glob, Bash, Write
@@ -19,8 +19,10 @@ with a spec that looks more decided than it is.
 ## Process
 
 1. **Ground it in the repo.** Explore the codebase to understand current state, if you haven't
-   already. Use the project's own domain vocabulary throughout the spec, and respect any ADRs or
-   established conventions in the area being touched.
+   already. Use the project's `CONTEXT.md` vocabulary throughout the spec — if no glossary
+   exists, point at [domain-modeling](../domain-modeling/SKILL.md) to create one before
+   speccing. Respect any ADRs in `docs/adr/` or established conventions in the area being
+   touched.
 
 2. **Sketch the test seams.** Identify where this feature will actually be tested. Prefer
    existing seams to new ones, and the highest seam possible — fewer seams across the codebase is

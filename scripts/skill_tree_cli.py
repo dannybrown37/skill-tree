@@ -177,17 +177,27 @@ def _invocation_tag(skill: Skill) -> str:
 
 
 def _print_skills(skills: list[Skill]) -> None:
-    width = max((len(skill.name) for skill in skills), default=0)
-    for skill in skills:
-        tags = []
-        inv = _invocation_tag(skill)
-        if inv:
-            tags.append(inv)
-        if skill.cli:
-            tags.append('CLI')
-        suffix = f'  [{", ".join(tags)}]' if tags else ''
-        summary = _first_sentence(skill.description, 96 - width)
-        print(f'  {skill.name.ljust(width)}  {summary}{suffix}')
+    name_w = max((len(skill.name) for skill in skills), default=0)
+    inv_tags = [_invocation_tag(skill) for skill in skills]
+    cli_tags = ['CLI' if skill.cli else '' for skill in skills]
+    inv_w = max((len(t) for t in inv_tags), default=0)
+    cli_w = max((len(t) for t in cli_tags), default=0)
+    suffix_w = 0
+    if inv_w:
+        suffix_w += inv_w + 4  # 2 gap + brackets
+    if cli_w:
+        suffix_w += cli_w + 4
+    desc_w = 96 - name_w - suffix_w
+    for skill, inv, cli in zip(skills, inv_tags, cli_tags, strict=True):
+        summary = _first_sentence(skill.description, desc_w).ljust(desc_w)
+        parts = [f'  {skill.name.ljust(name_w)}  {summary}']
+        if inv_w:
+            bracket = f'[{inv}]' if inv else ''
+            parts.append(f'  {bracket.rjust(inv_w + 2)}')
+        if cli_w:
+            bracket = f'[{cli}]' if cli else ''
+            parts.append(f'  {bracket.rjust(cli_w + 2)}')
+        print(''.join(parts))
 
 
 def cmd_show(root: Path, args: list[str]) -> int:
@@ -436,7 +446,9 @@ def cmd_help(root: Path, _args: list[str]) -> int:
 
     with_cli = [skill.name for skill in skills if skill.cli]
     if with_cli:
-        print('\nSkill CLIs, reachable by name — args pass straight through:')
+        print(
+            '\nSkill CLIs, reachable by name — args pass straight through:',
+        )
         for name in with_cli:
             print(f'  skill-tree {name} [args]')
 
@@ -444,6 +456,15 @@ def cmd_help(root: Path, _args: list[str]) -> int:
         print('\nSkills:')
         _print_skills(skills)
         print("\nFull playbook: skill-tree show <name>   In Claude: '/<name>'")
+
+    print('\nWorkflow (idea → ship):')
+    print(
+        '  grill-for-planning → prototype → to-spec'
+        ' → to-tickets → implement → code-review',
+    )
+    print('  ├─ domain-modeling   sharpen terms at any point in the flow')
+    print('  ├─ handoff           maintain state between sessions')
+    print('  └─ verify            shore up done-claims before closing')
     return 0
 
 

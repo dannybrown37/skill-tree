@@ -1,6 +1,6 @@
 ---
 name: cli-ergonomics
-description: "Invoke when writing, reviewing, or extending any command-line entrypoint a human will run — a new CLI, a new subcommand, a script promoted out of one-off use. Covers the argument-handling ladder (help over error, TTY-guarded prompts, fzf selection, echoing the replayable command) and the hard `--version` requirement. Not for pure-library or single-purpose CI-only scripts."
+description: "CLIs should be incredibly easy for humans to run. Invoke when writing, reviewing, or extending any command-line entrypoint a human will run — a new CLI, a new subcommand, a script promoted out of one-off use. Covers the argument-handling ladder (help over error, TTY-guarded prompts, fzf selection, echoing the replayable command) and the hard `--version` requirement. Not for pure-library or single-purpose CI-only scripts."
 user-invocable: true
 ---
 
@@ -110,7 +110,7 @@ non-negotiable obligations:
 ```python
 def prompt(text: str) -> str:
     if not sys.stdin.isatty():
-        raise RuntimeError("Not in a TTY.")
+        raise RuntimeError('Not in a TTY.')
     return input(text)
 ```
 

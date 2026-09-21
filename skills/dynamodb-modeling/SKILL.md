@@ -1,6 +1,6 @@
 ---
 name: dynamodb-modeling
-description: "Invoke when designing a DynamoDB table or reviewing one before it ships: \"what should my partition key be\", \"do I need a GSI here\", \"is this single-table design right\", \"review my access patterns\", or any new table/entity in a Dynamo-backed service. Access-pattern-first modeling, key strategies, index choice, and the anti-patterns that show up in review."
+description: "Design a DynamoDB table or review one before it ships: \"what should my partition key be\", \"do I need a GSI here\", \"is this single-table design right\", \"review my access patterns\", or any new table/entity in a Dynamo-backed service. Access-pattern-first modeling, key strategies, index choice, and the anti-patterns that show up in review."
 user-invocable: true
 ---
 
