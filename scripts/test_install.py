@@ -66,6 +66,20 @@ def test_install_is_idempotent(home: Path) -> None:
     assert (home / '.local' / 'bin' / 'skill-tree').is_symlink()
 
 
+@pytest.mark.parametrize('args', [(), ('--claude', '--copilot')])
+def test_rerun_with_nothing_to_change_prints_nothing(
+    home: Path,
+    args: tuple[str, ...],
+) -> None:
+    """SessionStart stdout lands in the model's context on every session."""
+    (home / '.copilot').mkdir(parents=True, exist_ok=True)
+    assert run(home, *args).returncode == 0
+    second = run(home, *args)
+
+    assert second.returncode == 0, second.stderr
+    assert second.stdout == ''
+
+
 def test_install_does_not_clobber_a_real_file(home: Path) -> None:
     """Someone else's `skill-tree` on PATH is left alone, not replaced."""
     theirs = home / '.local' / 'bin' / 'skill-tree'
@@ -199,7 +213,7 @@ class TestCopilotHooks:
         pre = self.config(home)['hooks']['preToolUse']
 
         assert len(pre) == 1
-        assert 'screenshot_hook.py' in pre[0]['bash']
+        assert 'screenshot_hook.sh' in pre[0]['bash']
         assert pre[0]['type'] == 'command'
         assert 'matcher' in pre[0]
 

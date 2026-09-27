@@ -2,12 +2,13 @@
 
 import json
 import os
+import shutil
 import subprocess
 from pathlib import Path
 
 import pytest
 
-HOOK = Path(__file__).parent / 'screenshot_hook.py'
+HOOK = Path(__file__).parent / 'screenshot_hook.sh'
 RESOLVER = Path(__file__).parent / 'screenshot'
 
 
@@ -18,7 +19,7 @@ def run(
 ) -> dict[str, object] | None:
     """Feed `payload` to the hook, returning its decision (None if silent)."""
     result = subprocess.run(
-        ['python3', str(HOOK)],
+        [str(HOOK)],
         input=json.dumps(payload),
         capture_output=True,
         text=True,
@@ -285,7 +286,7 @@ class TestMalformedInput:
 
     def test_survives_junk_on_stdin(self) -> None:
         result = subprocess.run(
-            ['python3', str(HOOK)],
+            [str(HOOK)],
             input='not json',
             capture_output=True,
             text=True,
@@ -406,3 +407,31 @@ class TestCopilotDialect:
         assert decision(output) == 'allow'
         assert output is not None
         assert 'permissionDecision' not in output
+
+
+@pytest.mark.parametrize(
+    ('payload', 'expected'),
+    [
+        ({'tool_name': 'Bash', 'tool_input': {'command': 'ls -la'}}, None),
+        (
+            {'tool_name': 'Read', 'tool_input': {'file_path': 'notes/a.py'}},
+            None,
+        ),
+        (
+            {'toolName': 'bash', 'toolArgs': {'command': 'ls -la'}},
+            {'permissionDecision': 'ask'},
+        ),
+    ],
+)
+def test_prefilter_answers_unrelated_calls_without_python(
+    tmp_path: Path,
+    payload: dict[str, object],
+    expected: dict[str, str] | None,
+) -> None:
+    """Runs on every Bash/Read; Python startup is most of its cost."""
+    no_python = tmp_path / 'bin'
+    no_python.mkdir()
+    for tool in ('bash', 'cat'):
+        (no_python / tool).symlink_to(shutil.which(tool))
+
+    assert run(tmp_path, payload, PATH=str(no_python)) == expected

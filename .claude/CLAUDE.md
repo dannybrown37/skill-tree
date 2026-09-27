@@ -44,28 +44,18 @@ version-pinned copy of the same skill and the ambiguity about which one is live.
 is symlinked bare into `~/.copilot/skills/<name>` and invoked by its plain name. The rule above
 is about Claude's alias collapsing, not a general preference — don't carry it across.
 
-## General Approach
+## Repo-specific conventions
 
-- Prefer a TDD approach, with tests written before code.
-- Human-in-the-loop: implement in discrete, testable steps and wait for feedback before
-  continuing, unless asked to build end to end.
-- Never `git add`/commit/push — the user does that manually.
+Global defaults (TDD, human-in-the-loop, no git writes, type hints, parametrize) apply; only
+what's specific to this repo is here.
 
-## Code Style
-
-- Python: type hints on all parameters/returns, `pytest.mark.parametrize` for DRY tests, ruff
-  (`.ruff.toml`) for lint/format, mypy (`mypy.ini`) for type checking. mypy checks sources
-  only — test files are excluded; run it bare (`uv run --with mypy mypy`), never with targets,
-  so the hook and the terminal give the same answer.
+- Python: ruff (`.ruff.toml`), mypy (`mypy.ini`). mypy checks sources only — tests are
+  excluded; run it bare (`uv run --with mypy mypy`), never with targets, so the hook and the
+  terminal agree.
 - Bash (any shell glue a skill ships): shellcheck + shfmt clean, `set -euo pipefail`, quote all
   expansions.
-
-## Security
-
-- For any skill CLI that parses or writes a file a user can paste arbitrary content into,
-  treat changes to that parsing/writing with care — a red-team pass (construct a real failing
-  case, not checklist review) is worth it before shipping — spawn an `adversarial-review`-style
-  subagent if one is available in this environment.
+- A skill CLI that parses or writes user-pasteable file content deserves an adversarial review
+  before shipping — suggest the user run one; never spawn it yourself (expensive).
 
 ## Documentation
 
