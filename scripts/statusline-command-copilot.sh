@@ -10,6 +10,22 @@ model=$(echo "$input" | jq -r '.model.display_name // .model.id // "unknown"')
 cwd=$(echo "$input" | jq -r '.workspace.current_dir // .cwd // empty')
 project=$(basename "$cwd" 2>/dev/null || true)
 remaining=$(echo "$input" | jq -r 'if (.context_window.used_percentage != null) then (100 - .context_window.used_percentage) else empty end')
+used_tokens=$(echo "$input" | jq -r '
+  .context_window as $c
+  | if $c.current_usage then ($c.current_usage.input_tokens // 0) + ($c.current_usage.cache_creation_input_tokens // 0) + ($c.current_usage.cache_read_input_tokens // 0)
+    elif ($c.used_percentage != null and $c.context_window_size != null) then ($c.used_percentage * $c.context_window_size / 100 | floor)
+    else empty end')
+
+human_tokens() {
+	local n=$1
+	if [ "$n" -ge 1000000 ]; then
+		awk -v n="$n" 'BEGIN { printf "%.1fM", n / 1000000 }'
+	elif [ "$n" -ge 1000 ]; then
+		printf "%dk" "$(((n + 500) / 1000))"
+	else
+		printf "%d" "$n"
+	fi
+}
 
 branch=""
 if [ -n "$cwd" ] && git -C "$cwd" --no-optional-locks rev-parse --is-inside-work-tree >/dev/null 2>&1; then
@@ -34,7 +50,11 @@ if [ -n "$branch" ]; then
 fi
 
 if [ -n "$remaining" ]; then
-	parts+=("$(printf "${blue}ctx:%.0f%%${reset}" "$remaining")")
+	ctx=$(printf "ctx:%.0f%%" "$remaining")
+	if [ -n "$used_tokens" ]; then
+		ctx="$ctx ($(human_tokens "$used_tokens") used)"
+	fi
+	parts+=("$(printf "${blue}%s${reset}" "$ctx")")
 fi
 
 out=""
