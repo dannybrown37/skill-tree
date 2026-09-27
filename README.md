@@ -9,6 +9,35 @@ usable on any repo, machine, or project.
 Both hosts read the same `SKILL.md` spec, so portability is an install-and-hooks problem rather
 than a content one. See [Installing](#installing).
 
+## Workflow (idea → ship)
+
+Many skills here chain into one engineering loop, adapted from Matt Pocock's
+[AI Hero](https://www.aihero.dev/) skills. Each is human-invoked (`/skill-tree:<name>` in
+Claude, `/<name>` in Copilot); `skill-tree help` prints the same map.
+
+```mermaid
+flowchart LR
+    grill[grill-for-planning] --> domain([domain-modeling]) --> proto([prototype]) --> design([codebase-design]) --> spec[to-spec] --> tickets[to-tickets] --> impl[implement] --> review[code-review]
+    handoff[handoff] -.-> tickets & impl
+    verify[verify] -.-> review
+```
+
+Rounded nodes are optional but usually worth it.
+
+| Step | Skill | Output |
+| --- | --- | --- |
+| 1. Stress-test the idea | `grill-for-planning` | Shared understanding, decision tree |
+| 2. (Optional) Pin down terms | `domain-modeling` | `CONTEXT.md` glossary, ADRs |
+| 3. (Optional) Answer a design question | `prototype` | Throwaway HTML demo or variant route |
+| 4. (Optional) Place the seams | `codebase-design` | Deep-module interfaces, test seams |
+| 5. Write it down | `to-spec` | Spec (synthesis only, no interview) |
+| 6. Slice it | `to-tickets` | Vertical-slice tickets with blocking edges |
+| 7. Build | `implement` | TDD at agreed seams, HITL by default |
+| 8. Review | `code-review` | Standards + Spec axes, in parallel |
+
+Alongside: `handoff` (carry state across sessions), `verify` (back done-claims with
+evidence). `domain-modeling` stays live after step 2 — revisit it whenever a term drifts.
+
 ## Installing
 
 ### Claude Code

@@ -459,10 +459,11 @@ def cmd_help(root: Path, _args: list[str]) -> int:
 
     print('\nWorkflow (idea → ship):')
     print(
-        '  grill-for-planning → prototype → to-spec'
-        ' → to-tickets → implement → code-review',
+        '  grill-for-planning → [domain-modeling] → [prototype]'
+        ' → [codebase-design]',
     )
-    print('  ├─ domain-modeling   sharpen terms at any point in the flow')
+    print('  → to-spec → to-tickets → implement → code-review')
+    print('  ([] = optional; domain-modeling stays live throughout)')
     print('  ├─ handoff           maintain state between sessions')
     print('  └─ verify            shore up done-claims before closing')
     return 0
