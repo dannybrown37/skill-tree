@@ -32,7 +32,7 @@ Rounded nodes are optional but usually worth it.
 | 4. (Optional) Place the seams | `codebase-design` | Deep-module interfaces, test seams |
 | 5. Write it down | `to-spec` | Spec (synthesis only, no interview) |
 | 6. Slice it | `to-tickets` | Vertical-slice tickets with blocking edges |
-| 7. Build | `implement` | TDD at agreed seams, HITL by default |
+| 7. Build | `implement` | TDD by default, verified proof it works, HITL by default |
 | 8. Review | `code-review` | Standards + Spec axes, in parallel |
 
 Alongside: `handoff` (carry state across sessions), `verify` (back done-claims with
@@ -122,7 +122,7 @@ not in a shared top-level directory.
 | `grill-for-planning` | Stress-test a vague plan, decision, or idea before it's written down — \"grill me on this\", \"poke holes in this idea\", \"help me think this through\". Round-based interview that maps the idea into a decision tree and works it to a shared understanding. For prepping a specific artifact (RFC/PR/promo packet) against a review panel, use skill-tree:grill-for-quality instead. |
 | `grill-for-quality` | Prep a specific artifact (design doc, PR/diff, promo packet, slides, or an entire codebase) for a real review panel, interview, or presentation — \"grill me on this RFC\", \"quiz me for promo\". Adaptive adversarial interview that pushes on real weak points. For stress-testing a vague plan or decision that isn't written down yet, use skill-tree:grill-for-planning instead. |
 | `handoff` | A session needs to end or continue elsewhere — \"write a handoff\", \"I'm running low on context\", \"continue where we left off\". Writes and resumes a handoff that survives compaction. |
-| `implement` | Implement a ticket or spec — \"build this\", \"implement the next ticket\", \"start working\". Drives TDD at pre-agreed seams, typechecks regularly, and presents work for review. Human-in-the-loop by default; pass 'autonomous' to work the full frontier with guardrails. |
+| `implement` | Implement a ticket or spec — \"build this\", \"implement the next ticket\", \"start working\". TDD by default at pre-agreed seams, typechecks regularly, and presents verified work for review. Human-in-the-loop by default; pass 'autonomous' to work the full frontier with guardrails. |
 | `node-style` | Read before writing Node, TypeScript, or JavaScript code. Covers type safety, ESLint, error handling, testing (Jest/Vitest), and package management. |
 | `prototype` | The user wants a throwaway prototype to answer a design question — \"sanity-check this state model\", \"try a few layouts for this page\", \"does this logic feel right\". Picks a shareable-HTML logic demo or a switchable-variant UI route based on the question, then makes sure the prototype survives as a primary source instead of rotting in main. |
 | `python-style` | Read before writing Python code. Covers type hints, naming, error handling, tooling (uv, pytest, ruff), and testing conventions. |

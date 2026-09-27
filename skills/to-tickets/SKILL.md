@@ -36,6 +36,11 @@ vertical, not a horizontal slice of one layer.
 - Each slice is sized to fit in a single fresh context window
 - Give each ticket its blocking edges: the other tickets that must complete before it can start
 
+**Greenfield or a new subsystem?** The first ticket is a **walking skeleton** (Alistair
+Cockburn): the thinnest end-to-end path that runs — real wiring through every layer, built,
+deployed or runnable, and tested, doing almost nothing. Every other slice blocks on it and
+fleshes it out. Skip it when the architecture already exists; the first slice is just a slice.
+
 **Wide refactors** are the exception. A mechanical change whose blast radius fans across the
 whole codebase (rename a column, retype a shared symbol) can't land as a vertical slice. Use
 expand–contract:
