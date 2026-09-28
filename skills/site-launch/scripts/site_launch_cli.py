@@ -10,6 +10,7 @@ command to run, because a dev-server answer to those is worse than none.
 import argparse
 import json
 import re
+import textwrap
 import sys
 from collections import defaultdict
 from collections.abc import Sequence
@@ -32,6 +33,68 @@ class Status(Enum):
     FAIL = 'fail'
     NA = 'n/a'
     MANUAL = 'manual'
+
+
+# The skill's checklist prose lives here, not in SKILL.md, so a run only
+# puts the guidance for items that need action into the agent's context.
+GUIDANCE: dict[int, str] = {
+    1: (
+        'Configure the base URL in one place (framework `site:`, '
+        'PUBLIC_SITE_URL, ...) first -- feeds, cards, canonicals, and '
+        'sitemaps all silently emit relative paths until it is set.'
+    ),
+    2: (
+        'Make title and description required parameters of the shared '
+        'layout, so no page can ship wearing the default. The description '
+        'is the only prose you control in a search result.'
+    ),
+    3: (
+        'Add og:title/description/image/url/type plus twitter:card = '
+        'summary_large_image. og:image: absolute URL, ~1200x630, present at '
+        'build time; one per page from its title beats one static image, '
+        'which beats none. Confirm on the deployed URL that the image '
+        'returns 200 with an image content-type -- a 404 image renders as no '
+        'card while the tags look correct.'
+    ),
+    4: (
+        'Anything appended over time (blog, changelog) gets RSS/Atom, plus '
+        '<link rel="alternate" type="application/rss+xml"> in every <head> '
+        'and a visible footer link. Feed items need absolute links and real '
+        'dates.'
+    ),
+    5: (
+        'Ship privacy-preserving, no-cookie analytics (no consent banner), '
+        'loaded deferred. It must do nothing when blocked -- a tracker that '
+        'throws on an ad-blocked client can take page scripts down with it.'
+    ),
+    6: (
+        'robots.txt with an absolute Sitemap: URL; generate the sitemap '
+        'from the same route data the build uses, never by hand. Public '
+        'preview/staging deploys need their own disallow-all robots.txt.'
+    ),
+    7: (
+        'Favicon as .svg plus .ico fallback, replacing the framework '
+        "placeholder. 404 uses the site's layout, links somewhere real, and "
+        'responds with status 404 on the deployed site (a soft-404 gets '
+        'indexed).'
+    ),
+    8: (
+        'Add x-content-type-options: nosniff, referrer-policy: '
+        'strict-origin-when-cross-origin, x-frame-options: DENY, and '
+        "content-security-policy: frame-ancestors 'none'. Stop there unless "
+        'needed: a wrong script-src CSP blanks the page. nosniff makes '
+        'Content-Type binding, so non-HTML routes must declare the right '
+        'type. Check the deployed origin, not within minutes of a push.'
+    ),
+    9: (
+        'Deployed site, phone width, cold cache: no console errors, no '
+        'horizontal scroll, external links and forms work. Lighthouse '
+        'accessibility or SEO below 90 means something here is still '
+        'missing. The dev server hides broken absolute URLs, missing '
+        'build-time assets, and redirect misconfiguration.'
+    ),
+}
+NEEDS_ACTION = frozenset({Status.FAIL, Status.MANUAL})
 
 
 @dataclass(frozen=True)
@@ -621,6 +684,14 @@ def render(results: list[CheckResult]) -> str:
         for result in matching:
             lines.append(f'  {result.number}. {result.title}')
             lines.extend(f'     {line}' for line in result.detail.splitlines())
+            if status in NEEDS_ACTION:
+                lines.extend(
+                    f'     {line}'
+                    for line in textwrap.wrap(
+                        f'fix: {GUIDANCE[result.number]}',
+                        72,
+                    )
+                )
         lines.append('')
     return '\n'.join(lines).rstrip() + '\n'
 
@@ -635,6 +706,11 @@ def as_json(results: list[CheckResult]) -> str:
                     'title': result.title,
                     'status': result.status.value,
                     'detail': result.detail,
+                    **(
+                        {'guidance': GUIDANCE[result.number]}
+                        if result.status in NEEDS_ACTION
+                        else {}
+                    ),
                 }
                 for result in results
             ],

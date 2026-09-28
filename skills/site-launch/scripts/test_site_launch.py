@@ -7,9 +7,12 @@ import pytest
 
 from site_launch_cli import (
     EXIT_FAILED_CHECK,
+    GUIDANCE,
     EXIT_OK,
     EXIT_UNUSABLE,
+    CheckResult,
     SiteLaunchError,
+    as_json,
     Status,
     check_absolute_base_url,
     check_favicon_and_404,
@@ -21,6 +24,7 @@ from site_launch_cli import (
     main,
     manual_checks,
     parse_head,
+    render,
     run_checks,
 )
 
@@ -664,3 +668,30 @@ class TestDefaultCommand:
         with pytest.raises(SystemExit) as exit_info:
             main([str(default_target), '--nope'])
         assert exit_info.value.code != EXIT_OK
+
+
+def test_every_item_has_guidance() -> None:
+    assert sorted(GUIDANCE) == list(range(1, 10))
+
+
+@pytest.mark.parametrize(
+    ('status', 'shown'),
+    [
+        (Status.FAIL, True),
+        (Status.MANUAL, True),
+        (Status.PASS, False),
+        (Status.NA, False),
+    ],
+)
+def test_guidance_only_for_items_needing_action(
+    status: Status,
+    *,
+    shown: bool,
+) -> None:
+    """Guidance is the skill's checklist prose; passing items don't need it."""
+    result = CheckResult(3, 'Share card', status, 'detail')
+    opening = ' '.join(GUIDANCE[3].split()[:3])
+
+    assert (opening in render([result])) is shown
+    check = json.loads(as_json([result]))['checks'][0]
+    assert ('guidance' in check) is shown
