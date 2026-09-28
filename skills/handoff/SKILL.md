@@ -73,8 +73,10 @@ Ordered by how unrecoverable it is otherwise:
 
 1. Read `CURRENT.md` completely; follow its read order.
 2. Check the anchor against reality. HEAD moved → every claim is suspect.
-3. Re-run the done-evidence. If one fails, correct the narrative first.
-4. State back goal, state, and next action in a few lines; let the user correct you.
+3. Re-run the done-evidence. If one fails, correct the narrative first. If it can't run here
+   (service down, env missing), say so and keep the claim — only a real failure invalidates it.
+4. Skim `handoff backlog` titles, so deferred work is known but not started.
+5. State back goal, state, and next action in a few lines; let the user correct you.
 
 ## Write-back — per task, same turn, not at session end
 
