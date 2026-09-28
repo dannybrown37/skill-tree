@@ -1,6 +1,6 @@
 ---
 name: repo-audit
-description: "Sanity-check a repo against the owner's quality preferences — pre-commit hooks, type checking, linting, test coverage, CLI ergonomics, secrets hygiene, dependency pinning, CLAUDE.md freshness, default-branch protection. Reports what's missing or drifted, doesn't fix it."
+description: "Sanity-check a repo against the owner's quality preferences — pre-commit hooks, type checking, linting, test coverage, CLI ergonomics, secrets hygiene, dependency pinning, CLAUDE.md freshness, default-branch protection, auto-merge. Reports what's missing or drifted, doesn't fix it."
 user-invocable: true
 disable-model-invocation: true
 allowed-tools: Read, Grep, Glob, Bash
@@ -33,7 +33,7 @@ directly.
 Exit `0` = nothing failed, `1` = at least one FAIL, `2` = nothing there to audit. Each
 section comes back `PASS`, `FAIL`, `NA` (the repo doesn't use that thing), or **`MANUAL`**.
 
-Sections 1, 2, 3, 6, 7, 8, and 9 are computed from the working tree; 12 queries GitHub via
+Sections 1, 2, 3, 6, 7, 8, and 9 are computed from the working tree; 12 and 13 query GitHub via
 `gh` (read-only). Sections 4 and 11 need `--run` to execute the suite / zizmor; without it,
 section 4 still reports modules with no test file, and section 11 reports whether zizmor is
 wired in at all. Where a section reports
@@ -161,10 +161,10 @@ Only applicable if the repo has `.github/workflows/*.yml`. If it doesn't, this i
   input flowing into `run:` blocks, overly broad `permissions:`, actions pinned to a
   mutable tag instead of a commit SHA.
 
-### 12. Default branch protected by CI
+### 12–13. Branch protected by CI; auto-merge + branch cleanup on
 
-GitHub `origin` only; details come from the checker. Changing repo settings is outward-facing —
-report it, don't apply it unasked.
+GitHub `origin` only; details and fix commands come from the checker. Changing repo settings is
+outward-facing — report it, don't apply it unasked.
 
 ## Report format
 

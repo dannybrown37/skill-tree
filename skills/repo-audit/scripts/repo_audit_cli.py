@@ -1002,6 +1002,57 @@ def check_branch_protection(root: Path, *, gh: Gh = _gh) -> CheckResult:
     )
 
 
+AUTO_MERGE = 'Auto-merge and branch cleanup enabled'
+
+
+def check_auto_merge(root: Path, *, gh: Gh = _gh) -> CheckResult:
+    """Section 13 -- a green PR merges itself and deletes its branch."""
+    repo = _github_repo(root)
+    if repo is None:
+        return CheckResult(
+            13,
+            AUTO_MERGE,
+            Status.NA,
+            'origin is not a GitHub repo -- nothing to query.',
+        )
+
+    manual = CheckResult(
+        13,
+        AUTO_MERGE,
+        Status.MANUAL,
+        f'could not query GitHub (is `gh` installed and authenticated?). '
+        f'Check `gh api repos/{repo}`.',
+    )
+    info = gh(['api', f'repos/{repo}'], root)
+    if info is None or info.returncode != 0:
+        return manual
+    try:
+        settings = json.loads(info.stdout)
+        flags = {
+            'allow_auto_merge': settings['allow_auto_merge'],
+            'delete_branch_on_merge': settings['delete_branch_on_merge'],
+        }
+    except (json.JSONDecodeError, KeyError, TypeError):
+        return manual
+
+    off = [name for name, enabled in flags.items() if not enabled]
+    if not off:
+        return CheckResult(
+            13,
+            AUTO_MERGE,
+            Status.PASS,
+            'auto-merge is allowed and merged branches are deleted.',
+        )
+    return CheckResult(
+        13,
+        AUTO_MERGE,
+        Status.FAIL,
+        f'{", ".join(off)} off. Run `ghautomerge {repo}` (dotfiles) or '
+        f'`gh repo edit {repo} --enable-auto-merge --delete-branch-on-merge`. '
+        f'This changes GitHub settings: report it, apply only if asked.',
+    )
+
+
 def run_checks(root: Path, *, run: bool = False) -> list[CheckResult]:
     """Every section, in the order the skill states them."""
     if not root.is_dir():
@@ -1029,6 +1080,7 @@ def run_checks(root: Path, *, run: bool = False) -> list[CheckResult]:
             check_docs_freshness(root),
             check_workflows(root, run=run),
             check_branch_protection(root),
+            check_auto_merge(root),
         ],
         key=lambda result: result.number,
     )

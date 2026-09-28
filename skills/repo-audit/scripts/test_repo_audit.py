@@ -14,6 +14,7 @@ from repo_audit_cli import (
     RepoAuditError,
     Stack,
     Status,
+    check_auto_merge,
     check_branch_protection,
     check_docs_freshness,
     check_entrypoints,
@@ -439,7 +440,7 @@ class TestRunChecks:
         clean_python_repo: Path,
     ) -> None:
         numbers = {result.number for result in run_checks(clean_python_repo)}
-        assert numbers == {1, 2, 3, 4, 5, 6, 7, 8, 9, 11, 12}
+        assert numbers == {1, 2, 3, 4, 5, 6, 7, 8, 9, 11, 12, 13}
 
     def test_tool_sections_are_manual_until_run(
         self,
@@ -914,3 +915,86 @@ class TestBranchProtection:
             gh=_fake_gh({'repos/o/r': None}),
         )
         assert result.status is Status.MANUAL
+
+
+class TestAutoMerge:
+    """Section 13 -- green PRs merge themselves and clean up their branch."""
+
+    def test_na_without_a_github_origin(self, tmp_path: Path) -> None:
+        root = _repo_with_origin(tmp_path, None)
+        result = check_auto_merge(root, gh=_fake_gh({}))
+        assert result.status is Status.NA
+
+    @pytest.mark.parametrize(
+        ('response', 'status'),
+        [
+            (
+                (
+                    0,
+                    json.dumps(
+                        {
+                            'allow_auto_merge': True,
+                            'delete_branch_on_merge': True,
+                        },
+                    ),
+                    '',
+                ),
+                Status.PASS,
+            ),
+            (
+                (
+                    0,
+                    json.dumps(
+                        {
+                            'allow_auto_merge': True,
+                            'delete_branch_on_merge': False,
+                        },
+                    ),
+                    '',
+                ),
+                Status.FAIL,
+            ),
+            (
+                (
+                    0,
+                    json.dumps(
+                        {
+                            'allow_auto_merge': False,
+                            'delete_branch_on_merge': True,
+                        },
+                    ),
+                    '',
+                ),
+                Status.FAIL,
+            ),
+            ((0, json.dumps({'full_name': 'o/r'}), ''), Status.MANUAL),
+            ((0, 'not json', ''), Status.MANUAL),
+            ((1, '', 'gh: auth required (HTTP 401)'), Status.MANUAL),
+            (None, Status.MANUAL),
+        ],
+    )
+    def test_verdict(
+        self,
+        tmp_path: Path,
+        response: tuple[int, str, str] | None,
+        status: Status,
+    ) -> None:
+        root = _repo_with_origin(tmp_path, 'git@github.com:o/r.git')
+        result = check_auto_merge(root, gh=_fake_gh({'repos/o/r': response}))
+        assert result.status is status
+
+    def test_fail_names_the_fix(self, tmp_path: Path) -> None:
+        root = _repo_with_origin(tmp_path, 'git@github.com:o/r.git')
+        off = (
+            0,
+            json.dumps(
+                {'allow_auto_merge': False, 'delete_branch_on_merge': False},
+            ),
+            '',
+        )
+        result = check_auto_merge(root, gh=_fake_gh({'repos/o/r': off}))
+        assert 'ghautomerge o/r' in result.detail
+        assert (
+            'gh repo edit o/r --enable-auto-merge --delete-branch-on-merge'
+            in result.detail
+        )
