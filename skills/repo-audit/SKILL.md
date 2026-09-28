@@ -161,17 +161,10 @@ Only applicable if the repo has `.github/workflows/*.yml`. If it doesn't, this i
   input flowing into `run:` blocks, overly broad `permissions:`, actions pinned to a
   mutable tag instead of a commit SHA.
 
-### 12. Default branch protected by CI
+### 12–13. Branch protected by CI; auto-merge + branch cleanup on
 
-GitHub `origin` only; details come from the checker. Changing repo settings is outward-facing —
-report it, don't apply it unasked.
-
-### 13. Auto-merge and branch cleanup
-
-GitHub `origin` only. `allow_auto_merge` and `delete_branch_on_merge` should both be on, so
-a PR merges itself once CI (section 12) is green. Fix hint: `ghautomerge <owner/repo>`
-(dotfiles) or `gh repo edit <owner/repo> --enable-auto-merge --delete-branch-on-merge`.
-Outward-facing — report, don't apply unasked.
+GitHub `origin` only; details and fix commands come from the checker. Changing repo settings is
+outward-facing — report it, don't apply it unasked.
 
 ## Report format
 
