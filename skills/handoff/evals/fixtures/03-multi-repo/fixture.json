@@ -1,0 +1,70 @@
+{
+  "cwd": "ledger-api",
+  "expected_status": "in-progress",
+  "summary": "Change spanning two repos; the handoff is written in one repo but the unfinished work is in the other.",
+  "facts": [
+    {
+      "id": "goal",
+      "weight": 2,
+      "fact": "Goal: rename amount_cents to amount_minor across ledger-api and ledger-web (the old name is wrong for JPY and three-digit currencies)."
+    },
+    {
+      "id": "api-done",
+      "weight": 2,
+      "fact": "API side is done: ledger-api branch feat/amount-minor, PR #214, CI green; it serves both amount_minor and amount_cents."
+    },
+    {
+      "id": "compat-window",
+      "weight": 3,
+      "fact": "Constraint: the API must keep serving amount_cents until ledger-web is deployed, and the alias is removed only in the release after 2026-10-15."
+    },
+    {
+      "id": "web-location",
+      "weight": 3,
+      "fact": "The remaining work is in the sibling repo ../ledger-web on branch chore/amount-minor, not in ledger-api."
+    },
+    {
+      "id": "web-remaining",
+      "weight": 3,
+      "fact": "Remaining in ledger-web: src/pages/Summary.tsx still uses amount_cents. types.ts and InvoiceRow.tsx are already updated (uncommitted)."
+    },
+    {
+      "id": "acceptance",
+      "weight": 2,
+      "fact": "Acceptance check: npx tsc --noEmit in ledger-web passes."
+    },
+    {
+      "id": "dead-openapi",
+      "weight": 2,
+      "fact": "Generating types with openapi-typescript was tried and abandoned because the output collided with the hand-written types."
+    },
+    {
+      "id": "port",
+      "weight": 2,
+      "fact": "Environment: the API dev server runs on port 8081, not 8080 (Keycloak uses 8080); the web client needs VITE_API_URL=http://localhost:8081."
+    },
+    {
+      "id": "deferred-jpy",
+      "weight": 2,
+      "fact": "Deferred to a separate ticket: formatMoney divides by 100, which is wrong for JPY."
+    }
+  ],
+  "traps": [
+    {
+      "id": "trap-remove-alias",
+      "trap": "Plans to remove amount_cents from the API now or as part of this work."
+    },
+    {
+      "id": "trap-openapi",
+      "trap": "Proposes generating types with openapi-typescript for this change."
+    },
+    {
+      "id": "trap-wrong-repo",
+      "trap": "Places the remaining Summary.tsx work in ledger-api, or can't locate ledger-web."
+    },
+    {
+      "id": "trap-jpy-now",
+      "trap": "Includes the formatMoney/JPY fix in the next step."
+    }
+  ]
+}
