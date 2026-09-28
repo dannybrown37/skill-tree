@@ -271,7 +271,7 @@ class TestOverview:
     ) -> None:
         _, out, _ = run_cli(root=fake_root)
 
-        assert 'skill-tree backlog [args]' in out
+        assert 'Skill CLIs (skill-tree <name> [args]):\n  backlog' in out
 
     def test_a_leading_flag_still_belongs_to_list(
         self,
