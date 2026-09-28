@@ -17,7 +17,7 @@ import re
 import subprocess
 import sys
 import tomllib
-from collections.abc import Iterable, Sequence
+from collections.abc import Callable, Iterable, Sequence
 from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
@@ -893,6 +893,115 @@ def check_workflows(root: Path, *, run: bool) -> CheckResult:
     )
 
 
+GITHUB_ORIGIN_RE = re.compile(
+    r'github\.com[:/]([\w.-]+)/([\w.-]+?)(?:\.git)?/?$',
+)
+BRANCH_PROTECTION = 'Default branch protected by CI'
+Gh = Callable[
+    [Sequence[str], Path],
+    subprocess.CompletedProcess[str] | None,
+]
+
+
+def _gh(
+    args: Sequence[str],
+    cwd: Path,
+) -> subprocess.CompletedProcess[str] | None:
+    return _run(['gh', *args], cwd, PROBE_TIMEOUT_SECONDS)
+
+
+def _github_repo(root: Path) -> str | None:
+    """`owner/repo` for a GitHub `origin`, else None."""
+    completed = _run(
+        ['git', 'remote', 'get-url', 'origin'],
+        root,
+        PROBE_TIMEOUT_SECONDS,
+    )
+    if completed is None or completed.returncode != 0:
+        return None
+    match = GITHUB_ORIGIN_RE.search(completed.stdout.strip())
+    return f'{match[1]}/{match[2]}' if match else None
+
+
+def _required_checks(
+    protection: subprocess.CompletedProcess[str],
+    rules: subprocess.CompletedProcess[str],
+) -> bool | None:
+    """Whether merges wait on CI; False if unprotected, None if unknowable."""
+    classic: dict[str, object] = {}
+    if protection.returncode == 0:
+        classic = json.loads(protection.stdout)
+    # 404: no classic protection. 403: a plan without classic protection on
+    # private repos -- rulesets may still cover it.
+    elif not re.search(r'HTTP 40[34]', protection.stderr):
+        return None
+    if rules.returncode != 0:
+        return None
+
+    checks = classic.get('required_status_checks')
+    if isinstance(checks, dict) and (
+        checks.get('contexts') or checks.get('checks')
+    ):
+        return True
+    rule_types = {rule.get('type') for rule in json.loads(rules.stdout)}
+    return 'required_status_checks' in rule_types
+
+
+def check_branch_protection(root: Path, *, gh: Gh = _gh) -> CheckResult:
+    """Section 12 -- nothing merges into the default branch with red CI."""
+    repo = _github_repo(root)
+    if repo is None:
+        return CheckResult(
+            12,
+            BRANCH_PROTECTION,
+            Status.NA,
+            'origin is not a GitHub repo -- nothing to query.',
+        )
+
+    manual = CheckResult(
+        12,
+        BRANCH_PROTECTION,
+        Status.MANUAL,
+        f'could not query GitHub (is `gh` installed and authenticated?). '
+        f'Check `gh api repos/{repo}/rules/branches/<default-branch>`.',
+    )
+    info = gh(['api', f'repos/{repo}', '--jq', '.default_branch'], root)
+    if info is None or info.returncode != 0:
+        return manual
+    branch = info.stdout.strip()
+
+    protection = gh(
+        ['api', f'repos/{repo}/branches/{branch}/protection'],
+        root,
+    )
+    rules = gh(['api', f'repos/{repo}/rules/branches/{branch}'], root)
+    if protection is None or rules is None:
+        return manual
+    try:
+        verdict = _required_checks(protection, rules)
+    except (json.JSONDecodeError, AttributeError):
+        verdict = None
+
+    if verdict is None:
+        return manual
+    if verdict:
+        return CheckResult(
+            12,
+            BRANCH_PROTECTION,
+            Status.PASS,
+            f'`{branch}` requires status checks before merging.',
+        )
+    return CheckResult(
+        12,
+        BRANCH_PROTECTION,
+        Status.FAIL,
+        f'`{branch}` can be merged into without passing CI. Add a ruleset '
+        f'(Settings -> Rules) targeting it that requires a pull request and '
+        f'the CI status checks (a classic protection rule also counts). '
+        f'This changes GitHub settings: report it, apply only if asked.',
+    )
+
+
 def run_checks(root: Path, *, run: bool = False) -> list[CheckResult]:
     """Every section, in the order the skill states them."""
     if not root.is_dir():
@@ -919,6 +1028,7 @@ def run_checks(root: Path, *, run: bool = False) -> list[CheckResult]:
             check_entrypoints(root),
             check_docs_freshness(root),
             check_workflows(root, run=run),
+            check_branch_protection(root),
         ],
         key=lambda result: result.number,
     )

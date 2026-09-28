@@ -1,6 +1,8 @@
 """Tests for the repo-audit CLI's filesystem checks."""
 
 import json
+import subprocess
+from collections.abc import Callable, Sequence
 from pathlib import Path
 
 import pytest
@@ -12,6 +14,7 @@ from repo_audit_cli import (
     RepoAuditError,
     Stack,
     Status,
+    check_branch_protection,
     check_docs_freshness,
     check_entrypoints,
     check_tests,
@@ -436,7 +439,7 @@ class TestRunChecks:
         clean_python_repo: Path,
     ) -> None:
         numbers = {result.number for result in run_checks(clean_python_repo)}
-        assert numbers == {1, 2, 3, 4, 5, 6, 7, 8, 9, 11}
+        assert numbers == {1, 2, 3, 4, 5, 6, 7, 8, 9, 11, 12}
 
     def test_tool_sections_are_manual_until_run(
         self,
@@ -770,3 +773,144 @@ class TestDocsFreshness:
         result = check_docs_freshness(tmp_path)
         assert result.status is Status.FAIL
         assert 'nope.py' in result.detail
+
+
+def _repo_with_origin(root: Path, url: str | None) -> Path:
+    subprocess.run(['git', 'init', '-q', str(root)], check=True)
+    if url is not None:
+        subprocess.run(
+            ['git', '-C', str(root), 'remote', 'add', 'origin', url],
+            check=True,
+        )
+    return root
+
+
+def _fake_gh(
+    responses: dict[str, tuple[int, str, str] | None],
+) -> Callable[
+    [Sequence[str], Path],
+    subprocess.CompletedProcess[str] | None,
+]:
+    """`gh api <path>` answers keyed by the last path segment's endpoint."""
+
+    def gh(
+        args: Sequence[str],
+        cwd: Path,
+    ) -> subprocess.CompletedProcess[str] | None:
+        del cwd
+        path = args[1]
+        for key, response in responses.items():
+            if path.endswith(key) or key in path:
+                if response is None:
+                    return None
+                code, out, err = response
+                return subprocess.CompletedProcess(args, code, out, err)
+        message = f'unexpected gh call: {args}'
+        raise AssertionError(message)
+
+    return gh
+
+
+REPO_JSON = (0, 'main\n', '')
+NOT_PROTECTED = (1, '', 'gh: Branch not protected (HTTP 404)')
+NO_RULES = (0, '[]', '')
+CLASSIC_WITH_CI = (
+    0,
+    json.dumps({'required_status_checks': {'contexts': ['test']}}),
+    '',
+)
+CLASSIC_NO_CI = (0, json.dumps({'enforce_admins': {'enabled': True}}), '')
+RULESET_WITH_CI = (
+    0,
+    json.dumps([{'type': 'pull_request'}, {'type': 'required_status_checks'}]),
+    '',
+)
+RULESET_NO_CI = (0, json.dumps([{'type': 'pull_request'}]), '')
+
+
+class TestBranchProtection:
+    """Section 12 -- the default branch can't take a merge with red CI."""
+
+    @pytest.mark.parametrize(
+        'url',
+        [None, 'https://gitlab.com/o/r.git'],
+    )
+    def test_na_without_a_github_origin(
+        self,
+        tmp_path: Path,
+        url: str | None,
+    ) -> None:
+        root = _repo_with_origin(tmp_path, url)
+        result = check_branch_protection(root, gh=_fake_gh({}))
+        assert result.status is Status.NA
+
+    @pytest.mark.parametrize(
+        ('protection', 'rules', 'status'),
+        [
+            (NOT_PROTECTED, NO_RULES, Status.FAIL),
+            (CLASSIC_NO_CI, NO_RULES, Status.FAIL),
+            (NOT_PROTECTED, RULESET_NO_CI, Status.FAIL),
+            (CLASSIC_WITH_CI, NO_RULES, Status.PASS),
+            (NOT_PROTECTED, RULESET_WITH_CI, Status.PASS),
+            (
+                (1, '', 'Upgrade to GitHub Pro (HTTP 403)'),
+                RULESET_WITH_CI,
+                Status.PASS,
+            ),
+            (None, NO_RULES, Status.MANUAL),
+            (
+                NOT_PROTECTED,
+                (1, '', 'gh: auth required (HTTP 401)'),
+                Status.MANUAL,
+            ),
+            ((1, '', 'gh: Server Error (HTTP 500)'), NO_RULES, Status.MANUAL),
+        ],
+    )
+    def test_verdict(
+        self,
+        tmp_path: Path,
+        protection: tuple[int, str, str] | None,
+        rules: tuple[int, str, str] | None,
+        status: Status,
+    ) -> None:
+        root = _repo_with_origin(tmp_path, 'git@github.com:o/r.git')
+        gh = _fake_gh(
+            {
+                '/protection': protection,
+                '/rules/branches/main': rules,
+                'repos/o/r': REPO_JSON,
+            },
+        )
+        assert check_branch_protection(root, gh=gh).status is status
+
+    @pytest.mark.parametrize(
+        'url',
+        [
+            'git@github.com:o/r.git',
+            'https://github.com/o/r',
+            'https://github.com/o/r.git',
+            'ssh://git@github.com/o/r.git',
+        ],
+    )
+    def test_reads_owner_and_repo_from_any_origin_spelling(
+        self,
+        tmp_path: Path,
+        url: str,
+    ) -> None:
+        root = _repo_with_origin(tmp_path, url)
+        gh = _fake_gh(
+            {
+                '/protection': CLASSIC_WITH_CI,
+                '/rules/branches/main': NO_RULES,
+                'repos/o/r': REPO_JSON,
+            },
+        )
+        assert check_branch_protection(root, gh=gh).status is Status.PASS
+
+    def test_manual_when_gh_is_missing(self, tmp_path: Path) -> None:
+        root = _repo_with_origin(tmp_path, 'git@github.com:o/r.git')
+        result = check_branch_protection(
+            root,
+            gh=_fake_gh({'repos/o/r': None}),
+        )
+        assert result.status is Status.MANUAL

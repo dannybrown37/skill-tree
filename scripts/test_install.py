@@ -18,16 +18,19 @@ def home(tmp_path: Path) -> Path:
     return path
 
 
-def run(home: Path, *args: str) -> subprocess.CompletedProcess[str]:
+def run(
+    home: Path,
+    *args: str,
+    skill_tree_dir: Path | None = REPO_ROOT,
+) -> subprocess.CompletedProcess[str]:
+    env = {'HOME': str(home), 'PATH': '/usr/bin:/bin'}
+    if skill_tree_dir is not None:
+        env['SKILL_TREE_DIR'] = str(skill_tree_dir)
     return subprocess.run(
         ['bash', str(SCRIPT), *args],
         capture_output=True,
         text=True,
-        env={
-            'HOME': str(home),
-            'PATH': '/usr/bin:/bin',
-            'SKILL_TREE_DIR': str(REPO_ROOT),
-        },
+        env=env,
         check=False,
     )
 
@@ -78,6 +81,37 @@ def test_rerun_with_nothing_to_change_prints_nothing(
 
     assert second.returncode == 0, second.stderr
     assert second.stdout == ''
+
+
+def test_links_point_at_the_checkout_not_wherever_install_ran_from(
+    home: Path,
+) -> None:
+    """Links don't flap between the plugin cache and the checkout.
+
+    Claude's hook runs install.sh from the cache, Copilot's from the checkout;
+    if each linked to itself they'd re-link everything on every switch.
+    """
+    checkout = home / 'projects' / 'skill-tree'
+    checkout.parent.mkdir(parents=True)
+    checkout.symlink_to(REPO_ROOT)
+    (home / '.copilot').mkdir()
+
+    first = run(home, '--claude', '--copilot', skill_tree_dir=None)
+    assert first.returncode == 0, first.stderr
+    assert (home / '.local' / 'bin' / 'skill-tree').readlink() == (
+        checkout / 'scripts' / 'skill-tree'
+    )
+    assert (home / '.copilot' / 'skills' / 'verify').readlink() == (
+        checkout / 'skills' / 'verify'
+    )
+    assert (
+        str(checkout)
+        in (home / '.copilot' / 'hooks' / 'skill-tree.json').read_text()
+    )
+
+    other_host = run(home, '--claude', '--copilot', skill_tree_dir=checkout)
+    assert other_host.returncode == 0, other_host.stderr
+    assert other_host.stdout == ''
 
 
 def test_install_does_not_clobber_a_real_file(home: Path) -> None:

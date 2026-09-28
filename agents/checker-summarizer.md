@@ -22,6 +22,8 @@ Report back in this shape, nothing else:
   finding to the section name, its status, and the reason a human needs to go look.
 - Preserve any file:line or command-to-run detail the tool prints for a finding —
   that's what the parent acts on next, don't drop it.
+- If the tool prints a `fix:` block under a finding, pass it through verbatim, indented
+  under that finding's line — it's the remediation guidance, and the parent has no other copy.
 - If the command exits non-zero with no parseable findings (crash, bad args, tool not
   installed), report the exit code and the last 2 lines of stderr only — don't guess why.
 - If everything passed, just report "<N> checked, 0 flagged" and stop.

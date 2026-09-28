@@ -19,6 +19,18 @@ set -euo pipefail
 _script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 _repo_root="$(cd "${_script_dir}/.." && pwd)"
 
+# Claude's hook runs this from the version-pinned plugin cache, Copilot's
+# from the checkout. Linking to wherever it ran from would re-link
+# everything (and print it into the session) on every switch between hosts.
+_is_checkout() { [[ -n "$1" && -f "$1/scripts/install.sh" ]]; }
+if _is_checkout "${SKILL_TREE_DIR:-}"; then
+	_link_root="${SKILL_TREE_DIR}"
+elif _is_checkout "${HOME}/projects/skill-tree"; then
+	_link_root="${HOME}/projects/skill-tree"
+else
+	_link_root="${_repo_root}"
+fi
+
 _usage() {
 	cat <<EOF
 Usage: install.sh [--claude] [--copilot]
@@ -148,18 +160,18 @@ _install_claude() {
 
 	# The top-level entry point: browse/read every skill and reach every other
 	# CLI in here from a shell, without starting a Claude session.
-	_link "${_repo_root}/scripts/skill-tree" "${HOME}/.local/bin/skill-tree"
+	_link "${_link_root}/scripts/skill-tree" "${HOME}/.local/bin/skill-tree"
 
 	# Tab completion for it. Dropped in the standard per-user directory
 	# rather than appended to a shell rc: bash-completion picks it up on its
 	# own, and this script has no business editing ~/.bashrc.
-	_link "${_repo_root}/scripts/completions/skill-tree.bash" \
+	_link "${_link_root}/scripts/completions/skill-tree.bash" \
 		"${XDG_DATA_HOME:-${HOME}/.local/share}/bash-completion/completions/skill-tree"
 
 	# `handoff` earns a bare name where the retired `backlog`/`bl` didn't:
 	# capturing an item is a thing you do mid-thought, several times a day,
 	# and `skill-tree handoff add` is enough friction to lose the thought.
-	_link "${_repo_root}/skills/handoff/scripts/handoff" \
+	_link "${_link_root}/skills/handoff/scripts/handoff" \
 		"${HOME}/.local/bin/handoff"
 
 	# Retire the backlog CLI shortcuts a machine that ran an earlier install
@@ -193,7 +205,7 @@ _install_claude() {
 	done
 
 	# Status line: symlink the script and wire up settings.json
-	_link "${_repo_root}/scripts/statusline-command.sh" "${HOME}/.claude/statusline-command.sh"
+	_link "${_link_root}/scripts/statusline-command.sh" "${HOME}/.claude/statusline-command.sh"
 	_configure_statusline
 
 	case ":${PATH}:" in
@@ -231,24 +243,24 @@ _write_copilot_hooks() {
       {
         "type": "command",
         "matcher": "(?i)(bash|shell|read|view)",
-        "bash": "${_repo_root}/skills/screenshot/scripts/screenshot_hook.sh",
+        "bash": "${_link_root}/skills/screenshot/scripts/screenshot_hook.sh",
         "timeoutSec": 15
       }
     ],
     "sessionStart": [
       {
         "type": "command",
-        "bash": "${_repo_root}/scripts/check_repo_update.sh",
+        "bash": "${_link_root}/scripts/check_repo_update.sh",
         "timeoutSec": 30
       },
       {
         "type": "command",
-        "bash": "${_repo_root}/scripts/install.sh --copilot",
+        "bash": "${_link_root}/scripts/install.sh --copilot",
         "timeoutSec": 30
       },
       {
         "type": "command",
-        "bash": "${_repo_root}/skills/handoff/scripts/handoff_session_start.sh",
+        "bash": "${_link_root}/skills/handoff/scripts/handoff_session_start.sh",
         "timeoutSec": 15
       }
     ]
@@ -282,7 +294,7 @@ _write_copilot_instructions() {
 # Claude's (no effort/output-style), hence the separate script.
 _configure_copilot_statusline() {
 	local settings="${HOME}/.copilot/settings.json"
-	local cmd="bash ${_repo_root}/scripts/statusline-command-copilot.sh"
+	local cmd="bash ${_link_root}/scripts/statusline-command-copilot.sh"
 
 	if [[ ! -f "${settings}" ]]; then
 		mkdir -p "$(dirname "${settings}")"
@@ -316,7 +328,7 @@ SEOF
 _COMMAND_MARKER='<!-- generated from skill-tree commands/ -->'
 _install_copilot_commands() {
 	local cmd name target body
-	for cmd in "${_repo_root}"/commands/*.md; do
+	for cmd in "${_link_root}"/commands/*.md; do
 		[[ -f "${cmd}" ]] || continue
 		name="$(basename "${cmd}" .md)"
 		target="${HOME}/.copilot/skills/${name}"
@@ -353,10 +365,10 @@ EOF
 # nothing to trade off against here -- unlinked means unreachable.
 _install_copilot() {
 	local skill name
-	for skill in "${_repo_root}"/skills/*/; do
+	for skill in "${_link_root}"/skills/*/; do
 		[[ -f "${skill}/SKILL.md" ]] || continue
 		name="$(basename "${skill}")"
-		_link "${_repo_root}/skills/${name}" "${HOME}/.copilot/skills/${name}"
+		_link "${_link_root}/skills/${name}" "${HOME}/.copilot/skills/${name}"
 	done
 
 	_install_copilot_commands
@@ -368,10 +380,10 @@ _install_copilot() {
 [[ -n "${_want_claude}" ]] && _install_claude
 [[ -n "${_want_copilot}" ]] && _install_copilot
 
-if [[ "${_repo_root}" != "${HOME}/projects/skill-tree" && "${SKILL_TREE_DIR:-}" != "${_repo_root}" ]]; then
+if [[ "${_link_root}" != "${HOME}/projects/skill-tree" && "${SKILL_TREE_DIR:-}" != "${_link_root}" ]]; then
 	cat >&2 <<EOF
-Note: skill-tree is running from ${_repo_root}, not the default
-~/projects/skill-tree. Export SKILL_TREE_DIR=${_repo_root} in your shell rc
+Note: skill-tree is running from ${_link_root}, not the default
+~/projects/skill-tree. Export SKILL_TREE_DIR=${_link_root} in your shell rc
 so skills whose scripts need an absolute path can find this checkout.
 EOF
 fi

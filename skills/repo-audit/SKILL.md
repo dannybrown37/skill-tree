@@ -1,6 +1,6 @@
 ---
 name: repo-audit
-description: "Sanity-check a repo against the owner's quality preferences — pre-commit hooks, type checking, linting, test coverage, CLI ergonomics, secrets hygiene, dependency pinning, CLAUDE.md freshness. Reports what's missing or drifted, doesn't fix it."
+description: "Sanity-check a repo against the owner's quality preferences — pre-commit hooks, type checking, linting, test coverage, CLI ergonomics, secrets hygiene, dependency pinning, CLAUDE.md freshness, default-branch protection. Reports what's missing or drifted, doesn't fix it."
 user-invocable: true
 disable-model-invocation: true
 allowed-tools: Read, Grep, Glob, Bash
@@ -33,22 +33,17 @@ directly.
 Exit `0` = nothing failed, `1` = at least one FAIL, `2` = nothing there to audit. Each
 section comes back `PASS`, `FAIL`, `NA` (the repo doesn't use that thing), or **`MANUAL`**.
 
-Sections 1, 2, 3, 6, 7, 8, and 9 are computed from the working tree. Sections 4 and 11 need
-`--run` to execute the suite / zizmor; without it, section 4 still reports modules with no
-test file, and section 11 reports whether zizmor is wired in at all. Where a section reports
+Sections 1, 2, 3, 6, 7, 8, and 9 are computed from the working tree; 12 queries GitHub via
+`gh` (read-only). Sections 4 and 11 need `--run` to execute the suite / zizmor; without it,
+section 4 still reports modules with no test file, and section 11 reports whether zizmor is
+wired in at all. Where a section reports
 `PASS`, it has proven the config exists, not that the tool passes — the `PASS` detail names
 the command to confirm with.
 
-**Section 5 is always `MANUAL`, by design.** The checker finds and lists your entrypoints but
-never executes them, because probing `--version` means *running* the thing — an early version
-of this check ran `new-skill.sh --version` and created a skill directory named `--version`.
-Work section 5 by hand against the list it prints.
+**Section 5 is always `MANUAL`:** the checker lists entrypoints but never runs them (probing
+`--version` once created a skill directory named `--version`). Work it by hand.
 
-`MANUAL` also covers "the tool isn't installed" and "the suite exceeded the timeout": neither
-is evidence the repo is broken, so neither is reported as a failure.
-
-Stack detection reads sources, not just manifests — a pile of scripts with a `mypy.ini` and
-no `pyproject.toml` is still a Python repo.
+`MANUAL` also covers "tool not installed" and "suite timed out" — not evidence of breakage.
 
 ## Checks
 
@@ -165,6 +160,11 @@ Only applicable if the repo has `.github/workflows/*.yml`. If it doesn't, this i
 - Run `uvx zizmor .` (or `--run` on the checker below) and report findings — untrusted
   input flowing into `run:` blocks, overly broad `permissions:`, actions pinned to a
   mutable tag instead of a commit SHA.
+
+### 12. Default branch protected by CI
+
+GitHub `origin` only; details come from the checker. Changing repo settings is outward-facing —
+report it, don't apply it unasked.
 
 ## Report format
 
