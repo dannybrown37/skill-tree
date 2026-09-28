@@ -19,6 +19,7 @@ import re
 import shutil
 import subprocess
 import sys
+import textwrap
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -446,11 +447,14 @@ def cmd_help(root: Path, _args: list[str]) -> int:
 
     with_cli = [skill.name for skill in skills if skill.cli]
     if with_cli:
+        print('\nSkill CLIs (skill-tree <name> [args]):')
         print(
-            '\nSkill CLIs, reachable by name — args pass straight through:',
+            textwrap.fill(
+                ', '.join(with_cli),
+                initial_indent='  ',
+                subsequent_indent='  ',
+            ),
         )
-        for name in with_cli:
-            print(f'  skill-tree {name} [args]')
 
     if skills:
         print('\nSkills:')
