@@ -9,8 +9,7 @@
 # Two hosts, installed independently:
 #
 #   Claude Code -- the plugin install already provides every skill as
-#     `skill-tree:<name>`, so the only symlinks here are the deliberately
-#     short list of extra shortcuts worth a second alias.
+#     `skill-tree:<name>`, so no skill is symlinked; only CLIs land on PATH.
 #   Copilot CLI -- no plugin or marketplace concept and no namespace, so
 #     symlinking each skill into ~/.copilot/skills is the whole install, and
 #     every skill lands bare.
@@ -37,7 +36,7 @@ Usage: install.sh [--claude] [--copilot]
 
 Link this repo's skills and CLIs into your home directory. Idempotent.
 
-  --claude    Install the Claude Code side (shortcut symlinks, CLIs on PATH).
+  --claude    Install the Claude Code side (CLIs on PATH).
   --copilot   Install the Copilot CLI side (~/.copilot/skills + hook config).
   -h, --help  Show this message.
 
@@ -140,10 +139,8 @@ SEOF
 	echo "Added statusLine config to ${settings}"
 }
 
-# Personal-scope skill dirs, so a deliberately chosen few are invoked bare (a
-# plugin-installed skill would otherwise always be namespaced, e.g.
-# `/skill-tree:backlog`). None currently warrant it -- see the retirement
-# loop below for how a shortcut gets un-installed once it doesn't.
+# Bare ~/.claude/skills symlinks are retired: the harness collapses them
+# into the unscoped alias and hides the `skill-tree:` name.
 _install_claude() {
 	# Retire shortcuts earlier versions created, so a machine that ran those
 	# installs heals itself. Only ever removes a symlink pointing back into a
@@ -361,8 +358,7 @@ EOF
 }
 
 # Every skill, bare. Copilot has no namespace to hide the less-used ones
-# behind, so the Claude side's "only shortcuts worth a second alias" rule has
-# nothing to trade off against here -- unlinked means unreachable.
+# behind, and unlinked means unreachable.
 _install_copilot() {
 	local skill name
 	for skill in "${_link_root}"/skills/*/; do
