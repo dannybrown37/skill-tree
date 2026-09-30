@@ -10,9 +10,10 @@ model=$(echo "$input" | jq -r '.model.display_name // .model.id // "unknown"')
 cwd=$(echo "$input" | jq -r '.workspace.current_dir // .cwd // empty')
 project=$(basename "$cwd" 2>/dev/null || true)
 remaining=$(echo "$input" | jq -r 'if (.context_window.used_percentage != null) then (100 - .context_window.used_percentage) else empty end')
+# Copilot's current_usage is cumulative session totals, not window occupancy.
 used_tokens=$(echo "$input" | jq -r '
   .context_window as $c
-  | if $c.current_usage then ($c.current_usage.input_tokens // 0) + ($c.current_usage.cache_creation_input_tokens // 0) + ($c.current_usage.cache_read_input_tokens // 0)
+  | if ($c.remaining_tokens != null and $c.context_window_size != null) then ($c.context_window_size - $c.remaining_tokens)
     elif ($c.used_percentage != null and $c.context_window_size != null) then ($c.used_percentage * $c.context_window_size / 100 | floor)
     else empty end')
 
