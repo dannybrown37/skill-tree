@@ -13,7 +13,7 @@ _here="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 _cli="${_here}/dynamodb_cost_audit_cli.py"
 
 if command -v uv >/dev/null 2>&1; then
-	exec uv run --quiet --with pyyaml python "${_cli}" "$@"
+	exec uv run --no-project --quiet --with pyyaml python "${_cli}" "$@"
 fi
 
 exec python3 "${_cli}" "$@"

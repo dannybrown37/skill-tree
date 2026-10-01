@@ -1,0 +1,48 @@
+schema_version: "1.0"
+name: repo-audit/05-near-empty
+description: >-
+  Almost nothing to audit: a placeholder README and a .gitignore. Should
+  still produce a report, using n/a for checks that don't apply, rather than
+  failing everything or refusing.
+tags: [repo-audit]
+context:
+  scaffold_script: scaffold.sh
+execution:
+  prompt: /skill-tree:repo-audit
+  max_turns: 25
+  timeout_seconds: 420
+  allowed_tools: [Read, Glob, Grep, Bash, Edit, Write, Skill]
+runs: 1
+graders:
+  - type: regex
+    name: checker-produced-report
+    target: trace
+    pattern: '(FAIL|PASS|MANUAL|N/A)\\n  \d+\. [A-Z]'
+  - type: tool_used
+    name: read-only-no-edit
+    tool: Edit
+    min: 0
+    max: 0
+  - type: tool_used
+    name: read-only-no-write
+    tool: Write
+    min: 0
+    max: 0
+  - type: regex
+    name: summary-line
+    target: last_message
+    pattern: '\d+\s+pass(ed)?\b[\s\S]{0,60}?\d+\s+fail(ed)?\b'
+    flags: i
+  - type: regex
+    name: uses-na
+    target: last_message
+    pattern: '\bn/?a\b|not applicable'
+    flags: i
+  - type: llm
+    name: handles-sparse
+    criteria: >-
+      Pass only if the final message is an audit report that acknowledges the
+      project is nearly empty, says what it would need (e.g. source code,
+      tests, pre-commit hooks, a real README), and marks checks that don't
+      apply as n/a rather than failing them. Fail if it refuses, is empty, or
+      fails every section indiscriminately.

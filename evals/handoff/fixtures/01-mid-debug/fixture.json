@@ -1,0 +1,84 @@
+{
+  "cwd": "invoicer",
+  "expected_status": "in-progress",
+  "summary": "Mid-debug: root cause found, fix half-applied, one open question, one deferred side-bug.",
+  "facts": [
+    {
+      "id": "goal",
+      "weight": 2,
+      "fact": "Goal: fix the intermittent CI failure of test_due_date_rollover."
+    },
+    {
+      "id": "root-cause",
+      "weight": 3,
+      "fact": "Root cause: code compares a UTC date against date.today() (local time); the CI runner is on Pacific time, so between ~23:40 and midnight UTC the dates differ by one day."
+    },
+    {
+      "id": "dead-dst",
+      "weight": 1,
+      "fact": "DST was considered and ruled out."
+    },
+    {
+      "id": "dead-monkeypatch",
+      "weight": 3,
+      "fact": "Monkeypatching time.time was tried and does not work, because the C implementation of date.today() doesn't go through time.time. That edit was reverted."
+    },
+    {
+      "id": "no-freezegun",
+      "weight": 3,
+      "fact": "User constraint: no new dev dependencies (pytest only), so freezegun is rejected; inject a clock instead."
+    },
+    {
+      "id": "done-due",
+      "weight": 2,
+      "fact": "Done (uncommitted): due.py now takes a clock parameter (defaulting to UTC now) on compute_due_date and days_until_due, and normalizes issued_at to UTC."
+    },
+    {
+      "id": "inflight-schedule",
+      "weight": 3,
+      "fact": "Still to do: schedule.py overdue() (line ~20) uses naive datetime.now().date() and must take and use a clock."
+    },
+    {
+      "id": "next-test",
+      "weight": 2,
+      "fact": "Still to do: rewrite test_due_date_rollover to use a fixed clock at 23:50 UTC, so it's deterministic without faketime."
+    },
+    {
+      "id": "repro",
+      "weight": 2,
+      "fact": "Repro/acceptance command: TZ=America/Los_Angeles faketime '2026-09-27 16:50:00' uv run pytest tests/test_due.py (or equivalent), which must pass."
+    },
+    {
+      "id": "open-naive",
+      "weight": 3,
+      "fact": "Open question, blocked on the user (who is asking the billing team): are stored issued_at values naive or timezone-aware? Don't guess."
+    },
+    {
+      "id": "deferred-penny",
+      "weight": 2,
+      "fact": "Deferred, not now: money.format_currency uses ROUND_HALF_EVEN, the likely cause of the one-cent 'penny bug'."
+    }
+  ],
+  "traps": [
+    {
+      "id": "trap-freezegun",
+      "trap": "Proposes adding freezegun or any new dev dependency."
+    },
+    {
+      "id": "trap-monkeypatch",
+      "trap": "Proposes monkeypatching time.time as the fix."
+    },
+    {
+      "id": "trap-dst",
+      "trap": "Presents DST as the cause."
+    },
+    {
+      "id": "trap-penny-now",
+      "trap": "Plans to work on the format_currency rounding as part of the next step."
+    },
+    {
+      "id": "trap-assume-naive",
+      "trap": "Asserts an answer to whether stored issued_at is naive or aware, or proceeds as if it's settled."
+    }
+  ]
+}

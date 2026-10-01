@@ -8,4 +8,4 @@ set -euo pipefail
 
 _script_dir="$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")"
 
-exec uv run python "${_script_dir}/skill_tree_cli.py" "$@"
+exec uv run --no-project python "${_script_dir}/skill_tree_cli.py" "$@"

@@ -13,7 +13,7 @@ set -euo pipefail
 _script_dir="$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")"
 
 _handoff_py() {
-	uv run python "${_script_dir}/handoff_cli.py" "$@"
+	uv run --no-project python "${_script_dir}/handoff_cli.py" "$@"
 }
 
 _die() {
