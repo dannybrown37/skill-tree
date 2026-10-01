@@ -1,0 +1,47 @@
+schema_version: "1.0"
+name: repo-audit/03-well-maintained
+description: >-
+  A project that does most things right. The report should pass what is
+  configured instead of failing everything, and still flag real gaps.
+tags: [repo-audit]
+context:
+  scaffold_script: scaffold.sh
+execution:
+  prompt: /skill-tree:repo-audit
+  max_turns: 25
+  timeout_seconds: 420
+  allowed_tools: [Read, Glob, Grep, Bash, Edit, Write, Skill]
+runs: 1
+graders:
+  - type: regex
+    name: checker-produced-report
+    target: trace
+    pattern: '(FAIL|PASS|MANUAL|N/A)\\n  \d+\. [A-Z]'
+  - type: tool_used
+    name: read-only-no-edit
+    tool: Edit
+    min: 0
+    max: 0
+  - type: tool_used
+    name: read-only-no-write
+    tool: Write
+    min: 0
+    max: 0
+  - type: regex
+    name: summary-line
+    target: last_message
+    pattern: '\d+\s+pass(ed)?\b[\s\S]{0,60}?\d+\s+fail(ed)?\b'
+    flags: i
+  - type: llm
+    name: no-false-absences
+    criteria: >-
+      The audited project HAS all of these: a .pre-commit-config.yaml
+      (with ruff, ruff-format, mypy, gitleaks, end-of-file-fixer hooks), a
+      strict mypy.ini, ruff config in pyproject.toml, a tests/ directory
+      with a test, exactly pinned runtime dependencies, a .gitignore that
+      covers .env and *.pem, and a .claude/CLAUDE.md. Pass only if the
+      final message gives a verdict per section AND never claims any of
+      those is missing or absent. Failing a section for a different,
+      real reason is fine (e.g. a missing pytest or ruff-check hook, no
+      lockfile, .gitignore lacking credentials*, mypy errors in the
+      code).

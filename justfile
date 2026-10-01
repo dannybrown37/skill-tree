@@ -3,7 +3,7 @@ default:
     @echo "  just skill <name>            Scaffold a new skill in skills/<name>/"
     @echo "  just output-style <name>     Create an output style in output-styles/<name>.md"
     @echo "  just install                 Symlink skills, CLIs, and output styles into ~/"
-    @echo "  just eval <skill> [flags]    Run evals/<skill>/ (flags pass to claude plugin eval)"
+    @echo "  just eval <skill> [flags]    Run the evals in evals/<skill>/"
     @echo ""
     @echo "skill and output-style open the new file in VS Code or \$EDITOR."
 
@@ -23,9 +23,9 @@ install:
 eval skill="" *flags:
     #!/usr/bin/env bash
     set -euo pipefail
-    mapfile -t suites < <(find evals -mindepth 3 -maxdepth 3 -name case.yaml | cut -d/ -f2 | sort -u)
+    mapfile -t suites < <({ find evals -mindepth 3 -maxdepth 3 -name case.yaml; find evals -mindepth 2 -maxdepth 2 -name run.py; } | cut -d/ -f2 | sort -u)
     usage() {
-        echo "usage: just eval <skill> [claude plugin eval flags...]" >&2
+        echo "usage: just eval <skill> [flags...]  (flags go to claude plugin eval, or to evals/<skill>/run.py)" >&2
         echo "suites: ${suites[*]}" >&2
         exit 2
     }
@@ -41,6 +41,19 @@ eval skill="" *flags:
     if [[ ! " ${suites[*]} " == *" ${skill} "* ]]; then
         echo "no eval suite named '${skill}'" >&2
         usage
+    fi
+    # A suite with its own runner (multi-session evals `claude plugin eval`
+    # can't express) gets quick defaults; later flags override them.
+    if [[ -f "evals/${skill}/run.py" ]]; then
+        status=0
+        uv run python "evals/${skill}/run.py" --arm skill --runs 1 \
+            --judge-model claude-sonnet-5-5 -j 6 "$@" || status=$?
+        echo "Run again with:"
+        printf '  just eval'
+        printf ' %q' "${skill}" "$@"
+        echo
+        [[ "${status}" -eq 0 ]] || echo "exit ${status}: at least one run did not complete; see above" >&2
+        exit "${status}"
     fi
     tools=(Edit Write)
     if grep -rqs --include=case.yaml -E 'allowed_tools:.*\bBash\b' "evals/${skill}"; then

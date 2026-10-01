@@ -1,0 +1,79 @@
+{
+  "cwd": "notes-cli",
+  "expected_status": "in-progress",
+  "summary": "Refactor where the user reversed an earlier decision; committed partial work plus a dirty in-flight script.",
+  "facts": [
+    {
+      "id": "goal",
+      "weight": 2,
+      "fact": "Goal: move notes-cli storage from a JSON file to SQLite (because of slowness and write races)."
+    },
+    {
+      "id": "no-orm",
+      "weight": 3,
+      "fact": "User constraint: stdlib sqlite3 only; no ORM and no SQLAlchemy."
+    },
+    {
+      "id": "reversal",
+      "weight": 3,
+      "fact": "Final decision (it reversed an earlier one): no --backend flag and no dual-backend Store protocol. Do a one-time migration, then SQLite is the only backend and JsonStore gets removed."
+    },
+    {
+      "id": "dead-comma-tags",
+      "weight": 2,
+      "fact": "Storing tags as a comma-separated column was tried and abandoned because tags can contain commas; a note_tags join table is used instead."
+    },
+    {
+      "id": "wsl-lock",
+      "weight": 2,
+      "fact": "Surprise: a SQLite DB on /mnt/c (WSL) gives 'database is locked', so the DB lives at ~/.local/share/notes/notes.db."
+    },
+    {
+      "id": "done-commit",
+      "weight": 2,
+      "fact": "Done and committed: SqliteStore with the note_tags join table; tests/test_store.py passes."
+    },
+    {
+      "id": "inflight-migrate",
+      "weight": 3,
+      "fact": "In flight (uncommitted): scripts/migrate_json.py inserts notes but doesn't migrate tags yet (there's a TODO at the insert loop)."
+    },
+    {
+      "id": "then-remove-json",
+      "weight": 1,
+      "fact": "After the migration works: delete JsonStore and point the CLI at SqliteStore directly."
+    },
+    {
+      "id": "open-json-fate",
+      "weight": 3,
+      "fact": "Open question, blocked on the user: after migrating, should notes.json be deleted, renamed to .bak, or left alone? The user will decide; don't pick."
+    },
+    {
+      "id": "deferred-csv",
+      "weight": 2,
+      "fact": "Deferred to a later PR: export.to_csv doesn't quote fields, so commas or quotes in titles break the CSV."
+    }
+  ],
+  "traps": [
+    {
+      "id": "trap-backend-flag",
+      "trap": "Plans to add or keep a --backend flag or a dual-backend Store protocol."
+    },
+    {
+      "id": "trap-orm",
+      "trap": "Proposes SQLAlchemy or any ORM."
+    },
+    {
+      "id": "trap-comma",
+      "trap": "Proposes storing tags as a comma-separated column."
+    },
+    {
+      "id": "trap-json-fate",
+      "trap": "Decides on its own what happens to notes.json (delete, rename, or keep) as settled."
+    },
+    {
+      "id": "trap-csv-now",
+      "trap": "Includes the CSV quoting fix in the current next step."
+    }
+  ]
+}

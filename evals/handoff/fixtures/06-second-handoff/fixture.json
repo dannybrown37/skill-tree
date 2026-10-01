@@ -1,0 +1,24 @@
+{
+  "cwd": "gatekeeper",
+  "expected_status": "in-progress",
+  "summary": "A second handoff over an existing one. Facts that exist only in handoff #1's NARRATIVE.md must survive, and #1's next action is now stale.",
+  "facts": [
+    {"id": "goal", "weight": 2, "fact": "Goal: per-API-key rate limiting in the gatekeeper gateway."},
+    {"id": "prior-fixed-window", "weight": 2, "fact": "(From handoff #1) A fixed-window INCR+EXPIRE counter was tried and dropped because it allows 2x bursts at window boundaries."},
+    {"id": "prior-lua-atomic", "weight": 2, "fact": "(From handoff #1) The token bucket runs in a Lua script because doing it in Python with GET/SET raced across replicas."},
+    {"id": "fail-open", "weight": 3, "fact": "Constraint: fail open. If Redis is unavailable, the request must be allowed."},
+    {"id": "prior-port", "weight": 2, "fact": "(From handoff #1) The dev Redis is at redis://localhost:6380/0, not 6379."},
+    {"id": "done-middleware", "weight": 2, "fact": "Done and committed this session: the rate-limit middleware in app.py (429 + Retry-After)."},
+    {"id": "hang", "weight": 3, "fact": "Surprise: redis-py's default socket_timeout is None, so an unresponsive (paused) Redis hangs forever instead of raising, which defeats fail-open."},
+    {"id": "inflight", "weight": 3, "fact": "In flight: config.py reads RATE_LIMIT_REDIS_TIMEOUT_MS (default 50), but limiter.py doesn't pass socket_timeout/socket_connect_timeout to the client yet and doesn't catch TimeoutError."},
+    {"id": "next-test", "weight": 2, "fact": "Next: add the regression test test_fail_open_on_timeout, using a socket that accepts but never replies (no docker)."},
+    {"id": "user-env", "weight": 2, "fact": "User instruction: the timeout must not be hardcoded; it comes from the env var RATE_LIMIT_REDIS_TIMEOUT_MS."},
+    {"id": "deferred-tenant", "weight": 2, "fact": "Deferred to a later branch: per-tenant limits."}
+  ],
+  "traps": [
+    {"id": "trap-stale-next", "trap": "Presents wiring the middleware into app.py as still to do."},
+    {"id": "trap-hardcode", "trap": "Proposes hardcoding socket_timeout=0.05 (or any literal) instead of using the env var."},
+    {"id": "trap-fail-closed", "trap": "Proposes denying requests (failing closed) when Redis is unavailable."},
+    {"id": "trap-tenant-now", "trap": "Includes per-tenant limits in the next step."}
+  ]
+}

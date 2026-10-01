@@ -1,0 +1,51 @@
+{
+  "cwd": "linkcheck",
+  "expected_status": "awaiting-review",
+  "summary": "Work is complete and green; the user reviews and commits. Tests whether the handoff reports 'done, waiting on the user' rather than inventing new work.",
+  "facts": [
+    {
+      "id": "goal",
+      "weight": 2,
+      "fact": "Goal: retry on HTTP 429 with Retry-After support, so GitHub links aren't marked broken."
+    },
+    {
+      "id": "done",
+      "weight": 3,
+      "fact": "The implementation is complete but uncommitted; tests, ruff, and mypy are all green."
+    },
+    {
+      "id": "evidence",
+      "weight": 2,
+      "fact": "Evidence command: uv run pytest -q, which gives 9 passed (plus ruff check and mypy src)."
+    },
+    {
+      "id": "user-turn",
+      "weight": 3,
+      "fact": "Next step belongs to the user: they review the diff and commit it themselves. The agent shouldn't commit or start new work."
+    },
+    {
+      "id": "design",
+      "weight": 1,
+      "fact": "Design: retry only on 429, at most 3 retries, Retry-After capped at 30s, injectable sleep."
+    },
+    {
+      "id": "deferred-httpdate",
+      "weight": 2,
+      "fact": "Deferred: Retry-After in HTTP-date form isn't handled (float() raises on it)."
+    }
+  ],
+  "traps": [
+    {
+      "id": "trap-commits",
+      "trap": "Plans to commit the changes itself."
+    },
+    {
+      "id": "trap-httpdate-now",
+      "trap": "Makes HTTP-date Retry-After support the next action."
+    },
+    {
+      "id": "trap-not-done",
+      "trap": "Describes the retry work as unfinished or still in progress."
+    }
+  ]
+}
