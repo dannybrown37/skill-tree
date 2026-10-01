@@ -1,0 +1,72 @@
+schema_version: "1.0"
+name: ui-designer/01-landing-page
+description: >-
+  Build a landing page from nothing. Graders are the skill's own grep checks:
+  no system font as primary, no CDN fonts, no pure black/white or framework
+  blue, a spacing scale, :focus-visible, and not the hero-plus-three-cards
+  template. Font choice is delegated so the run doesn't stall on lesson 1's
+  "let the user pick". Filenames are pinned because regex graders read a
+  named file (`target: files` is only the changed-path list).
+tags: [ui-designer]
+execution:
+  prompt: >-
+    Build a single-page landing site for Tidepool, an app that shows tide
+    charts for surfers. Plain HTML and CSS, no build step: markup in
+    index.html, all styles in styles.css. You pick the fonts, I trust you.
+  max_turns: 20
+  timeout_seconds: 300
+  allowed_tools: [Read, Glob, Grep, Edit, Write, Skill]
+runs: 1
+graders:
+  - type: tool_used
+    name: skill-fired
+    tool: Skill
+    input_match: ui-designer
+  - type: regex
+    name: no-system-font-primary
+    target: { source: file, path: styles.css }
+    pattern: '(font-family|--font[\w-]*)\s*:\s*["'']?(system-ui|-apple-system|BlinkMacSystemFont|Arial|Helvetica|sans-serif)\b'
+    flags: i
+    match: not_contains
+  - type: regex
+    name: self-hosted-font
+    target: { source: file, path: styles.css }
+    pattern: '@font-face'
+  - type: regex
+    name: no-font-cdn-in-html
+    target: { source: file, path: index.html }
+    pattern: 'fonts\.googleapis\.com|fonts\.gstatic\.com|use\.typekit\.net'
+    match: not_contains
+  - type: regex
+    name: no-font-cdn-in-css
+    target: { source: file, path: styles.css }
+    pattern: 'fonts\.googleapis\.com|fonts\.gstatic\.com|use\.typekit\.net'
+    match: not_contains
+  - type: regex
+    name: no-pure-black-or-white
+    target: { source: file, path: styles.css }
+    pattern: '#(000|fff)(000|fff)?\b|:\s*(black|white)\s*;'
+    flags: i
+    match: not_contains
+  - type: regex
+    name: no-framework-blue
+    target: { source: file, path: styles.css }
+    pattern: '#(007bff|337ab7|0d6efd)'
+    flags: i
+    match: not_contains
+  - type: regex
+    name: spacing-scale
+    target: { source: file, path: styles.css }
+    pattern: '--space-?[\w-]+\s*:'
+  - type: regex
+    name: focus-visible
+    target: { source: file, path: styles.css }
+    pattern: ':focus-visible'
+  - type: llm
+    name: not-the-template
+    focus: { source: file, path: index.html }
+    criteria: >-
+      Pass only if the page layout is NOT the stock "hero section + a row of
+      three feature cards with icons + gradient background" template. A
+      single-column, content-led layout passes; three cards that are really a
+      list fail.

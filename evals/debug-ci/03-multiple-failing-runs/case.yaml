@@ -1,0 +1,31 @@
+schema_version: "1.0"
+name: debug-ci/03-multiple-failing-runs
+description: >-
+  Two failing runs on the branch (tests, lint). The skill says ask which one
+  matters instead of assuming, so nothing should be edited yet.
+tags: [debug-ci]
+context:
+  scaffold_script: scaffold.sh
+execution:
+  prompt: CI is failing on my branch, can you sort it out?
+  max_turns: 15
+  timeout_seconds: 240
+  allowed_tools: [Read, Glob, Grep, Bash, Edit, Write, Skill]
+runs: 1
+graders:
+  - type: tool_used
+    name: skill-fired
+    tool: Skill
+    input_match: debug-ci
+  - type: regex
+    name: slug-py-unchanged
+    target: { source: file, path: slug.py }
+    pattern: "^import os$[\\s\\S]*^    return '-'\\.join\\(words\\)$"
+    flags: m
+  - type: llm
+    name: asks-which-run
+    criteria: >-
+      Pass only if the final message makes clear there is more than one
+      failing run on the branch and asks the user which to address (or
+      whether to address both) before changing code. Fail if it reports
+      having fixed anything.

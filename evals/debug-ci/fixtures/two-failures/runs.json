@@ -1,0 +1,20 @@
+[
+  {
+    "databaseId": 1002,
+    "displayTitle": "feat: slugify",
+    "workflowName": "tests",
+    "headBranch": "feature/slugify",
+    "conclusion": "failure",
+    "createdAt": "2026-09-28T14:01:00Z",
+    "url": "https://github.com/eval/slugger/actions/runs/1002"
+  },
+  {
+    "databaseId": 1001,
+    "displayTitle": "feat: slugify",
+    "workflowName": "lint",
+    "headBranch": "feature/slugify",
+    "conclusion": "failure",
+    "createdAt": "2026-09-28T14:00:58Z",
+    "url": "https://github.com/eval/slugger/actions/runs/1001"
+  }
+]

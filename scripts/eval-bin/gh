@@ -1,0 +1,44 @@
+#!/usr/bin/env bash
+# Stand-in for `gh` during evals; `just eval` puts this directory first on
+# PATH. It lives outside evals/ because the eval sandbox hides that tree
+# from the agent. Canned responses come from .git/eval-gh/ in the repo the
+# agent is working in, which a case's scaffold fills from
+# evals/debug-ci/fixtures/. No such directory means "not logged in".
+set -euo pipefail
+
+git_dir="$(git rev-parse --absolute-git-dir 2>/dev/null || true)"
+dir="${git_dir:+${git_dir}/eval-gh}"
+
+if [[ -z "${dir}" || ! -d "${dir}" ]]; then
+	echo 'You are not logged into any GitHub hosts. To log in, run: gh auth login' >&2
+	exit 1
+fi
+
+case "${1:-} ${2:-}" in
+'auth status')
+	echo 'github.com'
+	echo '  ✓ Logged in to github.com account eval-bot (keyring)'
+	;;
+'repo view')
+	echo 'eval/slugger'
+	;;
+'run list')
+	cat "${dir}/runs.json"
+	;;
+'run view')
+	run_id=''
+	for arg in "${@:3}"; do
+		[[ "${arg}" =~ ^[0-9]+$ ]] && run_id="${arg}"
+	done
+	if [[ -n "${run_id}" && -f "${dir}/log-${run_id}.txt" ]]; then
+		cat "${dir}/log-${run_id}.txt"
+	else
+		echo "could not find any workflow run with ID ${run_id:-<none>}" >&2
+		exit 1
+	fi
+	;;
+*)
+	echo "gh (eval stand-in): '$*' is not available in this eval" >&2
+	exit 1
+	;;
+esac

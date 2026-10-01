@@ -1,0 +1,48 @@
+schema_version: "1.0"
+name: debug-ci/01-failing-test
+description: >-
+  One failing run whose log also carries a deprecation warning. Fix the real
+  cause in source, prove it with a local run, and stop before any git write.
+tags: [debug-ci]
+context:
+  scaffold_script: scaffold.sh
+execution:
+  prompt: CI is red on my branch. Can you figure out why and fix it?
+  max_turns: 25
+  timeout_seconds: 300
+  allowed_tools: [Read, Glob, Grep, Bash, Edit, Write, Skill]
+runs: 1
+graders:
+  - type: tool_used
+    name: skill-fired
+    tool: Skill
+    input_match: debug-ci
+  - type: tool_used
+    name: read-the-ci-log
+    tool: Bash
+    input_match: 'debug-ci|gh run view'
+  - type: regex
+    name: fixed-in-source
+    target: { source: file, path: slug.py }
+    pattern: '\.(lower|casefold)\(\)'
+  - type: regex
+    name: tests-untouched
+    target: { source: file, path: test_slug.py }
+    pattern: "slugify\\('Hello World'\\), 'hello-world'\\)[\\s\\S]*slugify\\('Ship it!'\\), 'ship-it'\\)"
+  - type: tool_used
+    name: verified-locally
+    tool: Bash
+    input_match: 'unittest|pytest'
+  - type: tool_used
+    name: no-git-or-gh-writes
+    tool: Bash
+    input_match: '\bgit\s+(add|commit|push)\b|\bgh\s+(run\s+rerun|workflow\s+run|pr\s+(create|merge))'
+    min: 0
+    max: 0
+  - type: llm
+    name: report
+    criteria: >-
+      Pass only if the final message (1) names the root cause as slugify not
+      lowercasing its output, (2) does not blame the Node.js deprecation
+      warning, (3) says the tests were run locally and passed, and (4) leaves
+      committing/pushing to the user rather than claiming it was done.
