@@ -1,0 +1,15 @@
+lint	Run ruff	2026-09-28T14:02:10.0000000Z ##[group]Run pipx run ruff check .
+lint	Run ruff	2026-09-28T14:02:10.0000001Z pipx run ruff check .
+lint	Run ruff	2026-09-28T14:02:10.0000002Z ##[endgroup]
+lint	Run ruff	2026-09-28T14:02:10.0000003Z F401 [*] `os` imported but unused
+lint	Run ruff	2026-09-28T14:02:10.0000004Z  --> slug.py:1:8
+lint	Run ruff	2026-09-28T14:02:10.0000005Z   |
+lint	Run ruff	2026-09-28T14:02:10.0000006Z 1 | import os
+lint	Run ruff	2026-09-28T14:02:10.0000007Z   |        ^^
+lint	Run ruff	2026-09-28T14:02:10.0000008Z 2 | import re
+lint	Run ruff	2026-09-28T14:02:10.0000009Z   |
+lint	Run ruff	2026-09-28T14:02:11.0000010Z help: Remove unused import: `os`
+lint	Run ruff	2026-09-28T14:02:11.0000011Z 
+lint	Run ruff	2026-09-28T14:02:11.0000012Z Found 1 error.
+lint	Run ruff	2026-09-28T14:02:11.0000013Z [*] 1 fixable with the `--fix` option.
+lint	Run ruff	2026-09-28T14:02:11.0000014Z ##[error]Process completed with exit code 1.

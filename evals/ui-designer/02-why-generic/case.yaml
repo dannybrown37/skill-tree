@@ -1,0 +1,38 @@
+schema_version: "1.0"
+name: ui-designer/02-why-generic
+description: >-
+  Review-only: a page seeded with five of the skill's named defects. Should
+  name most of them and change nothing.
+tags: [ui-designer]
+context:
+  scaffold_script: scaffold.sh
+execution:
+  prompt: >-
+    Why does this site look so generic? Don't change anything yet, just tell
+    me what's wrong.
+  max_turns: 10
+  timeout_seconds: 180
+  allowed_tools: [Read, Glob, Grep, Edit, Write, Skill]
+runs: 1
+graders:
+  - type: tool_used
+    name: skill-fired
+    tool: Skill
+    input_match: ui-designer
+  - type: file_exists
+    name: no-new-files
+    path: '**'
+    exists: false
+  - type: regex
+    name: style-css-unchanged
+    target: { source: file, path: style.css }
+    pattern: "font-family: system-ui[\\s\\S]*color: #000;[\\s\\S]*background: #007bff;[\\s\\S]*outline: none;"
+  - type: llm
+    name: names-the-defects
+    criteria: >-
+      The page has five seeded defects: (1) system font stack as the primary
+      font, (2) pure #000 text on #fff, (3) Bootstrap default blue #007bff as
+      the accent, (4) ad-hoc pixel spacing with no scale (13px, 22px, 37px...),
+      (5) hero + three icon feature cards + gradient layout, and (6, bonus)
+      `outline: none` on focus. Pass only if the final message identifies at
+      least four of 1-5 specifically (not just "improve typography").

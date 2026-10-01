@@ -1,0 +1,38 @@
+test	Set up job	2026-09-28T14:02:10.0000000Z Current runner version: '2.328.0'
+test	Set up job	2026-09-28T14:02:10.0000001Z ##[warning]Node.js 20 actions are deprecated. The following actions are running on Node.js 20 and may not work as expected: actions/checkout@v4.
+test	Set up job	2026-09-28T14:02:10.0000002Z Complete job name: test
+test	Run tests	2026-09-28T14:02:10.0000003Z ##[group]Run python -m unittest -v
+test	Run tests	2026-09-28T14:02:10.0000004Z python -m unittest -v
+test	Run tests	2026-09-28T14:02:10.0000005Z ##[endgroup]
+test	Run tests	2026-09-28T14:02:10.0000006Z test_drops_punctuation (test_slug.SlugifyTest.test_drops_punctuation) ... FAIL
+test	Run tests	2026-09-28T14:02:10.0000007Z test_joins_words_with_hyphens (test_slug.SlugifyTest.test_joins_words_with_hyphens) ... FAIL
+test	Run tests	2026-09-28T14:02:10.0000008Z 
+test	Run tests	2026-09-28T14:02:10.0000009Z ======================================================================
+test	Run tests	2026-09-28T14:02:11.0000010Z FAIL: test_drops_punctuation (test_slug.SlugifyTest.test_drops_punctuation)
+test	Run tests	2026-09-28T14:02:11.0000011Z ----------------------------------------------------------------------
+test	Run tests	2026-09-28T14:02:11.0000012Z Traceback (most recent call last):
+test	Run tests	2026-09-28T14:02:11.0000013Z   File "/home/runner/work/slugger/slugger/test_slug.py", line 11, in test_drops_punctuation
+test	Run tests	2026-09-28T14:02:11.0000014Z     self.assertEqual(slugify('Ship it!'), 'ship-it')
+test	Run tests	2026-09-28T14:02:11.0000015Z AssertionError: 'Ship-it' != 'ship-it'
+test	Run tests	2026-09-28T14:02:11.0000016Z - Ship-it
+test	Run tests	2026-09-28T14:02:11.0000017Z ? ^
+test	Run tests	2026-09-28T14:02:11.0000018Z + ship-it
+test	Run tests	2026-09-28T14:02:11.0000019Z ? ^
+test	Run tests	2026-09-28T14:02:12.0000020Z 
+test	Run tests	2026-09-28T14:02:12.0000021Z ======================================================================
+test	Run tests	2026-09-28T14:02:12.0000022Z FAIL: test_joins_words_with_hyphens (test_slug.SlugifyTest.test_joins_words_with_hyphens)
+test	Run tests	2026-09-28T14:02:12.0000023Z ----------------------------------------------------------------------
+test	Run tests	2026-09-28T14:02:12.0000024Z Traceback (most recent call last):
+test	Run tests	2026-09-28T14:02:12.0000025Z   File "/home/runner/work/slugger/slugger/test_slug.py", line 8, in test_joins_words_with_hyphens
+test	Run tests	2026-09-28T14:02:12.0000026Z     self.assertEqual(slugify('Hello World'), 'hello-world')
+test	Run tests	2026-09-28T14:02:12.0000027Z AssertionError: 'Hello-World' != 'hello-world'
+test	Run tests	2026-09-28T14:02:12.0000028Z - Hello-World
+test	Run tests	2026-09-28T14:02:12.0000029Z ? ^     ^
+test	Run tests	2026-09-28T14:02:13.0000030Z + hello-world
+test	Run tests	2026-09-28T14:02:13.0000031Z ? ^     ^
+test	Run tests	2026-09-28T14:02:13.0000032Z 
+test	Run tests	2026-09-28T14:02:13.0000033Z ----------------------------------------------------------------------
+test	Run tests	2026-09-28T14:02:13.0000034Z Ran 2 tests in 0.001s
+test	Run tests	2026-09-28T14:02:13.0000035Z 
+test	Run tests	2026-09-28T14:02:13.0000036Z FAILED (failures=2)
+test	Run tests	2026-09-28T14:02:13.0000037Z ##[error]Process completed with exit code 1.

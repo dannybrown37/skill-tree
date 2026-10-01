@@ -68,5 +68,5 @@ TODO: Write the style instructions.
 EOF
 
 echo "Created output-styles/$STYLE.md"
-echo "Run 'make install' to symlink into ~/.claude/output-styles/"
+echo "Run 'just install' to symlink into ~/.claude/output-styles/"
 open_in_editor "$STYLE_FILE"
