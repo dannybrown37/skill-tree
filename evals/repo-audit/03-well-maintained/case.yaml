@@ -32,16 +32,12 @@ graders:
     target: last_message
     pattern: '\d+\s+pass(ed)?\b[\s\S]{0,60}?\d+\s+fail(ed)?\b'
     flags: i
-  - type: llm
+  # Deterministic on purpose: an llm judge with the same intent said FAIL
+  # on a report that never claimed a configured item was missing, and PASS
+  # on the identical text when replayed outside the harness.
+  - type: regex
     name: no-false-absences
-    criteria: >-
-      The audited project HAS all of these: a .pre-commit-config.yaml
-      (with ruff, ruff-format, mypy, gitleaks, end-of-file-fixer hooks), a
-      strict mypy.ini, ruff config in pyproject.toml, a tests/ directory
-      with a test, exactly pinned runtime dependencies, a .gitignore that
-      covers .env and *.pem, and a .claude/CLAUDE.md. Pass only if the
-      final message gives a verdict per section AND never claims any of
-      those is missing or absent. Failing a section for a different,
-      real reason is fine (e.g. a missing pytest or ruff-check hook, no
-      lockfile, .gitignore lacking credentials*, mypy errors in the
-      code).
+    target: last_message
+    pattern: "no (\\.pre-commit-config\\.yaml|pre-commit (config|hooks))\\b|no (mypy|type[- ]check(ing|er)) (config|configured)|(mypy|ruff) (is )?not configured|no ruff config|no (tests|test files|tests/ directory)\\b|no gitleaks|(dependencies|deps) (are )?(not pinned|unpinned)|no CLAUDE\\.md|\\.gitignore (does not|doesn't) (cover|exclude|include) (\\.env|\\*\\.pem)"
+    flags: i
+    match: not_contains
