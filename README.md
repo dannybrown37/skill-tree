@@ -12,7 +12,7 @@ Claude, `/<name>` in Copilot); `skill-tree help` prints the same map.
 
 ```mermaid
 flowchart LR
-    grill[grill-for-planning] --> domain([domain-modeling]) --> proto([prototype]) --> design([codebase-design]) --> spec[to-spec] --> tickets[to-tickets] --> impl[implement] --> review[code-review]
+    grill[grill-for-planning] --> domain([domain-modeling]) --> proto([prototype]) --> design([codebase-design]) --> spec[to-spec] --> tickets[to-tickets] --> impl[implement] --> review[two-axis-review]
     handoff[handoff] -.-> tickets & impl
     verify[verify] -.-> review
 ```
@@ -28,7 +28,7 @@ Rounded nodes are optional but usually worth it.
 | 5. Write it down | `to-spec` | Spec (synthesis only, no interview) |
 | 6. Slice it | `to-tickets` | Vertical-slice tickets with blocking edges |
 | 7. Build | `implement` | TDD by default, verified proof it works, HITL by default |
-| 8. Review | `code-review` | Standards + Spec axes, in parallel |
+| 8. Review | `two-axis-review` | Standards + Spec axes, in parallel |
 
 Alongside: `handoff` (carry state across sessions), `verify` (back done-claims with
 evidence). `domain-modeling` stays live after step 2 — revisit it whenever a term drifts.
@@ -67,7 +67,6 @@ Each lives at `skills/<name>/` with its own `SKILL.md`, `scripts/`, and `referen
 | `adversarial-review` | Manually-triggered red-team review of the current branch's diff. Constructs real failing inputs/races/states rather than checklist-verifying. |
 | `bro` | Restate the last message in a more grokable way |
 | `cli-ergonomics` | CLIs should be incredibly easy for humans to run. Invoke when creating a new CLI or subcommand a human will run (incl. a script promoted out of one-off use), or when the user asks for a CLI review. Not for edits to existing commands. Covers the argument-handling ladder (help over error, TTY-guarded prompts, fzf selection, echoing the replayable command) and the hard `--version` requirement. Not for pure-library or single-purpose CI-only scripts. |
-| `code-review` | Two-axis review of changes since a fixed point (commit, tag, HEAD~N, or default HEAD~1): Standards (does the code follow this repo's conventions?) and Spec (does the code do what it should?). Axes run as parallel sub-agents so neither masks the other. Use when the user says \"review\", \"code review\", \"check my changes\", or before pushing. |
 | `codebase-design` | Shared vocabulary for designing deep modules. Invoke when designing or improving a module's interface, finding deepening opportunities, deciding where a seam goes, making code more testable, or when another skill needs the deep-module vocabulary — \"is this the right seam\", \"design this interface\", \"why does this feel shallow\". |
 | `debug-ci` | Fix a GitHub Actions run that has failed — e.g. \"why did CI fail\", \"the build is red\", \"check the Actions run\", \"/debug-ci\". Fetches the failure logs via `gh`, diagnoses the root cause, and fixes it locally. User will review and push. |
 | `debug-hooks` | Invoke to list or debug hooks — \"what hooks do I have\", \"is my hook firing\", \"why did that run twice\". Merges every hook source (settings, plugins, Copilot) into one list. |
@@ -89,6 +88,7 @@ Each lives at `skills/<name>/` with its own `SKILL.md`, `scripts/`, and `referen
 | `to-spec` | A conversation has settled on what to build and it's time to turn it into a written spec — \"turn this into a spec\", \"write this up\", \"spec this out\". Synthesis only: no interview. Pairs well with skill-tree:grill-for-planning, which is where the settled understanding usually comes from. |
 | `to-tickets` | Break a spec, plan, or conversation into tracer-bullet vertical-slice tickets with blocking edges — \"turn this into tickets\", \"break this down\", \"what's the work?\". Pairs with skill-tree:to-spec upstream and skill-tree:handoff downstream. |
 | `tui-screenshots` | Use for generating or refreshing TUI screenshots for docs — \"regenerate the screenshots\", \"the README screenshots are stale\". Drives a Textual/TUI app headlessly and exports SVG. Not for reading a user's screenshot — that is `screenshot`. |
+| `two-axis-review` | Two-axis review of changes since a fixed point (commit, tag, HEAD~N, or default HEAD~1): Standards (does the code follow this repo's conventions?) and Spec (does the code do what it should?). Axes run as parallel sub-agents so neither masks the other. Use when the user says \"review against the spec\", \"does this follow our conventions\", \"standards and spec review\", or \"two-axis review\". Not a correctness bug hunt — that's the built-in `/code-review`. |
 | `ui-designer` | Design or restyle a web UI — landing pages, dashboards, docs sites, app chrome — or when the user asks why a site \"looks generic\", \"looks like a template\", or wants it to feel intentional. A running list of design lessons learned, applied as rules rather than suggestions. |
 | `verify` | Verify before answering whether something works, is gone, is used, or is correct — and whenever the user says \"can you confirm\", \"are you sure\", \"did that actually work\", or reports something is \"still\" broken. Produces the answer plus the evidence that would have falsified it. |
 | `wait-what` | Stop. Your plan/idea did not land. Re-pitch it. |

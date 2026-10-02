@@ -90,7 +90,7 @@ When the work is complete (one ticket in default mode, the frontier in autonomou
 3. **Run `pre-commit`** (or `prek`) if the project has it. Fix what it reports.
 4. **Invoke [[verify]]** on each done-claim. Run the thing, not just its tests — every claim
    in the summary ships with the check that could have refuted it and its output.
-5. **Invoke [[code-review]]** on the diff. Fix anything it finds before presenting to the user.
+5. **Invoke [[two-axis-review]]** on the diff. Fix anything it finds before presenting to the user.
 6. **Present the work.** Summary of what changed, the proof from step 4, the verification
    commands, and any open questions. Don't commit — the user does that.
 
@@ -99,6 +99,6 @@ When the work is complete (one ticket in default mode, the frontier in autonomou
 - **[[to-tickets]]** or **[[to-spec]]** produce the input this skill consumes
 - **[[handoff]]** maintains session state as you work
 - **[[verify]]** proves each done-claim at finish, and before writing it to the narrative
-- **[[code-review]]** runs at the end before presenting to the user
+- **[[two-axis-review]]** runs at the end before presenting to the user
 - **[[codebase-design]]** — deep-module vocabulary for any interface this work adds
 - **[[domain-modeling]]** — use `CONTEXT.md` vocabulary in code, tests, and commit-ready summaries

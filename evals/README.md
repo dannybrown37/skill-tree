@@ -9,6 +9,7 @@ just eval ui-designer                          # 2 cases, ~2.5 min, ~$0.55–0.7
 just eval debug-ci                             # 3 cases, ~1.5 min, ~$0.60
 just eval repo-audit                           # 5 cases
 just eval handoff                              # 6 fixtures, skill arm only
+just eval two-axis-review                      # 1 case
 just eval debug-ci --runs 3                    # more samples per case
 just eval ui-designer --ablation with-without  # also run without the plugin, report the delta
 ```
@@ -18,6 +19,7 @@ just eval ui-designer --ablation with-without  # also run without the plugin, re
 | `debug-ci` | `claude plugin eval` | diagnose from the CI log, fix, verify locally, no git writes |
 | `ui-designer` | `claude plugin eval` | the skill's design rules, as greppable checks on a built page and a review |
 | `repo-audit` | `claude plugin eval` | runs the checker, read-only, report format, catches the seeded gaps |
+| `two-axis-review` | `claude plugin eval` | both axes run as sub-agents, each seeded issue lands on its axis, read-only |
 | `handoff` | `handoff/run.py` | write a handoff, resume it in a fresh session, judge what survived |
 
 For `claude plugin eval` suites, the recipe defaults to one run per case, no baseline arm,
