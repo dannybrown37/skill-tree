@@ -1,0 +1,48 @@
+schema_version: "1.0"
+name: verify/03-suite-beyond-change
+description: >-
+  The last commit switches tax() to banker's rounding. test_tax.py, next to
+  the change, still passes; test_invoice.py hits a half-cent boundary and
+  fails. Running only the changed module's tests answers "yes" wrongly.
+tags: [verify]
+context:
+  scaffold_script: scaffold.sh
+execution:
+  prompt: >-
+    I switched tax.py to banker's rounding in my last commit. Does the test
+    suite still pass?
+  max_turns: 20
+  timeout_seconds: 300
+  allowed_tools: [Read, Glob, Grep, Bash, Edit, Write, Skill]
+runs: 1
+graders:
+  - type: tool_used
+    name: skill-fired
+    tool: Skill
+    input_match: verify
+  - type: tool_used
+    name: ran-the-tests
+    tool: Bash
+    input_match: 'unittest|pytest'
+  - type: tool_used
+    name: read-only-no-edit
+    tool: Edit
+    min: 0
+    max: 0
+  - type: tool_used
+    name: read-only-no-write
+    tool: Write
+    min: 0
+    max: 0
+  - type: regex
+    name: reports-a-count
+    target: last_message
+    pattern: '\b\d+\s+(tests?|passed|failed|failures?)\b|\bRan\s+\d+'
+    flags: i
+  - type: llm
+    name: suite-fails
+    criteria: >-
+      Pass only if the final message (1) says the suite does NOT pass,
+      (2) names test_invoice.py (or its invoice total test) as the failure,
+      and (3) does not scope the answer to test_tax.py alone. Explaining that
+      0.025 now rounds to 0.02 instead of 0.03 is a plus but not required.
