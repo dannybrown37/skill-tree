@@ -1,11 +1,11 @@
 ---
-name: code-review
-description: "Two-axis review of changes since a fixed point (commit, tag, HEAD~N, or default HEAD~1): Standards (does the code follow this repo's conventions?) and Spec (does the code do what it should?). Axes run as parallel sub-agents so neither masks the other. Use when the user says \"review\", \"code review\", \"check my changes\", or before pushing."
+name: two-axis-review
+description: "Two-axis review of changes since a fixed point (commit, tag, HEAD~N, or default HEAD~1): Standards (does the code follow this repo's conventions?) and Spec (does the code do what it should?). Axes run as parallel sub-agents so neither masks the other. Use when the user says \"review against the spec\", \"does this follow our conventions\", \"standards and spec review\", or \"two-axis review\". Not a correctness bug hunt — that's the built-in `/code-review`."
 user-invocable: true
 allowed-tools: Read, Grep, Glob, Bash, Agent
 ---
 
-# Code Review
+# Two-Axis Review
 
 Two-axis review: **Standards** and **Spec**, run in parallel so one can't mask the other.
 

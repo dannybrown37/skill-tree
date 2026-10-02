@@ -1,0 +1,55 @@
+schema_version: "1.0"
+name: two-axis-review/01-both-axes
+description: >-
+  The last commit breaks one documented convention (no type hints) and misses
+  one spec requirement (compound durations). Each issue lands on exactly one
+  axis, so a review that runs only one axis, or merges them, misses one.
+tags: [two-axis-review]
+context:
+  scaffold_script: scaffold.sh
+execution:
+  prompt: >-
+    Review my last commit against docs/spec.md and against this repo's
+    conventions.
+  max_turns: 25
+  timeout_seconds: 420
+  allowed_tools: [Read, Glob, Grep, Bash, Edit, Write, Skill, Agent]
+runs: 1
+graders:
+  - type: tool_used
+    name: skill-fired
+    tool: Skill
+    input_match: two-axis-review
+  - type: tool_used
+    name: spawned-both-axes
+    tool: Agent
+    min: 2
+  - type: tool_used
+    name: read-only-no-edit
+    tool: Edit
+    min: 0
+    max: 0
+  - type: tool_used
+    name: read-only-no-write
+    tool: Write
+    min: 0
+    max: 0
+  - type: tool_used
+    name: no-git-writes
+    tool: Bash
+    input_match: '\bgit\s+(add|commit|push|reset|checkout|restore|stash)\b'
+    min: 0
+    max: 0
+  - type: regex
+    name: axes-as-headings
+    target: last_message
+    pattern: '##\s*Standards[\s\S]*##\s*Spec'
+  - type: llm
+    name: each-issue-on-its-axis
+    criteria: >-
+      Pass only if the final message (1) under a Standards heading flags that
+      parse_duration has no type hints and ties it to the repo's CLAUDE.md
+      rule, (2) under a Spec heading flags that compound durations such as
+      "1h30m" are not supported though docs/spec.md requires them, and
+      (3) keeps the two axes as separate reports rather than merging them
+      into one combined ranking. Extra findings do not fail the case.
