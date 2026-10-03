@@ -12,6 +12,7 @@ just eval handoff                              # 6 fixtures, skill arm only
 just eval two-axis-review                      # 1 case
 just eval verify                               # 4 cases (3 traps, 1 negative trigger)
 just eval cli-ergonomics                       # 4 cases (2 traps, 2 negative triggers)
+just eval site-launch                          # 4 cases (audit, fix, control, negative trigger)
 just eval debug-ci --runs 3                    # more samples per case
 just eval ui-designer --ablation with-without  # also run without the plugin, report the delta
 ```
@@ -24,6 +25,7 @@ just eval ui-designer --ablation with-without  # also run without the plugin, re
 | `two-axis-review` | `claude plugin eval` | both axes run as sub-agents, each seeded issue lands on its axis, read-only |
 | `verify` | `claude plugin eval` | runs a check that could fail before answering: dynamic `getattr` use, a fix that misses its own case, a suite failing outside the changed module; plus a negative-trigger case |
 | `cli-ergonomics` | `claude plugin eval` | a new CLI gets `--version` from metadata and a bare run prints help; a review runs the linter, read-only, and finds what it can't; no trigger on an edit or a CI-only script |
+| `site-launch` | `claude plugin eval` | runs the checker read-only and finds the seeded gaps, incl. a feed the checker can only call N/A; fixes a blank share card using the domain from `CNAME`; no invented failures on a clean site; no trigger on a CSS change |
 | `handoff` | `handoff/run.py` | write a handoff, resume it in a fresh session, judge what survived |
 
 For `claude plugin eval` suites, the recipe defaults to one run per case, no baseline arm,
@@ -39,6 +41,8 @@ Its scores have no pass bar. It exits 1 only if a run didn't complete.
 
 - `<skill>/<NN-case>/case.yaml`: one case. Its `scaffold.sh`, if any, builds the workspace.
 - `cli-ergonomics/fixtures/tabletools.sh`: the package cases 01, 03, and 04 start from.
+- `site-launch/fixtures/site.sh <good|gaps|blank-card>`: a static blog in `public/`; `good`
+  passes every automated check, the others break specific items.
 - `debug-ci/fixtures/`: `repo.sh` builds the repo every debug-ci case starts from. When given
   a fixture name, it copies that fixture's canned `gh` responses into the workspace's
   `.git/eval-gh/`.
@@ -75,4 +79,5 @@ Its scores have no pass bar. It exits 1 only if a run didn't complete.
   same message passed when replayed by hand and failed 3/3 in the harness, even with a
   Sonnet judge. Give each seeded finding its own one-line PASS/FAIL grader instead
   (cli-ergonomics/02). And remove fixture bait: if a "clean" control file has any real
-  wart, the agent will rightly flag it and a no-false-positives grader fails.
+  wart, the agent will rightly flag it and a no-false-positives grader fails. Stub binaries
+  count: an 8-byte `og.png` got flagged as a broken share image (site-launch/04).
