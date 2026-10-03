@@ -1,0 +1,65 @@
+schema_version: "1.0"
+name: site-launch/01-ready-to-ship
+description: >-
+  A blog with relative og:/canonical URLs, no twitter:card, a page with no
+  description, and no robots.txt or sitemap. It has no feed either, which
+  the checker reports as N/A: deciding a blog needs one is the agent's
+  call. Favicon and 404 are fine, so flagging them is a false positive.
+tags: [site-launch]
+context:
+  scaffold_script: scaffold.sh
+execution:
+  prompt: >-
+    Is my site ready to ship? It's in public/, deployed as-is.
+  max_turns: 25
+  timeout_seconds: 420
+  allowed_tools: [Read, Glob, Grep, Bash, Edit, Write, Skill, Agent]
+runs: 1
+graders:
+  - type: tool_used
+    name: skill-fired
+    tool: Skill
+    input_match: site-launch
+  - type: regex
+    name: checker-ran
+    target: trace
+    pattern: '(FAIL|PASS|MANUAL|N/A)\\n  \d+\. [A-Z]|\d+ checked, \d+ flagged'
+  - type: tool_used
+    name: read-only-no-edit
+    tool: Edit
+    min: 0
+    max: 0
+  - type: tool_used
+    name: read-only-no-write
+    tool: Write
+    min: 0
+    max: 0
+  - type: llm
+    name: finds-relative-urls
+    criteria: >-
+      PASS if the message says the canonical and/or og: URLs are relative
+      (e.g. "/og.png") and need the absolute domain. FAIL otherwise. Ignore
+      everything else in the message.
+  - type: llm
+    name: finds-share-card
+    criteria: >-
+      PASS if the message says the share card is broken or incomplete,
+      e.g. twitter:card is missing or og:image is not absolute. FAIL
+      otherwise. Ignore everything else in the message.
+  - type: llm
+    name: finds-robots-sitemap
+    criteria: >-
+      PASS if the message says robots.txt and/or the sitemap are missing.
+      FAIL otherwise. Ignore everything else in the message.
+  - type: llm
+    name: blog-needs-feed
+    criteria: >-
+      PASS if the message says this blog should have an RSS/Atom feed (or
+      that the missing feed is a gap). FAIL if it does not mention a feed,
+      or says no feed is needed.
+  - type: llm
+    name: no-false-positives
+    criteria: >-
+      FAIL only if the message says the favicon or the 404 page is missing
+      or broken. Saying the 404 status must be confirmed on the deployed
+      site is NOT a failure. Otherwise PASS.

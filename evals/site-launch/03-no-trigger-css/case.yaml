@@ -1,0 +1,28 @@
+schema_version: "1.0"
+name: site-launch/03-no-trigger-css
+description: >-
+  Negative trigger: a visual change to a site is ui-designer's territory,
+  not the launch checklist. Catches the description growing to "anything
+  about a website".
+tags: [site-launch]
+context:
+  scaffold_script: scaffold.sh
+execution:
+  prompt: >-
+    Make the header on my site (public/style.css) stick to the top when
+    scrolling.
+  max_turns: 12
+  timeout_seconds: 240
+  allowed_tools: [Read, Glob, Grep, Bash, Edit, Write, Skill]
+runs: 1
+graders:
+  - type: tool_used
+    name: skill-not-fired
+    tool: Skill
+    input_match: site-launch
+    min: 0
+    max: 0
+  - type: regex
+    name: header-sticky
+    target: { source: file, path: public/style.css }
+    pattern: '\.site-header\s*\{[^}]*position:\s*sticky'
