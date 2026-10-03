@@ -3,7 +3,8 @@
 # paying Python's startup. Anything that could match goes to the real hook.
 set -euo pipefail
 
-payload="$(</dev/stdin)"
+# Not $(</dev/stdin): that reopens stdin by path, which fails on a socket.
+IFS= read -r -d '' payload || true
 shopt -s nocasematch
 
 case "${payload}" in

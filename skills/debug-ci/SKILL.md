@@ -57,6 +57,9 @@ git write. Same human-in-the-loop boundary most repos hold — this skill invoke
 - This skill only ever reads CI state (`gh run`/`gh api`) and writes to the working tree —
   it has no git-write step to skip, by design. If a future version adds auto-push, that's a
   deliberate policy change requiring explicit sign-off, not a default.
+- `git stash` / `git stash pop` are fine for reproducing a failure against the old code, as
+  long as the end result is non-destructive (tree restored, stash list unchanged) and
+  `git blame` is untouched.
 - Multiple failing jobs in one run: fix and verify one at a time rather than batching blind
   fixes across unrelated failures.
 - On older `gh` (seen on 2.23.0), `run view --log-failed` exits 0 and prints *nothing*. The
