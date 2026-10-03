@@ -1,0 +1,74 @@
+schema_version: "1.0"
+name: cli-ergonomics/02-review
+description: >-
+  Review an ops repo's scripts. The linter catches three violations across
+  sync-users (no --version, required positional) and deploy (unguarded
+  input()). deploy also has two the linter can't see: a hand-maintained
+  VERSION constant and a confirm prompt with no flag to skip it.
+  notify_hook.py prompts unguarded but is a hook, not a CLI.
+tags: [cli-ergonomics]
+context:
+  scaffold_script: scaffold.sh
+execution:
+  prompt: >-
+    Can you review the CLIs in this repo for ergonomics? Just tell me
+    what's wrong for now, don't change anything.
+  max_turns: 25
+  timeout_seconds: 420
+  allowed_tools: [Read, Glob, Grep, Bash, Edit, Write, Skill, Agent]
+runs: 1
+graders:
+  - type: tool_used
+    name: skill-fired
+    tool: Skill
+    input_match: cli-ergonomics
+  - type: regex
+    name: linter-ran
+    target: trace
+    pattern: '\[(FAIL|PASS)\] (version|no-args-help|tty-guard)|\d+ entrypoint\(s\), \d+ with violations|\d+ checked, \d+ flagged'
+  - type: tool_used
+    name: read-only-no-edit
+    tool: Edit
+    min: 0
+    max: 0
+  - type: tool_used
+    name: read-only-no-write
+    tool: Write
+    min: 0
+    max: 0
+  - type: llm
+    name: finds-sync-users-no-version
+    criteria: >-
+      PASS if the message says sync-users has no --version flag. FAIL
+      otherwise. Ignore everything else in the message.
+  - type: llm
+    name: finds-sync-users-bare-run-error
+    criteria: >-
+      PASS if the message says running sync-users with no arguments gives
+      an error (the "environment" argument is required) and treats that as
+      something to fix. FAIL otherwise. Ignore everything else in the
+      message.
+  - type: llm
+    name: finds-deploy-unguarded-prompt
+    criteria: >-
+      PASS if the message says deploy's prompts (input() calls) do not
+      check for a terminal/TTY before reading. FAIL otherwise. Ignore
+      everything else in the message.
+  - type: llm
+    name: no-false-positives
+    criteria: >-
+      Fail only if the final message claims scripts/report is missing a
+      --version flag, errors when run with no arguments, or has an
+      unguarded prompt, or claims notify_hook.py needs --version or a TTY
+      guard. Otherwise pass. Noting that report's --version prints
+      "unknown" when the package isn't installed is NOT a false positive,
+      nor is saying notify_hook.py was skipped as a hook.
+  - type: llm
+    name: beyond-the-linter
+    criteria: >-
+      Pass only if the final message raises at least one of these deploy
+      issues, which a static lint does not report: (a) VERSION = "2.1.0" is
+      a hand-maintained constant rather than read from package metadata,
+      or (b) the "Deploy ...? [y/N]" confirmation has no flag (such as
+      --yes) to skip it, so there is no fully non-interactive way to run
+      deploy.

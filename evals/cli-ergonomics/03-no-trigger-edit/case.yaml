@@ -1,0 +1,37 @@
+schema_version: "1.0"
+name: cli-ergonomics/03-no-trigger-edit
+description: >-
+  Negative trigger: adding a flag to an existing command is an edit, which
+  the skill's description excludes. csvstat lacks --version, so a skill
+  that fires here also tends to bolt on fixes nobody asked for.
+tags: [cli-ergonomics]
+context:
+  scaffold_script: scaffold.sh
+execution:
+  prompt: >-
+    Add a --delimiter option to csvstat (src/tabletools/csvstat.py) so it
+    can read semicolon-separated files. Default stays comma.
+  max_turns: 15
+  timeout_seconds: 240
+  allowed_tools: [Read, Glob, Grep, Bash, Edit, Write, Skill]
+runs: 1
+graders:
+  - type: tool_used
+    name: skill-not-fired
+    tool: Skill
+    input_match: cli-ergonomics
+    min: 0
+    max: 0
+  - type: regex
+    name: delimiter-flag
+    target: { source: file, path: src/tabletools/csvstat.py }
+    pattern: '--delimiter'
+  - type: regex
+    name: delimiter-reaches-reader
+    target: { source: file, path: src/tabletools/csvstat.py }
+    pattern: 'DictReader\([^)]*delimiter'
+  - type: regex
+    name: no-unrequested-version
+    target: { source: file, path: src/tabletools/csvstat.py }
+    pattern: '--version'
+    match: not_contains

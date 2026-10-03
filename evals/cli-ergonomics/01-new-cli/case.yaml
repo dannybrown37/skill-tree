@@ -1,0 +1,69 @@
+schema_version: "1.0"
+name: cli-ergonomics/01-new-cli
+description: >-
+  A new CLI with two required inputs in a package versioned 1.4.0. Without
+  the skill, the natural result is no --version (or a hardcoded "1.4.0"),
+  and a bare run that dies with an argparse error. The existing csvstat
+  breaks the same rules, but fixing it was not asked for.
+tags: [cli-ergonomics]
+context:
+  scaffold_script: scaffold.sh
+execution:
+  prompt: >-
+    Add a new command-line tool to tabletools called csv-dedupe. It takes a
+    CSV path and a key column, and writes the CSV back out with duplicate
+    rows (same key) removed, keeping the first. Put it in
+    src/tabletools/dedupe.py with a main() and register it in
+    pyproject.toml.
+  max_turns: 30
+  timeout_seconds: 420
+  allowed_tools: [Read, Glob, Grep, Bash, Edit, Write, Skill]
+runs: 1
+graders:
+  - type: tool_used
+    name: skill-fired
+    tool: Skill
+    input_match: cli-ergonomics
+  - type: regex
+    name: registered
+    target: { source: file, path: pyproject.toml }
+    pattern: 'csv-dedupe\s*=\s*"tabletools\.dedupe:main"'
+  - type: regex
+    name: has-version-flag
+    target: { source: file, path: src/tabletools/dedupe.py }
+    pattern: '--version'
+  - type: regex
+    name: version-from-metadata
+    target: { source: file, path: src/tabletools/dedupe.py }
+    pattern: 'importlib\.metadata|from importlib import metadata|tomllib'
+  - type: regex
+    name: version-not-hardcoded
+    target: { source: file, path: src/tabletools/dedupe.py }
+    pattern: '1\.4\.0'
+    match: not_contains
+  - type: regex
+    name: bare-run-not-an-error
+    target: { source: file, path: src/tabletools/dedupe.py }
+    pattern: 'print_help|print_usage|isatty|nargs\s*=\s*["'']\?'
+  - type: tool_used
+    name: ran-version-check
+    tool: Bash
+    input_match: '--version'
+  - type: regex
+    name: csvstat-untouched
+    target: { source: file, path: src/tabletools/csvstat.py }
+    pattern: '--version|isatty|print_help'
+    match: not_contains
+  - type: llm
+    name: ergonomic-cli
+    focus: { source: file, path: src/tabletools/dedupe.py }
+    criteria: >-
+      Judge src/tabletools/dedupe.py. Pass only if
+      (1) --version prints a version derived from package metadata or
+      pyproject.toml and still works when the package is not installed
+      (e.g. catches PackageNotFoundError or reads pyproject directly) rather
+      than crashing; (2) running it with no arguments prints usage/help or
+      prompts for the missing values, not a bare argparse "required"
+      error; (3) any prompt is guarded by an isatty check that errors off a
+      TTY, and every prompted value can also be passed as an argument or
+      flag. Not prompting at all is fine if (2) is met with help output.
