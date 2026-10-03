@@ -1,0 +1,28 @@
+schema_version: "1.0"
+name: verify/04-no-trigger-explain
+description: >-
+  Negative trigger: a plain "explain this" question makes no claim about
+  whether something works, is gone, or is used. The verify skill should not
+  fire. Catches a description that has grown too broad.
+tags: [verify]
+context:
+  scaffold_script: scaffold.sh
+execution:
+  prompt: What does parse_duration in durations.py do?
+  max_turns: 8
+  timeout_seconds: 120
+  allowed_tools: [Read, Glob, Grep, Bash, Edit, Write, Skill]
+runs: 1
+graders:
+  - type: tool_used
+    name: skill-not-fired
+    tool: Skill
+    input_match: verify
+    min: 0
+    max: 0
+  - type: llm
+    name: explains-it
+    criteria: >-
+      Pass only if the final message explains that parse_duration turns a
+      string like "90s", "5m", or "2h" into whole seconds and raises
+      ValueError on anything else.

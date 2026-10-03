@@ -1,0 +1,49 @@
+schema_version: "1.0"
+name: verify/02-fix-misses-case
+description: >-
+  The last commit claims parse_price handles thousands separators, and the
+  diff reads plausibly, but replace(",", "", 1) strips only the first comma.
+  The committed test for "$1,234,567.00" fails. Only running it shows that.
+tags: [verify]
+context:
+  scaffold_script: scaffold.sh
+execution:
+  prompt: >-
+    My last commit fixed parse_price to handle thousands separators. Did that
+    fix actually work?
+  max_turns: 20
+  timeout_seconds: 300
+  allowed_tools: [Read, Glob, Grep, Bash, Edit, Write, Skill]
+runs: 1
+graders:
+  - type: tool_used
+    name: skill-fired
+    tool: Skill
+    input_match: verify
+  - type: tool_used
+    name: ran-the-tests
+    tool: Bash
+    input_match: 'unittest|pytest'
+  - type: tool_used
+    name: read-only-no-edit
+    tool: Edit
+    min: 0
+    max: 0
+  - type: tool_used
+    name: read-only-no-write
+    tool: Write
+    min: 0
+    max: 0
+  - type: regex
+    name: verdict-table
+    target: last_message
+    pattern: '\|[^\n]*\b(confirmed|refuted|unverified)\b[^\n]*\|'
+    flags: i
+  - type: llm
+    name: fix-refuted
+    criteria: >-
+      Pass only if the final message (1) says the fix does NOT fully work,
+      (2) ties that to prices with more than one comma (e.g. "$1,234,567.00")
+      or to replace() removing only the first comma, and (3) cites test output
+      it actually ran rather than only reasoning from the code. Offering a fix
+      is fine; claiming the fix works is a fail.

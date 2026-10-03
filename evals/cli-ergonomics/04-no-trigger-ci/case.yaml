@@ -1,0 +1,31 @@
+schema_version: "1.0"
+name: cli-ergonomics/04-no-trigger-ci
+description: >-
+  Negative trigger: a single-purpose script only CI runs is excluded by the
+  skill's description. Catches the description growing to "any script".
+tags: [cli-ergonomics]
+context:
+  scaffold_script: scaffold.sh
+execution:
+  prompt: >-
+    Write .github/scripts/check_changelog.py for our CI job: it should exit
+    1 if CHANGELOG.md has no "## <version>" heading for the version in
+    pyproject.toml, and 0 otherwise. Only CI runs it.
+  max_turns: 15
+  timeout_seconds: 240
+  allowed_tools: [Read, Glob, Grep, Bash, Edit, Write, Skill]
+runs: 1
+graders:
+  - type: tool_used
+    name: skill-not-fired
+    tool: Skill
+    input_match: cli-ergonomics
+    min: 0
+    max: 0
+  - type: file_exists
+    name: script-written
+    path: .github/scripts/check_changelog.py
+  - type: regex
+    name: reads-pyproject
+    target: { source: file, path: .github/scripts/check_changelog.py }
+    pattern: 'tomllib|pyproject'

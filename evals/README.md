@@ -10,6 +10,8 @@ just eval debug-ci                             # 3 cases, ~1.5 min, ~$0.60
 just eval repo-audit                           # 5 cases
 just eval handoff                              # 6 fixtures, skill arm only
 just eval two-axis-review                      # 1 case
+just eval verify                               # 4 cases (3 traps, 1 negative trigger)
+just eval cli-ergonomics                       # 4 cases (2 traps, 2 negative triggers)
 just eval debug-ci --runs 3                    # more samples per case
 just eval ui-designer --ablation with-without  # also run without the plugin, report the delta
 ```
@@ -20,6 +22,8 @@ just eval ui-designer --ablation with-without  # also run without the plugin, re
 | `ui-designer` | `claude plugin eval` | the skill's design rules, as greppable checks on a built page and a review |
 | `repo-audit` | `claude plugin eval` | runs the checker, read-only, report format, catches the seeded gaps |
 | `two-axis-review` | `claude plugin eval` | both axes run as sub-agents, each seeded issue lands on its axis, read-only |
+| `verify` | `claude plugin eval` | runs a check that could fail before answering: dynamic `getattr` use, a fix that misses its own case, a suite failing outside the changed module; plus a negative-trigger case |
+| `cli-ergonomics` | `claude plugin eval` | a new CLI gets `--version` from metadata and a bare run prints help; a review runs the linter, read-only, and finds what it can't; no trigger on an edit or a CI-only script |
 | `handoff` | `handoff/run.py` | write a handoff, resume it in a fresh session, judge what survived |
 
 For `claude plugin eval` suites, the recipe defaults to one run per case, no baseline arm,
@@ -34,6 +38,7 @@ Its scores have no pass bar. It exits 1 only if a run didn't complete.
 ## Layout
 
 - `<skill>/<NN-case>/case.yaml`: one case. Its `scaffold.sh`, if any, builds the workspace.
+- `cli-ergonomics/fixtures/tabletools.sh`: the package cases 01, 03, and 04 start from.
 - `debug-ci/fixtures/`: `repo.sh` builds the repo every debug-ci case starts from. When given
   a fixture name, it copies that fixture's canned `gh` responses into the workspace's
   `.git/eval-gh/`.
@@ -66,3 +71,8 @@ Its scores have no pass bar. It exits 1 only if a run didn't complete.
 - Fake secrets in a scaffold (repo-audit/04) need a `.gitleaksignore` fingerprint. The
   gitleaks hook only scans staged files, so prek passes on an unstaged file and the
   commit fails later.
+- An `llm` grader over a long review (~3k chars) is flaky with one multi-part rubric: the
+  same message passed when replayed by hand and failed 3/3 in the harness, even with a
+  Sonnet judge. Give each seeded finding its own one-line PASS/FAIL grader instead
+  (cli-ergonomics/02). And remove fixture bait: if a "clean" control file has any real
+  wart, the agent will rightly flag it and a no-false-positives grader fails.

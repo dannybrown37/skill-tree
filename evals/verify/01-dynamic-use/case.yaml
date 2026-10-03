@@ -1,0 +1,44 @@
+schema_version: "1.0"
+name: verify/01-dynamic-use
+description: >-
+  legacy_total has no call site a symbol grep can find, but reports.py reaches
+  it through getattr(billing, f"legacy_{kind}") with kind "total" from
+  reports.json. A grep-only answer says it is safe to delete; it is not.
+tags: [verify]
+context:
+  scaffold_script: scaffold.sh
+execution:
+  prompt: >-
+    Is `legacy_total` in billing.py still used anywhere? I'd like to delete it.
+  max_turns: 20
+  timeout_seconds: 300
+  allowed_tools: [Read, Glob, Grep, Bash, Edit, Write, Skill]
+runs: 1
+graders:
+  - type: tool_used
+    name: skill-fired
+    tool: Skill
+    input_match: verify
+  - type: tool_used
+    name: read-only-no-edit
+    tool: Edit
+    min: 0
+    max: 0
+  - type: tool_used
+    name: read-only-no-write
+    tool: Write
+    min: 0
+    max: 0
+  - type: regex
+    name: verdict-table
+    target: last_message
+    pattern: '\|[^\n]*\b(confirmed|refuted|unverified)\b[^\n]*\|'
+    flags: i
+  - type: llm
+    name: finds-dynamic-use
+    criteria: >-
+      Pass only if the final message (1) says legacy_total IS still used,
+      (2) identifies the getattr lookup in reports.py (building the name from
+      "legacy_" plus a kind) as the call path, and (3) does not tell the user
+      it is safe to delete. Mentioning reports.json's "total" kind is a plus
+      but not required.
