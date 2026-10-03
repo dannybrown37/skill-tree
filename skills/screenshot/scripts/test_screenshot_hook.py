@@ -3,6 +3,7 @@
 import json
 import os
 import shutil
+import socket
 import subprocess
 from pathlib import Path
 
@@ -435,3 +436,25 @@ def test_prefilter_answers_unrelated_calls_without_python(
         (no_python / tool).symlink_to(shutil.which(tool))
 
     assert run(tmp_path, payload, PATH=str(no_python)) == expected
+
+
+def test_hook_reads_payload_when_stdin_is_a_socket(tmp_path: Path) -> None:
+    """Claude Code can pass a socket, which cannot be reopened by path."""
+    ours, theirs = socket.socketpair()
+    with ours, theirs:
+        process = subprocess.Popen(
+            [str(HOOK)],
+            stdin=theirs,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            env={**os.environ, 'HOME': str(tmp_path)},
+        )
+        theirs.close()
+        ours.sendall(json.dumps(bash('ls -la')).encode())
+        ours.shutdown(socket.SHUT_WR)
+        stdout, stderr = process.communicate(timeout=10)
+
+    assert process.returncode == 0, stderr
+    assert stdout == ''
+    assert stderr == ''
