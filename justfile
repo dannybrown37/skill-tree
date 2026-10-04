@@ -4,8 +4,18 @@ default:
     @echo "  just output-style <name>     Create an output style in output-styles/<name>.md"
     @echo "  just install                 Symlink skills, CLIs, and output styles into ~/"
     @echo "  just eval <skill> [flags]    Run the evals in evals/<skill>/"
+    @echo "  just qa                      Lint and test, the same checks CI runs"
     @echo ""
     @echo "skill and output-style open the new file in VS Code or \$EDITOR."
+
+qa: lint test
+
+# pytest runs in `test`; commitizen-early has no commit message to check.
+lint:
+    SKIP=pytest,commitizen-early prek run --all-files --show-diff-on-failure
+
+test:
+    uv run --with pytest --with pytest-xdist pytest scripts/ skills/ -q
 
 skill name:
     @./scripts/new-skill.sh {{name}}

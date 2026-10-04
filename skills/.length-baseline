@@ -15,3 +15,6 @@ dynamodb-cost-audit: 182
 handoff: 230
 repo-audit: 177
 site-launch: 177
+# No CLI, but the same shape: twelve numbered lessons, each ending in its
+# own Check. Moving lessons into references/ splits the list.
+ui-designer: 195
