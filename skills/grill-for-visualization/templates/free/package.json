@@ -1,0 +1,16 @@
+{
+  "name": "visualization",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22.18"
+  },
+  "scripts": {
+    "dev": "vite",
+    "render": "node scripts/render.ts out/visualization.mp4",
+    "still": "node scripts/render.ts --still",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  }
+}

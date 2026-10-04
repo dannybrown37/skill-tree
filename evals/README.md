@@ -5,7 +5,7 @@ does with the playbook.
 
 ```bash
 just eval                                      # pick a suite (fzf), or lists them off a TTY
-just eval ui-designer                          # 2 cases, ~2.5 min, ~$0.55–0.70
+just eval ui-designer                          # 3 cases, ~3 min, ~$0.75–0.90
 just eval debug-ci                             # 3 cases, ~1.5 min, ~$0.60
 just eval repo-audit                           # 5 cases
 just eval handoff                              # 6 fixtures, skill arm only
@@ -20,7 +20,7 @@ just eval ui-designer --ablation with-without  # also run without the plugin, re
 | Suite | Runner | What it checks |
 |---|---|---|
 | `debug-ci` | `claude plugin eval` | diagnose from the CI log, fix, verify locally, no git writes |
-| `ui-designer` | `claude plugin eval` | the skill's design rules, as greppable checks on a built page and a review |
+| `ui-designer` | `claude plugin eval` | the skill's design rules, as greppable checks on a built page, a review of a generic landing page, and a review of a cluttered dashboard table |
 | `repo-audit` | `claude plugin eval` | runs the checker, read-only, report format, catches the seeded gaps |
 | `two-axis-review` | `claude plugin eval` | both axes run as sub-agents, each seeded issue lands on its axis, read-only |
 | `verify` | `claude plugin eval` | runs a check that could fail before answering: dynamic `getattr` use, a fix that misses its own case, a suite failing outside the changed module; plus a negative-trigger case |

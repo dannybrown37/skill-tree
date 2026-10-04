@@ -1,0 +1,69 @@
+schema_version: "1.0"
+name: ui-designer/03-dashboard-review
+description: >-
+  Review-only: a dashboard table seeded with one defect per lesson 9-12
+  idea. Font and token values are ruled out of scope in the prompt so lessons
+  1-3 don't crowd the review. One grader per defect, since a single
+  multi-part rubric over a long review is flaky (see evals/README.md).
+tags: [ui-designer]
+context:
+  scaffold_script: scaffold.sh
+execution:
+  prompt: >-
+    The Employees screen of our admin dashboard feels cluttered and hard to
+    scan. Review the design and tell me what you'd change. Don't edit
+    anything yet. The font and the color token values come from our design
+    system, so leave those alone.
+  max_turns: 10
+  timeout_seconds: 180
+  allowed_tools: [Read, Glob, Grep, Edit, Write, Skill]
+runs: 1
+graders:
+  - type: tool_used
+    name: skill-fired
+    tool: Skill
+    input_match: ui-designer
+  - type: file_exists
+    name: no-new-files
+    path: '**'
+    exists: false
+  - type: regex
+    name: index-html-unchanged
+    target: { source: file, path: index.html }
+    pattern: 'Status: All[\s\S]*<button class="icon-btn">⟳</button>[\s\S]*<td>Inactive</td><td>0</td>[\s\S]*<button>Copy ID</button><button>Remove</button>'
+  - type: regex
+    name: style-css-unchanged
+    target: { source: file, path: style.css }
+    pattern: '\.chip \{\s*background: var\(--accent\);[\s\S]*text-align: left;'
+  - type: llm
+    name: enum-columns-as-chips
+    criteria: >-
+      PASS if the final message says the Department or Status values should
+      be chips, badges, or pills (or otherwise visually distinct) instead of
+      plain text, or that Inactive / On leave rows should be dimmed or
+      visually set apart. Otherwise FAIL.
+  - type: llm
+    name: right-align-numbers
+    criteria: >-
+      PASS if the final message says the numeric "Hours this week" column
+      should be right-aligned (or aligned by decimal / place value, or set in
+      tabular figures). Otherwise FAIL.
+  - type: llm
+    name: default-chips-not-accented
+    criteria: >-
+      PASS if the final message says the filter chips (Department: All,
+      Status: All, Location: All) shouldn't all use the accent color while in
+      their default "All" state, e.g. that accent should mark only an active
+      or non-default filter. Otherwise FAIL.
+  - type: llm
+    name: hide-secondary-row-actions
+    criteria: >-
+      PASS if the final message says the per-row Share / Copy ID / Remove
+      buttons shouldn't all be permanently visible on every row, e.g. reveal
+      them on hover or focus, or move them into a menu or popover. Otherwise
+      FAIL.
+  - type: llm
+    name: label-icon-buttons
+    criteria: >-
+      PASS if the final message says the toolbar's icon-only buttons
+      (⟳ ⤓ ⚙) need accessible names (aria-label) or tooltips. Otherwise FAIL.
