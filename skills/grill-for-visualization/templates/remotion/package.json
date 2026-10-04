@@ -1,0 +1,13 @@
+{
+  "name": "visualization",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "remotion studio src/index.ts",
+    "render": "remotion render src/index.ts Main out/visualization.mp4",
+    "still": "remotion still src/index.ts Main",
+    "test": "vitest run --passWithNoTests",
+    "typecheck": "tsc --noEmit"
+  }
+}
