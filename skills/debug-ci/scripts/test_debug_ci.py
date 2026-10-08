@@ -336,6 +336,22 @@ class TestMain:
         main([])
         assert '111' in capsys.readouterr().out
 
+    def test_other_failing_runs_name_their_workflow(
+        self,
+        gh: dict[str, object],
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        # Two workflows failing on one push share a title; the workflow
+        # is the only thing that tells them apart.
+        runs = json.loads(RUNS_JSON)
+        runs[1] |= {'workflowName': 'lint', 'displayTitle': 'fix: thing'}
+        gh['list'] = json.dumps(runs)
+
+        main([])
+
+        others = capsys.readouterr().out.split('Other failing runs')[1]
+        assert 'lint' in others
+
     def test_no_failing_run_exits_one(
         self,
         gh: dict[str, object],

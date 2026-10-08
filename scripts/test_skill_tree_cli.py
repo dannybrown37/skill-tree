@@ -2,6 +2,7 @@
 
 import json
 import os
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -255,6 +256,7 @@ class TestOverview:
             'install',
             'dev',
             'check',
+            'stats',
             'test',
         ):
             assert command in out
@@ -485,6 +487,44 @@ class TestRealRepo:
         assert result.returncode == 0, result.stderr
         assert 'verify' in result.stdout
 
+    def test_every_command_a_playbook_shows_exists(self) -> None:
+        # `skill-tree hooks` outlived the rename to debug-hooks by weeks:
+        # nothing ran it, so nothing noticed the playbook's only command
+        # had stopped resolving.
+        known = {
+            *cli.BUILTIN_COMMANDS,
+            *cli.DELEGATED,
+            *(s.name for s in cli.find_skills(REPO_ROOT) if s.cli),
+        }
+        shown = {
+            (skill_md.parent.name, match.group(1))
+            for skill_md in (REPO_ROOT / 'skills').glob('*/SKILL.md')
+            for match in re.finditer(
+                r'^\s*skill-tree ([a-z][a-z-]*)',
+                skill_md.read_text(),
+                re.MULTILINE,
+            )
+        }
+
+        assert shown, 'no playbook shows a skill-tree command any more'
+        assert {pair for pair in shown if pair[1] not in known} == set()
+
+    def test_stats_is_delegated_to_its_own_script(self) -> None:
+        result = subprocess.run(
+            [str(WRAPPER), 'stats', '--version'],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.startswith('skill-tree stats ')
+
+    def test_stats_flags_are_completable(self) -> None:
+        _, out, _ = run_cli('__complete', 'stats', '--', root=REPO_ROOT)
+
+        assert {'--days', '--json'} <= set(out.split())
+
 
 class TestVersion:
     def test_reads_the_version_from_the_plugin_manifest(
@@ -576,7 +616,7 @@ class TestComplete:
         candidates = self._candidates(fake_root, '')
 
         assert {'list', 'show', 'doctor', 'test', 'help'} <= set(candidates)
-        assert {'install', 'dev', 'check'} <= set(candidates)
+        assert {'install', 'dev', 'check', 'stats'} <= set(candidates)
         assert 'backlog' in candidates
 
     def test_first_word_offers_skills_without_a_cli(

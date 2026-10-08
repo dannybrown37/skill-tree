@@ -298,7 +298,7 @@ def version() -> str:
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
-        prog='hooks',
+        prog='debug-hooks',
         description='Every hook that would fire in this session, merged '
         'from every Claude and Copilot source on disk.',
     )

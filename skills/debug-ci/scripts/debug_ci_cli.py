@@ -449,7 +449,8 @@ def render(
     if others:
         parts.append('Other failing runs on this branch:\n')
         parts.extend(
-            f'  {other.run_id}  {other.created_at}  {other.title}\n'
+            f'  {other.run_id}  {other.workflow}  {other.created_at}  '
+            f'{other.title}\n'
             for other in others
         )
     return ''.join(parts)

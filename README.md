@@ -108,7 +108,7 @@ Each lives at `skills/<name>/` with its own `SKILL.md`, `scripts/`, and `referen
 skill-tree test   # or: uv run pytest scripts/ skills/ -q
 ```
 
-Pre-commit runs ruff, the test suite, and `scripts/check_skill_structure.py`.
+Pre-commit runs ruff and `scripts/check_skill_structure.py`; the test suite runs at pre-push.
 
 ## License
 

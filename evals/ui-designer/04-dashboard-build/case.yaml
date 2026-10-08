@@ -1,0 +1,52 @@
+schema_version: "1.0"
+name: ui-designer/04-dashboard-build
+description: >-
+  Build a dashboard table from nothing. 03 shows the review half of lessons
+  9-12 needs no skill; this is the build half, where a lesson has to be
+  applied unprompted. Graders are the lessons' own greppable checks: numeric
+  column aligned by place value, row actions revealed on focus as well as
+  hover and simply shown on touch, icon-only buttons named. No JavaScript, so
+  the reveal has to be in the stylesheet a regex can read.
+tags: [ui-designer]
+execution:
+  prompt: >-
+    Build the Employees screen of our admin dashboard. Plain HTML and CSS, no
+    JavaScript and no build step: markup in index.html, all styles in
+    styles.css. Hard-code eight employees with name, department, status
+    (active, on leave, or inactive) and hours this week. Each row has Share,
+    Copy ID and Remove actions. The toolbar has refresh, export and settings
+    as icon-only buttons. You pick the fonts and colors, I trust you.
+  max_turns: 20
+  timeout_seconds: 300
+  allowed_tools: [Read, Glob, Grep, Edit, Write, Skill]
+runs: 1
+graders:
+  - type: tool_used
+    name: skill-fired
+    tool: Skill
+    input_match: ui-designer
+  - type: regex
+    name: numbers-align-by-place-value
+    target: { source: file, path: styles.css }
+    pattern: 'text-align\s*:\s*(right|end)|tabular-nums'
+  - type: regex
+    name: row-actions-revealed-on-focus-too
+    target: { source: file, path: styles.css }
+    pattern: ':focus-within'
+  - type: regex
+    name: row-actions-shown-on-touch
+    target: { source: file, path: styles.css }
+    pattern: '@media[^{]*\(\s*hover\s*:\s*none\s*\)'
+  - type: regex
+    name: icon-buttons-named
+    target: { source: file, path: index.html }
+    pattern: '(aria-label="[^"]+"[\s\S]*){3}'
+  - type: regex
+    name: focus-visible
+    target: { source: file, path: styles.css }
+    pattern: ':focus-visible'
+  - type: regex
+    name: no-outline-none
+    target: { source: file, path: styles.css }
+    pattern: 'outline\s*:\s*(none|0)\b'
+    match: not_contains

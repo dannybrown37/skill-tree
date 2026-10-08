@@ -29,26 +29,29 @@ git write. Same human-in-the-loop boundary most repos hold — this skill invoke
    unauthenticated, or the run isn't readable) — in that case report it and stop, don't try
    to fix auth yourself.
 
-3. **Read what it kept, and mind the elisions.** Every gap is marked
+3. **More than one failing run? Stop and ask.** If the output ends with
+   `Other failing runs on this branch:`, name each run (id and workflow) and ask the user
+   which to address, or whether to take them all. Edit nothing until they answer.
+
+4. **Read what it kept, and mind the elisions.** Every gap is marked
    `... N lines omitted ...`. If the kept region doesn't contain the cause, re-run with a
    larger `--context`/`--max-lines`, or fall back to the raw
-   `gh run view <run-id> --log-failed` rather than guessing. If the CLI reports other
-   failing runs on the branch, ask the user which one matters instead of assuming.
+   `gh run view <run-id> --log-failed` rather than guessing.
 
-4. **Diagnose the root cause** from the log, not from guessing at the diff. If the log
+5. **Diagnose the root cause** from the log, not from guessing at the diff. If the log
    doesn't make the cause obvious, say so and ask rather than fixing the first plausible
    thing.
 
-5. **Fix it following this repo's standing conventions** (see that repo's own CLAUDE.md,
+6. **Fix it following this repo's standing conventions** (see that repo's own CLAUDE.md,
    if any): TDD (test first where the failure is a code bug), discrete reviewable steps,
    invoke the relevant language skill/reference for the code being touched.
 
-6. **Verify locally before reporting done.** Run the same check CI ran (test suite,
+7. **Verify locally before reporting done.** Run the same check CI ran (test suite,
    prek/pre-commit, lint) so "should pass now" is backed by a real local run, not an inference
    from the diff. If the `verify` skill is installed alongside this one, invoke it for the
    claim-by-claim version of this check.
 
-7. **Stop. Show the diff. Do not `git add`/`commit`/`push`.** Report what was wrong, what
+8. **Stop. Show the diff. Do not `git add`/`commit`/`push`.** Report what was wrong, what
    changed, and the command the user ran to reproduce the local pass. Pushing and watching
    the re-run is manual, same as every other change.
 

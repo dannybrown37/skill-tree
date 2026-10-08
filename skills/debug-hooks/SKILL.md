@@ -15,11 +15,11 @@ files and merge them by hand.
 ## Run the checker first
 
 ```bash
-skill-tree hooks                # every hook, both hosts, grouped by event
-skill-tree hooks --claude       # Claude only
-skill-tree hooks --copilot      # Copilot only
-skill-tree hooks --json         # machine-readable
-skill-tree hooks <project-root> # project/local settings from a different repo (default: cwd)
+skill-tree debug-hooks                # every hook, both hosts, grouped by event
+skill-tree debug-hooks --claude       # Claude only
+skill-tree debug-hooks --copilot      # Copilot only
+skill-tree debug-hooks --json         # machine-readable
+skill-tree debug-hooks <project-root> # project/local settings from a different repo (default: cwd)
 ```
 
 Exit is always `0` — this reports what exists, it doesn't grade it. A `WARN:` line at the top

@@ -7,4 +7,4 @@ disable-model-invocation: true
 
 # Bro
 
-Restate the last message plainly and without jargon. Speak coherenly and concisely, like a human speaking to another human.
+Restate the last message plainly and without jargon. Speak coherently and concisely, like a human speaking to another human.

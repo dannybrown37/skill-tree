@@ -20,7 +20,7 @@ back to the default heuristic in step 3 below.
 1. **Mechanical layer first**: run the checker over the target repo.
 
    ```bash
-   "$SKILL_TREE_DIR/skills/skill-audit/scripts/skill-audit" .
+   "${CLAUDE_PLUGIN_ROOT:-${SKILL_TREE_DIR:-$HOME/projects/skill-tree}}/skills/skill-audit/scripts/skill-audit" .
    # or, with the plugin installed:
    skill-tree skill-audit .        # `check` is implied; a bare run checks cwd
    ```
