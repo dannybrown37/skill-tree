@@ -59,6 +59,10 @@ Its scores have no pass bar. It exits 1 only if a run didn't complete.
 - Regex `target: files` matches the list of new paths, not their contents. To grep content,
   pin the filename in the prompt and use `target: { source: file, path: ... }`.
 - `tool_used` defaults to `min: 1`. A "never call this" grader needs `min: 0` and `max: 0`.
+- A grader that can only pass with the plugin installed (it greps the trace for the plugin's
+  own checker output) takes `arm: with-only`. Without it, `--ablation with-without` scores it
+  against the no-plugin arm and reports "the plugin exists" as lift. It changes nothing under
+  the default `--ablation none`.
 - Only `EVAL_*` keys are allowed in `execution.env`, which is why `PATH` comes from the recipe.
 - The sandbox hides all of `evals/` from the agent's Bash, so it can't read graders. Anything
   the agent has to execute or read (the stand-in `gh`, its fixtures) must live elsewhere

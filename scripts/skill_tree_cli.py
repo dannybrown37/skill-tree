@@ -39,6 +39,10 @@ DELEGATED = {
         'scripts/check_skill_structure.py',
         "Validate every skill's frontmatter and bundled scripts",
     ),
+    'stats': (
+        'scripts/skill_stats.py',
+        'How often each skill is invoked (--days N, --json)',
+    ),
 }
 
 

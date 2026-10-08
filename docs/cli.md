@@ -16,8 +16,33 @@ skill-tree doctor             # this checkout, dev-link state, which CLIs are wi
 skill-tree install            # re-run scripts/install.sh
 skill-tree dev --on           # dev mode (see below)
 skill-tree check              # validate every skill's frontmatter and bundled scripts
+skill-tree stats              # how often each skill is invoked (--days N, --json)
 skill-tree test               # the test suite
 ```
+
+## `stats`: is a skill earning its place?
+
+```
+  SKILL            USER  AGENT  LAST
+  handoff            32     17  2026-09-29
+  repo-audit         13      1  2026-10-05
+  verify              0      0  never
+  to-spec             0      -  never
+```
+
+Counted from Claude Code's own session transcripts (`~/.claude/projects`, or
+`$CLAUDE_CONFIG_DIR/projects`), so nothing has to be recording beforehand. `USER` is you
+typing `/skill-tree:<name>`; `AGENT` is the model loading it on its own. An `AGENT` of `-`
+means the skill sets `disable-model-invocation`, so `0` there is a skill the model *could*
+have reached for and never did.
+
+Below the table it lists `Skill` calls that errored — a skill the model asked for and could
+not load. "Not in this repo" means some `CLAUDE.md` still names a skill that was renamed or
+deleted; the projects it happened in are listed so the reference can be found.
+
+Two limits. Claude Code prunes transcripts after about 30 days, so "never" means "not in
+the days still on disk", and a skill added last week has had a week. And Copilot CLI keeps
+no comparable record, so only Claude sessions are counted.
 
 Skills that ship their own CLI are reachable by name, with arguments passed straight through:
 

@@ -13,7 +13,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import hooks_cli
 
-CLI = Path(__file__).resolve().parent / 'hooks'
+CLI = Path(__file__).resolve().parent / 'debug-hooks'
 
 
 @pytest.fixture

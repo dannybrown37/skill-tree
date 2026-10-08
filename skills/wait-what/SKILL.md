@@ -6,5 +6,5 @@ disable-model-invocation: true
 
 Wait, what? I don't understand or disagree with what you just said. Re-pitch it,
 with a little more context, plain ASD-STE100 Simplified Technical English,
-and with any bulleted/numebred lists, tables, or diagrams to help me truly
+and with any bulleted/numbered lists, tables, or diagrams to help me truly
 grok what you're trying to say.

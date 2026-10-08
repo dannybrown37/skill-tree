@@ -22,6 +22,8 @@ graders:
     input_match: site-launch
   - type: regex
     name: checker-ran
+    # The plugin ships this checker, so the no-plugin arm can never pass.
+    arm: with-only
     target: trace
     pattern: '(FAIL|PASS|MANUAL|N/A)\\n  \d+\. [A-Z]|\d+ checked, \d+ flagged'
   - type: tool_used

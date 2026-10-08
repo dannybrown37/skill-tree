@@ -24,6 +24,8 @@ graders:
     input_match: cli-ergonomics
   - type: regex
     name: linter-ran
+    # The plugin ships this checker, so the no-plugin arm can never pass.
+    arm: with-only
     target: trace
     pattern: '\[(FAIL|PASS)\] (version|no-args-help|tty-guard)|\d+ entrypoint\(s\), \d+ with violations|\d+ checked, \d+ flagged'
   - type: tool_used
