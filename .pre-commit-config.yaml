@@ -5,7 +5,7 @@ repos:
   # These live in git-a-grip so every repo shares one copy. Releasing is no
   # longer a hook: run `git-release` (aliased to gp) to bump, tag and push.
   - repo: https://github.com/dannybrown37/git-a-grip
-    rev: v0.15.1
+    rev: v0.16.1
     hooks:
       - id: commitizen-early
         fail_fast: true
@@ -23,13 +23,13 @@ repos:
         files: ^(skills/.*/SKILL\.md|README\.md)$
 
   - repo: https://github.com/commitizen-tools/commitizen
-    rev: v4.17.0
+    rev: v4.19.0
     hooks:
       - id: commitizen
         stages: [commit-msg]
 
   - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v4.6.0
+    rev: v6.0.0
     hooks:
       - id: end-of-file-fixer
       - id: check-executables-have-shebangs
@@ -43,13 +43,13 @@ repos:
       - id: gitleaks
 
   - repo: https://github.com/scop/pre-commit-shfmt
-    rev: v3.8.0-1
+    rev: v3.14.1-1
     hooks:
       - id: shfmt
         args: ["-i", "4"]
 
   - repo: https://github.com/shellcheck-py/shellcheck-py
-    rev: v0.10.0.1
+    rev: v0.11.0.1
     hooks:
       - id: shellcheck
 
