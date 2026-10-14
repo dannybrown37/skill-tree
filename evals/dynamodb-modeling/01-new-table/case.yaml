@@ -1,0 +1,42 @@
+schema_version: "1.0"
+name: dynamodb-modeling/01-new-table
+description: >-
+  A new table for a Dynamo-backed service, asked as "what should my keys
+  be". The skill should fire (not the migrations one: nothing is live yet),
+  start from an access-pattern table, use generic PK/SK with decorated
+  values, and serve the by-guild lookup from a GSI rather than a Scan.
+tags: [dynamodb-modeling]
+execution:
+  prompt: >-
+    I'm adding a DynamoDB table to our game backend for users, guilds, and
+    inventory items. We need to get a user by id, list a user's inventory,
+    and list the members of a guild. What should my partition and sort keys
+    be?
+  max_turns: 12
+  timeout_seconds: 300
+  allowed_tools: [Read, Glob, Grep, Edit, Write, Skill]
+runs: 1
+graders:
+  - type: tool_used
+    name: skill-fired
+    tool: Skill
+    input_match: dynamodb-modeling
+  - type: tool_used
+    name: migrations-not-fired
+    tool: Skill
+    input_match: dynamodb-migrations
+    min: 0
+    max: 0
+  - type: regex
+    name: access-pattern-table
+    target: last_message
+    pattern: '\|[^\n]*\b(Query|GetItem)\b[^\n]*\|'
+  - type: llm
+    name: key-design
+    criteria: >-
+      Pass only if the final message (1) lists the three access patterns
+      with the operation that serves each, (2) uses generic key attribute
+      names such as PK and SK with type-prefixed values (e.g. USER#123,
+      ITEM#...), (3) puts a user's inventory in the user's item collection
+      so one Query returns it, and (4) serves "members of a guild" with a
+      Query on a GSI or a guild item collection, not a Scan.

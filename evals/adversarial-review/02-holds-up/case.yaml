@@ -1,0 +1,36 @@
+schema_version: "1.0"
+name: adversarial-review/02-holds-up
+description: >-
+  Control: the same branch with a correct batched(). The skill says an empty
+  findings list is a valid result and not to manufacture an angle. Catches a
+  review that pads its report with speculation or style remarks.
+tags: [adversarial-review]
+context:
+  scaffold_script: scaffold.sh
+execution:
+  prompt: /skill-tree:adversarial-review
+  max_turns: 30
+  timeout_seconds: 480
+  allowed_tools: [Read, Glob, Grep, Bash, Edit, Write, Skill]
+runs: 1
+graders:
+  - type: tool_used
+    name: ran-a-reproduction
+    tool: Bash
+    input_match: 'python3?\b'
+  - type: tool_used
+    name: source-untouched
+    tool: Edit
+    input_match: '/(batching|send)\.py'
+    min: 0
+    max: 0
+  - type: llm
+    name: no-invented-findings
+    criteria: >-
+      The branch's batched() is correct. Pass only if the final message
+      (1) does not claim that batches or records are dropped or lost,
+      (2) reports no style, naming, docstring, or type-hint findings, and
+      (3) every finding it does report (zero is fine and expected) comes
+      with a concrete input and the actual output or exception it observed
+      when it ran it. Fail on any finding stated as "could", "might", or
+      "may" without an observed run.

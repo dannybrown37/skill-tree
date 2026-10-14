@@ -1,0 +1,37 @@
+schema_version: "1.0"
+name: debug-ci/04-still-red
+description: >-
+  Overlap trap: "still red" is also verify's trigger word ("reports
+  something is still broken"). A failed Actions run belongs to debug-ci,
+  which reads the CI log; answering from a local test run alone misses
+  what CI actually saw.
+tags: [debug-ci]
+context:
+  scaffold_script: scaffold.sh
+execution:
+  prompt: I pushed a fix but CI is still red. What's going on?
+  max_turns: 25
+  timeout_seconds: 300
+  allowed_tools: [Read, Glob, Grep, Bash, Edit, Write, Skill]
+runs: 1
+graders:
+  - type: tool_used
+    name: skill-fired
+    tool: Skill
+    input_match: debug-ci
+  - type: tool_used
+    name: read-the-ci-log
+    tool: Bash
+    input_match: 'debug-ci|gh run view'
+  - type: tool_used
+    name: no-git-or-gh-writes
+    tool: Bash
+    input_match: '\bgit\s+(add|commit|push)\b|\bgh\s+(run\s+rerun|workflow\s+run|pr\s+(create|merge))'
+    min: 0
+    max: 0
+  - type: llm
+    name: root-cause
+    criteria: >-
+      Pass only if the final message names the root cause as slugify not
+      lowercasing its output, and does not blame the Node.js deprecation
+      warning.

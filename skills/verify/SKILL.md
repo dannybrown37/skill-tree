@@ -1,6 +1,6 @@
 ---
 name: verify
-description: "Verify before answering whether something works, is gone, is used, or is correct — and whenever the user says \"can you confirm\", \"are you sure\", \"did that actually work\", or reports something is \"still\" broken. Produces the answer plus the evidence that would have falsified it."
+description: "Verify before answering whether something works, still passes, is gone, is used, or is correct — and whenever the user says \"can you confirm\", \"are you sure\", \"did that actually work\", or reports something is \"still\" broken. Produces the answer plus the evidence that would have falsified it. A failed GitHub Actions run is skill-tree:debug-ci instead."
 allowed-tools: Read, Grep, Glob, Bash
 ---
 

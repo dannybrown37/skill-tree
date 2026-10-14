@@ -1,0 +1,37 @@
+schema_version: "1.0"
+name: domain-modeling/01-term-conflict
+description: >-
+  The user wants "cancellation" to also mean removing one line item. The
+  glossary and cancel_order() both say a Cancellation is a whole Order.
+  The skill should call out the conflict against both and push for a
+  distinct term, not quietly redefine Cancellation.
+tags: [domain-modeling]
+context:
+  scaffold_script: scaffold.sh
+execution:
+  prompt: >-
+    /skill-tree:domain-modeling Customers should be able to cancel just one
+    line item from an order before it ships. That's a cancellation too, right?
+  max_turns: 15
+  timeout_seconds: 300
+  allowed_tools: [Read, Glob, Grep, Bash, Edit, Write, Skill]
+runs: 1
+graders:
+  - type: regex
+    name: glossary-not-redefined
+    target: { source: file, path: CONTEXT.md }
+    pattern: 'Withdrawing an entire Order before it ships'
+  - type: regex
+    name: no-adr
+    target: files
+    pattern: 'adr/'
+    match: not_contains
+  - type: llm
+    name: challenges-the-term
+    criteria: >-
+      Pass only if the final message (1) points out that CONTEXT.md defines
+      a Cancellation as withdrawing the entire Order, so a single line item
+      does not fit it, (2) notes that the code (cancel_order in
+      shop/orders.py) also voids every line item, and (3) proposes a
+      separate, precise term for removing one line item (or asks the user
+      to choose one) instead of agreeing that it is a cancellation.

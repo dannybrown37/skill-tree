@@ -88,9 +88,11 @@ When the work is complete (one ticket in default mode, the frontier in autonomou
 1. **Run the full test suite.** Fix anything that broke.
 2. **Run the typechecker.** Clean.
 3. **Run `pre-commit`** (or `prek`) if the project has it. Fix what it reports.
-4. **Invoke [[verify]]** on each done-claim. Run the thing, not just its tests — every claim
-   in the summary ships with the check that could have refuted it and its output.
-5. **Invoke [[two-axis-review]]** on the diff. Fix anything it finds before presenting to the user.
+4. **Invoke [[verify]]** (`skill-tree:verify`) on each done-claim; step 1's green suite is not
+   this step. Run the thing, not just its tests — every claim in the summary ships with the
+   check that could have refuted it and its output.
+5. **Invoke [[two-axis-review]]** (`skill-tree:two-axis-review`) on the diff. Fix anything it
+   finds before presenting to the user.
 6. **Present the work.** Summary of what changed, the proof from step 4, the verification
    commands, and any open questions. Don't commit — the user does that.
 

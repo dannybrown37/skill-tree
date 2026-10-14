@@ -37,6 +37,10 @@ SKIP_DIRS = frozenset(
     },
 )
 
+# Starter projects a skill or generator copies out, and test fixtures:
+# their manifests describe someone else's repo, not this one.
+SCAFFOLD_DIRS = frozenset({'templates', 'fixtures'})
+
 PYTHON_MARKERS = (
     'pyproject.toml',
     'setup.py',
@@ -51,15 +55,20 @@ SHELL_HOOKS = ('shellcheck', 'shfmt')
 
 GITIGNORE_SECRET_PATTERNS = ('.env', '*.pem', 'credentials')
 
-ESLINT_CONFIGS = (
+NODE_LINT_CONFIGS = (
     'eslint.config.js',
     'eslint.config.mjs',
     'eslint.config.cjs',
+    'eslint.config.ts',
+    'eslint.config.mts',
+    'eslint.config.cts',
     '.eslintrc.json',
     '.eslintrc.js',
     '.eslintrc.cjs',
     '.eslintrc.yaml',
     '.eslintrc.yml',
+    'biome.json',
+    'biome.jsonc',
 )
 
 NODE_LOCKFILES = ('package-lock.json', 'yarn.lock', 'pnpm-lock.yaml')
@@ -179,6 +188,13 @@ def walk_files(root: Path) -> Iterable[Path]:
             yield path
 
 
+def source_files(root: Path) -> Iterable[Path]:
+    """`walk_files`, minus scaffolds that belong to some other project."""
+    for path in walk_files(root):
+        if not SCAFFOLD_DIRS.intersection(path.relative_to(root).parts[:-1]):
+            yield path
+
+
 def detect_stack(root: Path) -> Stack:
     """What to hold this repo to, inferred from manifests and sources.
 
@@ -186,7 +202,7 @@ def detect_stack(root: Path) -> Stack:
     with a mypy.ini and no pyproject.toml is still Python, and keying
     only on manifests made every language check silently n/a for it.
     """
-    suffixes = {path.suffix for path in walk_files(root)}
+    suffixes = {path.suffix for path in source_files(root)}
 
     python = any(
         (root / marker).is_file() for marker in PYTHON_MARKERS
@@ -210,9 +226,9 @@ def _read(path: Path) -> str:
         return ''
 
 
-def _pyproject(root: Path) -> dict[str, object]:
+def _pyproject(directory: Path) -> dict[str, object]:
     """Parsed pyproject, or empty if absent or malformed."""
-    path = root / 'pyproject.toml'
+    path = directory / 'pyproject.toml'
     try:
         return tomllib.loads(path.read_text(encoding='utf-8'))
     except (OSError, UnicodeDecodeError, tomllib.TOMLDecodeError):
@@ -263,6 +279,159 @@ def check_precommit(root: Path, stack: Stack) -> CheckResult:
     )
 
 
+def python_projects(root: Path) -> list[Path]:
+    """Directories that own Python sources: each file's nearest manifest.
+
+    A monorepo's `api/` and `scraper/` each carry their own pyproject, and
+    holding only the root to a mypy config failed every such layout.
+    Sources with no manifest above them belong to the root.
+    """
+    files = list(source_files(root))
+    manifests = {path.parent for path in files if path.name in PYTHON_MARKERS}
+    owners = {
+        _nearest(path.parent, manifests, root)
+        for path in files
+        if path.suffix in PYTHON_SUFFIXES
+    }
+    return sorted(owners) or [root]
+
+
+def _nearest(start: Path, candidates: set[Path], root: Path) -> Path:
+    for directory in (start, *start.parents):
+        if directory in candidates or directory == root:
+            return directory
+    return root
+
+
+def _uncovered(
+    root: Path,
+    projects: Iterable[Path],
+    configured: Callable[[Path], bool],
+) -> list[str]:
+    """Projects with no config in their own directory or any above it."""
+    missing: list[str] = []
+    for project in projects:
+        chain = [project, *project.parents]
+        chain = chain[: chain.index(root) + 1] if root in chain else [project]
+        if not any(configured(directory) for directory in chain):
+            missing.append(str(project.relative_to(root)))
+    return missing
+
+
+def _has_mypy_config(directory: Path) -> bool:
+    return (
+        (directory / 'mypy.ini').is_file()
+        or (directory / '.mypy.ini').is_file()
+        or 'mypy' in _pyproject(directory).get('tool', {})  # type: ignore[operator]
+        or '[mypy]' in _read(directory / 'setup.cfg')
+    )
+
+
+def _has_ruff_config(directory: Path) -> bool:
+    return (
+        (directory / '.ruff.toml').is_file()
+        or (directory / 'ruff.toml').is_file()
+        or 'ruff' in _pyproject(directory).get('tool', {})  # type: ignore[operator]
+    )
+
+
+def _where(missing: list[str]) -> str:
+    """` in api, scraper` -- or nothing when only the root is missing it."""
+    if missing == ['.']:
+        return ''
+    return f' in {", ".join(missing[:MAX_LISTED])}'
+
+
+def strip_jsonc(text: str) -> str:
+    """tsconfig is JSONC: drop comments and trailing commas, not strings."""
+    out: list[str] = []
+    index = 0
+    in_string = False
+    while index < len(text):
+        char = text[index]
+        pair = text[index : index + 2]
+        if in_string:
+            out.append(char)
+            if char == '\\':
+                out.append(text[index + 1 : index + 2])
+                index += 1
+            elif char == '"':
+                in_string = False
+        elif char == '"':
+            in_string = True
+            out.append(char)
+        elif pair == '//':
+            newline = text.find('\n', index)
+            index = len(text) if newline == -1 else newline
+            continue
+        elif pair == '/*':
+            end = text.find('*/', index + 2)
+            index = len(text) if end == -1 else end + 2
+            continue
+        else:
+            out.append(char)
+        index += 1
+    return TRAILING_COMMA_RE.sub(r'\1', ''.join(out))
+
+
+TRAILING_COMMA_RE = re.compile(r',(\s*[}\]])')
+
+
+def _resolve_extends(spec: str, base: Path, root: Path) -> Path | None:
+    """The file a tsconfig `extends` entry names, if it is on disk."""
+    if spec.startswith(('.', '/')):
+        roots = [base / spec]
+    else:
+        roots = [
+            directory / 'node_modules' / spec
+            for directory in (base, *base.parents)
+            if directory == root or root in directory.parents
+        ]
+    for candidate in roots:
+        for path in (
+            candidate,
+            candidate.with_name(candidate.name + '.json'),
+            candidate / 'tsconfig.json',
+        ):
+            if path.is_file():
+                return path
+    return None
+
+
+def tsconfig_strict(path: Path, root: Path, seen: set[Path]) -> bool | None:
+    """Effective `strict`, following `extends`; None when nothing sets it.
+
+    An unresolvable package preset (node_modules not installed) counts as
+    strict when its name says so -- `astro/tsconfigs/strict` is the common
+    case, and reporting it as non-strict is what the checker got wrong.
+    Raises ValueError if `path` itself is not parseable.
+    """
+    seen.add(path.resolve())
+    config = json.loads(strip_jsonc(_read(path)))
+    options = config.get('compilerOptions') or {}
+    if isinstance(options.get('strict'), bool):
+        return bool(options['strict'])
+
+    extends = config.get('extends') or []
+    specs = [extends] if isinstance(extends, str) else list(extends)
+    # Later entries override earlier ones, so the last one that decides wins.
+    for spec in reversed([spec for spec in specs if isinstance(spec, str)]):
+        parent = _resolve_extends(spec, path.parent, root)
+        if parent is None:
+            if 'strict' in spec.rsplit('/', 1)[-1].lower():
+                return True
+            continue
+        if parent.resolve() in seen:
+            continue
+        try:
+            inherited = tsconfig_strict(parent, root, seen)
+        except (ValueError, AttributeError):
+            continue
+        if inherited is not None:
+            return inherited
+    return None
+
+
 def check_typecheck_config(root: Path, stack: Stack) -> CheckResult:
     """Section 2 -- a type checker is configured, and strictly."""
     if not (stack.python or stack.typescript):
@@ -276,26 +445,24 @@ def check_typecheck_config(root: Path, stack: Stack) -> CheckResult:
     problems: list[str] = []
 
     if stack.python:
-        configured = (
-            (root / 'mypy.ini').is_file()
-            or (root / '.mypy.ini').is_file()
-            or 'mypy' in _pyproject(root).get('tool', {})  # type: ignore[operator]
-            or '[mypy]' in _read(root / 'setup.cfg')
-        )
-        if not configured:
+        missing = _uncovered(root, python_projects(root), _has_mypy_config)
+        if missing:
             problems.append(
-                'no mypy config (mypy.ini, [tool.mypy], or setup.cfg)',
+                'no mypy config (mypy.ini, [tool.mypy], or setup.cfg)'
+                + _where(missing),
             )
 
     if stack.typescript:
         try:
-            tsconfig = json.loads(_read(root / 'tsconfig.json'))
-            strict = bool(tsconfig.get('compilerOptions', {}).get('strict'))
+            strict = tsconfig_strict(root / 'tsconfig.json', root, set())
         except (ValueError, AttributeError):
             problems.append('tsconfig.json is not parseable JSON')
         else:
             if not strict:
-                problems.append('tsconfig.json does not set strict: true')
+                problems.append(
+                    'tsconfig.json does not set strict: true '
+                    '(directly or through extends)',
+                )
 
     if problems:
         return CheckResult(
@@ -326,17 +493,17 @@ def check_lint_config(root: Path, stack: Stack) -> CheckResult:
 
     problems: list[str] = []
 
-    if stack.python and not (
-        (root / '.ruff.toml').is_file()
-        or (root / 'ruff.toml').is_file()
-        or 'ruff' in _pyproject(root).get('tool', {})  # type: ignore[operator]
-    ):
-        problems.append('no ruff config (.ruff.toml or [tool.ruff])')
+    if stack.python:
+        missing = _uncovered(root, python_projects(root), _has_ruff_config)
+        if missing:
+            problems.append(
+                'no ruff config (.ruff.toml or [tool.ruff])' + _where(missing),
+            )
 
     if stack.node and not any(
-        (root / name).is_file() for name in ESLINT_CONFIGS
+        (root / name).is_file() for name in NODE_LINT_CONFIGS
     ):
-        problems.append('no eslint config')
+        problems.append('no eslint or biome config')
 
     if problems:
         return CheckResult(
@@ -565,6 +732,35 @@ def _has_logic(path: Path) -> bool:
     return bool(LOGIC_RE.search(_read(path)))
 
 
+def gitignored(root: Path, paths: Iterable[Path]) -> set[Path]:
+    """The subset git ignores; empty outside a repo or without git.
+
+    Generated files (`.astro/content.d.ts`, coverage reports) are ignored
+    for a reason, and listing them as untested logic was noise.
+    """
+    candidates = list(paths)
+    if not candidates or not (root / '.git').exists():
+        return set()
+    try:
+        completed = subprocess.run(
+            ['git', 'check-ignore', '-z', '--stdin'],
+            cwd=root,
+            input='\0'.join(
+                str(path.relative_to(root)) for path in candidates
+            ),
+            capture_output=True,
+            text=True,
+            timeout=PROBE_TIMEOUT_SECONDS,
+            check=False,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return set()
+    # 1 means "none ignored"; anything else but 0 is git failing.
+    if completed.returncode != 0:
+        return set()
+    return {root / rel for rel in completed.stdout.split('\0') if rel}
+
+
 def untested_modules(root: Path) -> list[str]:
     """Logic modules with no test file anywhere naming them."""
     test_files = [
@@ -580,15 +776,22 @@ def untested_modules(root: Path) -> list[str]:
     # from `test_repo_audit.py`. A test that imports the module counts.
     imported = '\n'.join(_read(path) for path in test_files)
 
-    return sorted(
-        str(path.relative_to(root))
-        for path in walk_files(root)
+    candidates = [
+        path
+        for path in source_files(root)
         if path.suffix in LOGIC_SUFFIXES
+        and not path.name.endswith('.d.ts')
         and not _looks_like_a_test(path)
         and path.name not in EXEMPT_MODULES
         and _has_logic(path)
         and path.stem not in stems
         and path.stem not in imported
+    ]
+    ignored = gitignored(root, candidates)
+    return sorted(
+        str(path.relative_to(root))
+        for path in candidates
+        if path not in ignored
     )
 
 
@@ -833,8 +1036,41 @@ def _zizmor_wired(root: Path, workflows: Iterable[Path]) -> bool:
     return any('zizmor' in _read(workflow) for workflow in workflows)
 
 
+USES_RE = re.compile(r'^\s*(?:-\s*)?uses:\s*(\S[^\n]*)$', re.MULTILINE)
+REMOTE_USES_RE = re.compile(r'^[\w.-]+/[\w.-]+(?:/[^@\s]+)?@[^@\s]+$')
+
+
+def broken_uses(root: Path, workflows: Iterable[Path]) -> list[str]:
+    """`uses:` refs GitHub can't resolve, as `<workflow>: <ref>`.
+
+    A local ref must start with `./` and point at a file (or an action
+    directory). Anything else needs `owner/repo[/path]@ref`. zizmor run
+    offline let `uses: $/.github/workflows/x.yml` through, so this is
+    checked here, without the network.
+    """
+    broken: list[str] = []
+    for workflow in workflows:
+        for match in USES_RE.finditer(_read(workflow)):
+            ref = (
+                re.split(r'\s+#', match[1], maxsplit=1)[0].strip().strip('\'"')
+            )
+            if ref.startswith('docker://') or REMOTE_USES_RE.match(ref):
+                continue
+            target = root / ref
+            if ref.startswith('./') and (
+                target.is_file()
+                or any(
+                    (target / name).is_file()
+                    for name in ('action.yml', 'action.yaml')
+                )
+            ):
+                continue
+            broken.append(f'{workflow.name}: {ref}')
+    return broken
+
+
 def check_workflows(root: Path, *, run: bool) -> CheckResult:
-    """Section 11 -- GitHub Actions workflows get scanned by zizmor."""
+    """Section 11 -- workflow refs resolve, and zizmor scans them."""
     workflows = _workflow_files(root)
     if not workflows:
         return CheckResult(
@@ -844,6 +1080,28 @@ def check_workflows(root: Path, *, run: bool) -> CheckResult:
             'no .github/workflows -- nothing for zizmor to scan.',
         )
 
+    broken = broken_uses(root, workflows)
+    if broken:
+        return CheckResult(
+            11,
+            'GitHub Actions static analysis',
+            Status.FAIL,
+            f'{len(broken)} `uses:` ref(s) that cannot resolve: '
+            f'{"; ".join(broken[:MAX_LISTED])}. A local ref starts with '
+            f'`./` and names a file in this repo; a remote one is '
+            f'`owner/repo[/path]@ref`.',
+        )
+
+    return _zizmor_result(root, workflows, run=run)
+
+
+def _zizmor_result(
+    root: Path,
+    workflows: list[Path],
+    *,
+    run: bool,
+) -> CheckResult:
+    """Section 11's zizmor half, once every `uses:` ref resolves."""
     printable = ' '.join(ZIZMOR_COMMAND)
 
     if not run:

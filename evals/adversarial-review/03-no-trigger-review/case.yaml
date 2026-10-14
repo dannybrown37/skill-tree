@@ -1,0 +1,28 @@
+schema_version: "1.0"
+name: adversarial-review/03-no-trigger-review
+description: >-
+  Negative trigger: an ordinary "review my branch" request. The skill is
+  manual-only (expensive by design) and must not fire on its own; this
+  guards against disable-model-invocation being dropped.
+tags: [adversarial-review]
+context:
+  scaffold_script: scaffold.sh
+execution:
+  prompt: Can you take a quick look at my branch's changes and tell me if anything looks off?
+  max_turns: 15
+  timeout_seconds: 240
+  allowed_tools: [Read, Glob, Grep, Bash, Edit, Write, Skill]
+runs: 1
+graders:
+  - type: tool_used
+    name: skill-not-fired
+    tool: Skill
+    input_match: adversarial-review
+    min: 0
+    max: 0
+  - type: tool_used
+    name: source-untouched
+    tool: Edit
+    input_match: '/(batching|send)\.py'
+    min: 0
+    max: 0

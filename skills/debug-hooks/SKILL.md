@@ -1,6 +1,6 @@
 ---
 name: debug-hooks
-description: "Invoke to list or debug hooks — \"what hooks do I have\", \"is my hook firing\", \"why did that run twice\". Merges every hook source (settings, plugins, Copilot) into one list."
+description: "Invoke to list or debug Claude Code or Copilot CLI hooks — \"what hooks do I have\", \"is my hook firing\", \"why did that run twice\". Merges every hook source (settings, plugins, Copilot) into one list. Not for git or pre-commit hooks."
 user-invocable: true
 allowed-tools: Read, Grep, Glob, Bash
 ---

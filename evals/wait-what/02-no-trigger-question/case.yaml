@@ -1,0 +1,24 @@
+schema_version: "1.0"
+name: wait-what/02-no-trigger-question
+description: >-
+  Negative trigger: "wait, what" as ordinary surprise in a factual question.
+  The skill is manual-only and must not fire; the question gets answered.
+tags: [wait-what]
+context:
+  scaffold_script: scaffold.sh
+execution:
+  prompt: Wait, what port does the dev server in this repo listen on?
+  max_turns: 6
+  timeout_seconds: 120
+  allowed_tools: [Read, Glob, Grep, Edit, Write, Skill]
+runs: 1
+graders:
+  - type: tool_used
+    name: skill-not-fired
+    tool: Skill
+    input_match: wait-what
+    min: 0
+    max: 0
+  - type: llm
+    name: answers
+    criteria: Pass only if the final message says the dev server listens on port 4173.

@@ -1,0 +1,50 @@
+schema_version: "1.0"
+name: wait-what/01-repitch-plan
+description: >-
+  A dense migration plan passed as the argument (an eval has no earlier
+  assistant turn). The re-pitch adds context, uses short simple sentences
+  (ASD-STE100 style), and structures the steps as a list, table, or
+  diagram, keeping every step and its order.
+tags: [wait-what]
+execution:
+  prompt: >-
+    /skill-tree:wait-what Plan: dual-write the new tier attribute behind a
+    flag, then a rate-limited parallel Scan with conditional UpdateItems as
+    the backfill, stream-filtered so the indexer Lambda ignores
+    migration-stamped writes, and only after the backfill drains do we add
+    GSI2 and flip reads.
+  max_turns: 4
+  timeout_seconds: 120
+  allowed_tools: [Read, Glob, Grep, Edit, Write, Skill]
+runs: 1
+graders:
+  - type: regex
+    name: structured
+    target: last_message
+    pattern: '^\s*(\d+[.)]|[-*])\s+\S|^\s*\|.*\|\s*$|```mermaid'
+    flags: m
+  - type: llm
+    name: keeps-the-order
+    criteria: >-
+      Pass only if the final message keeps this order: (1) the application
+      starts writing the new attribute (behind a flag) first, (2) existing
+      items are filled in by a throttled pass over the table, with the
+      stream consumer (the indexer Lambda) set to ignore those migration
+      writes, (3) only after that pass finishes is the new index added and
+      reads switched to it. Setting up the stream filter before or during
+      the backfill are both fine. Fail if it says there is no earlier
+      message to re-pitch.
+  - type: llm
+    name: explains-why
+    criteria: >-
+      Pass only if the final message explains why the order matters, for
+      example: writing the attribute first stops the set of items needing
+      the backfill from growing, or adding the index last means it is
+      complete when reads switch to it.
+  - type: llm
+    name: jargon-explained
+    criteria: >-
+      Pass only if each of these terms that the final message uses is
+      explained in plain words at least once: GSI (or index), Scan,
+      stream filter (or event filtering). A term it never uses needs no
+      explanation.

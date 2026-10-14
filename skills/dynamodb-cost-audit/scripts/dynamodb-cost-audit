@@ -7,13 +7,18 @@
 # prefer `uv` when it's there and fall back to a bare python3 otherwise.
 # JSON templates and .tf sources are stdlib-only either way, and the
 # Python says so plainly if a YAML file needs what isn't installed.
+#
+# uv is probed before it's trusted: offline (a sandbox, a plane) it can't
+# fetch PyYAML and fails before the CLI starts, which used to take the
+# stdlib-only inputs down with it.
 set -euo pipefail
 
 _here="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 _cli="${_here}/dynamodb_cost_audit_cli.py"
+_uv=(uv run --no-project --quiet --with pyyaml python)
 
-if command -v uv >/dev/null 2>&1; then
-	exec uv run --no-project --quiet --with pyyaml python "${_cli}" "$@"
+if command -v uv >/dev/null 2>&1 && "${_uv[@]}" -c 'import yaml' >/dev/null 2>&1; then
+	exec "${_uv[@]}" "${_cli}" "$@"
 fi
 
 exec python3 "${_cli}" "$@"

@@ -1,0 +1,59 @@
+schema_version: "1.0"
+name: implement/01-one-ticket
+description: >-
+  Two tickets, 02 blocked by 01. Human-in-the-loop default: build 01 test
+  first, see it fail, make it pass, run the suite, verify and review, then
+  stop and present, without starting 02 or committing.
+tags: [implement]
+context:
+  scaffold_script: scaffold.sh
+execution:
+  prompt: /skill-tree:implement docs/tickets/01-word-count.md
+  max_turns: 45
+  timeout_seconds: 720
+  allowed_tools: [Read, Glob, Grep, Bash, Edit, Write, Skill, Agent]
+runs: 1
+graders:
+  - type: regex
+    name: test-written
+    target: { source: file, path: test_textstats.py }
+    pattern: "word_count\\([^)]*well-known"
+  - type: regex
+    name: implemented
+    target: { source: file, path: textstats.py }
+    pattern: 'def word_count\(\s*text:\s*str\s*\)\s*->\s*int'
+  - type: regex
+    name: ticket-02-not-started
+    target: { source: file, path: textstats.py }
+    pattern: 'def top_words'
+    match: not_contains
+  - type: regex
+    name: saw-red-first
+    target: trace
+    pattern: "cannot import name 'word_count'|has no attribute 'word_count'|FAILED \\("
+  - type: tool_used
+    name: ran-tests
+    tool: Bash
+    input_match: 'unittest|pytest'
+  - type: tool_used
+    name: invoked-verify
+    tool: Skill
+    input_match: verify
+  - type: tool_used
+    name: invoked-two-axis-review
+    tool: Skill
+    input_match: two-axis-review
+  - type: tool_used
+    name: no-git-writes
+    tool: Bash
+    input_match: '\bgit\s+(add|commit|push|stash)\b'
+    min: 0
+    max: 0
+  - type: llm
+    name: presents-and-stops
+    criteria: >-
+      Pass only if the final message (1) says word_count was built, (2)
+      shows proof it works from a run (test output or counts), (3) gives the
+      command to run the tests, and (4) stops for feedback before ticket 02
+      rather than saying 02 was started or done. Fail if it says the work
+      was committed.

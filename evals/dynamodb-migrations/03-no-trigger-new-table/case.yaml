@@ -1,0 +1,33 @@
+schema_version: "1.0"
+name: dynamodb-migrations/03-no-trigger-new-table
+description: >-
+  Negative trigger: "do I need a GSI" for a table that doesn't exist yet is
+  modeling, not migration. Catches the migrations description ("add a
+  GSI") swallowing design questions.
+tags: [dynamodb-migrations]
+execution:
+  prompt: >-
+    I'm designing a brand-new DynamoDB table for support tickets. Agents
+    need to see all open tickets assigned to them. Do I need a GSI for that,
+    or can the base table do it?
+  max_turns: 10
+  timeout_seconds: 240
+  allowed_tools: [Read, Glob, Grep, Edit, Write, Skill]
+runs: 1
+graders:
+  - type: tool_used
+    name: migrations-not-fired
+    tool: Skill
+    input_match: dynamodb-migrations
+    min: 0
+    max: 0
+  - type: tool_used
+    name: modeling-fired
+    tool: Skill
+    input_match: dynamodb-modeling
+  - type: llm
+    name: answers
+    criteria: >-
+      Pass only if the final message recommends a GSI keyed on the assigned
+      agent (optionally with status in the key, or a sparse index holding
+      only open tickets), rather than a Scan with a filter.

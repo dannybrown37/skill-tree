@@ -1,0 +1,28 @@
+schema_version: "1.0"
+name: dynamodb-migrations/02-ttl-drift
+description: >-
+  "Backfill or let it drift?" on short-lived data. Every item has a 14-day
+  TTL, so the old shape ages out and the right call is no backfill, just
+  read-compatibility for the window. A reflexive "always backfill" fails.
+tags: [dynamodb-migrations]
+execution:
+  prompt: >-
+    We're adding a "channel" attribute to the session items in our live
+    DynamoDB table. Every session item has a 14-day TTL. Do we need to
+    backfill the existing items, or can we let it drift?
+  max_turns: 10
+  timeout_seconds: 240
+  allowed_tools: [Read, Glob, Grep, Edit, Write, Skill]
+runs: 1
+graders:
+  - type: tool_used
+    name: skill-fired
+    tool: Skill
+    input_match: dynamodb-migrations
+  - type: llm
+    name: let-it-drift
+    criteria: >-
+      Pass only if the final message recommends not backfilling because the
+      14-day TTL ages the old items out, AND says the application must
+      tolerate items without "channel" (read both shapes) for those 14
+      days. Fail if it recommends a full backfill as the default.

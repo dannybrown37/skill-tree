@@ -1,5 +1,6 @@
 """The wrapper is a real executable the dispatcher can find and run."""
 
+import os
 import subprocess
 from pathlib import Path
 
@@ -38,6 +39,7 @@ Resources:
 def run(
     *args: str,
     cwd: Path | None = None,
+    env: dict[str, str] | None = None,
 ) -> subprocess.CompletedProcess[str]:
     return subprocess.run(
         [str(WRAPPER), *args],
@@ -45,6 +47,7 @@ def run(
         text=True,
         check=False,
         cwd=cwd,
+        env=env,
     )
 
 
@@ -83,3 +86,27 @@ def test_yaml_templates_work_through_the_wrapper(tmp_path: Path) -> None:
 
     assert result.returncode == EXIT_FINDINGS
     assert 'Orders' in result.stdout
+
+
+def test_uv_that_cannot_fetch_pyyaml_falls_back_to_python3(
+    tmp_path: Path,
+) -> None:
+    """An offline uv must not take stdlib-only inputs down with it.
+
+    In a sandbox, `uv run --with pyyaml` fails before the CLI starts, but
+    Terraform and JSON need no PyYAML, so they must still audit.
+    """
+    bin_dir = tmp_path / 'bin'
+    bin_dir.mkdir()
+    fake_uv = bin_dir / 'uv'
+    fake_uv.write_text(
+        '#!/bin/sh\necho "error: Failed to fetch: pypi.org" >&2\nexit 2\n',
+    )
+    fake_uv.chmod(0o755)
+    (tmp_path / 'main.tf').write_text(TERRAFORM)
+    env = {**os.environ, 'PATH': f'{bin_dir}{os.pathsep}{os.environ["PATH"]}'}
+
+    result = run(str(tmp_path), env=env)
+
+    assert result.returncode == EXIT_OK
+    assert 'MANUAL' in result.stdout

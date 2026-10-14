@@ -143,6 +143,20 @@ class TestDetectStack:
     def test_empty_repo_detects_nothing(self, tmp_path: Path) -> None:
         assert detect_stack(tmp_path) == Stack()
 
+    @pytest.mark.parametrize('scaffold_dir', ['templates', 'fixtures'])
+    def test_scaffold_dirs_do_not_set_the_stack(
+        self,
+        tmp_path: Path,
+        scaffold_dir: str,
+    ) -> None:
+        write(tmp_path, f'skills/viz/{scaffold_dir}/app/package.json', '{}')
+        write(
+            tmp_path,
+            f'skills/viz/{scaffold_dir}/app/src/main.tsx',
+            'export function go() {}\n',
+        )
+        assert detect_stack(tmp_path).node is False
+
 
 class TestPrecommit:
     def test_passes_when_all_hooks_present(
@@ -252,6 +266,111 @@ class TestTypecheckConfig:
         result = check_typecheck_config(tmp_path, detect_stack(tmp_path))
         assert result.status is Status.FAIL
 
+    def test_tsconfig_comments_and_trailing_commas_parse(
+        self,
+        tmp_path: Path,
+    ) -> None:
+        write(tmp_path, 'package.json', '{}')
+        write(
+            tmp_path,
+            'tsconfig.json',
+            '{\n  // strict on\n  "$schema": "https://json.schemastore.org/x",\n'
+            '  /* block */ "compilerOptions": {"strict": true,},\n}\n',
+        )
+        result = check_typecheck_config(tmp_path, detect_stack(tmp_path))
+        assert result.status is Status.PASS
+
+    @pytest.mark.parametrize(
+        ('extends', 'base_path'),
+        [
+            ('./tsconfig.base.json', 'tsconfig.base.json'),
+            ('./tsconfig.base', 'tsconfig.base.json'),
+            (
+                'astro/tsconfigs/strict',
+                'node_modules/astro/tsconfigs/strict.json',
+            ),
+            (
+                '@tsconfig/node22',
+                'node_modules/@tsconfig/node22/tsconfig.json',
+            ),
+        ],
+    )
+    def test_strict_inherited_through_extends(
+        self,
+        tmp_path: Path,
+        extends: str,
+        base_path: str,
+    ) -> None:
+        write(tmp_path, 'package.json', '{}')
+        write(tmp_path, base_path, '{"compilerOptions": {"strict": true}}')
+        write(tmp_path, 'tsconfig.json', json.dumps({'extends': extends}))
+        result = check_typecheck_config(tmp_path, detect_stack(tmp_path))
+        assert result.status is Status.PASS
+
+    def test_uninstalled_strict_preset_counts(self, tmp_path: Path) -> None:
+        write(tmp_path, 'package.json', '{}')
+        write(
+            tmp_path,
+            'tsconfig.json',
+            '{"extends": ["astro/tsconfigs/strict"]}',
+        )
+        result = check_typecheck_config(tmp_path, detect_stack(tmp_path))
+        assert result.status is Status.PASS
+
+    def test_child_can_turn_inherited_strict_off(self, tmp_path: Path) -> None:
+        write(tmp_path, 'package.json', '{}')
+        write(tmp_path, 'base.json', '{"compilerOptions": {"strict": true}}')
+        write(
+            tmp_path,
+            'tsconfig.json',
+            '{"extends": "./base.json", "compilerOptions": {"strict": false}}',
+        )
+        result = check_typecheck_config(tmp_path, detect_stack(tmp_path))
+        assert result.status is Status.FAIL
+
+    def test_extends_cycle_is_not_a_hang(self, tmp_path: Path) -> None:
+        write(tmp_path, 'package.json', '{}')
+        write(tmp_path, 'a.json', '{"extends": "./tsconfig.json"}')
+        write(tmp_path, 'tsconfig.json', '{"extends": "./a.json"}')
+        result = check_typecheck_config(tmp_path, detect_stack(tmp_path))
+        assert result.status is Status.FAIL
+
+    def test_python_subproject_config_counts(self, tmp_path: Path) -> None:
+        write(tmp_path, 'api/pyproject.toml', '[tool.mypy]\nstrict = true\n')
+        write(tmp_path, 'api/app.py', 'def go() -> None: ...\n')
+        write(tmp_path, 'web/package.json', '{}')
+        result = check_typecheck_config(tmp_path, detect_stack(tmp_path))
+        assert result.status is Status.PASS
+
+    def test_python_subproject_without_config_is_named(
+        self,
+        tmp_path: Path,
+    ) -> None:
+        write(tmp_path, 'api/pyproject.toml', '[tool.mypy]\nstrict = true\n')
+        write(tmp_path, 'api/app.py', 'def go() -> None: ...\n')
+        write(tmp_path, 'scraper/pyproject.toml', '[project]\nname = "s"\n')
+        write(tmp_path, 'scraper/run.py', 'def go() -> None: ...\n')
+        result = check_typecheck_config(tmp_path, detect_stack(tmp_path))
+        assert result.status is Status.FAIL
+        assert 'scraper' in result.detail
+        assert 'api' not in result.detail
+
+    def test_root_config_covers_subprojects(
+        self,
+        clean_python_repo: Path,
+    ) -> None:
+        write(
+            clean_python_repo,
+            'tools/pyproject.toml',
+            '[project]\nname = "t"\n',
+        )
+        write(clean_python_repo, 'tools/t.py', 'def go() -> None: ...\n')
+        result = check_typecheck_config(
+            clean_python_repo,
+            detect_stack(clean_python_repo),
+        )
+        assert result.status is Status.PASS
+
 
 class TestLintConfig:
     def test_na_without_a_lintable_stack(self, tmp_path: Path) -> None:
@@ -282,6 +401,52 @@ class TestLintConfig:
         write(tmp_path, name, '')
         result = check_lint_config(tmp_path, detect_stack(tmp_path))
         assert result.status is Status.PASS
+
+    @pytest.mark.parametrize(
+        'name',
+        ['biome.json', 'biome.jsonc', 'eslint.config.ts'],
+    )
+    def test_node_other_linter_configs(
+        self,
+        tmp_path: Path,
+        name: str,
+    ) -> None:
+        write(tmp_path, 'package.json', '{}')
+        write(tmp_path, name, '{}')
+        result = check_lint_config(tmp_path, detect_stack(tmp_path))
+        assert result.status is Status.PASS
+
+    def test_node_with_no_linter_names_both_options(
+        self,
+        tmp_path: Path,
+    ) -> None:
+        write(tmp_path, 'package.json', '{}')
+        result = check_lint_config(tmp_path, detect_stack(tmp_path))
+        assert result.status is Status.FAIL
+        assert 'biome' in result.detail
+
+    def test_python_subproject_ruff_counts(self, tmp_path: Path) -> None:
+        write(
+            tmp_path,
+            'scraper/pyproject.toml',
+            '[tool.ruff]\nline-length = 99\n',
+        )
+        write(tmp_path, 'scraper/run.py', 'def go() -> None: ...\n')
+        result = check_lint_config(tmp_path, detect_stack(tmp_path))
+        assert result.status is Status.PASS
+
+    def test_python_subproject_without_ruff_is_named(
+        self,
+        tmp_path: Path,
+    ) -> None:
+        write(tmp_path, 'api/ruff.toml', 'line-length = 99\n')
+        write(tmp_path, 'api/pyproject.toml', '[project]\nname = "a"\n')
+        write(tmp_path, 'api/app.py', 'def go() -> None: ...\n')
+        write(tmp_path, 'scraper/pyproject.toml', '[project]\nname = "s"\n')
+        write(tmp_path, 'scraper/run.py', 'def go() -> None: ...\n')
+        result = check_lint_config(tmp_path, detect_stack(tmp_path))
+        assert result.status is Status.FAIL
+        assert 'scraper' in result.detail
 
 
 class TestSecrets:
@@ -606,6 +771,25 @@ class TestUntestedModules:
         write(tmp_path, 'src/thing.spec.ts', 'it("go", () => {});\n')
         assert untested_modules(tmp_path) == []
 
+    def test_type_declarations_are_exempt(self, tmp_path: Path) -> None:
+        write(
+            tmp_path,
+            'src/env.d.ts',
+            'declare module "x" {\n  export function go(): void;\n}\n',
+        )
+        assert untested_modules(tmp_path) == []
+
+    def test_gitignored_generated_files_are_skipped(
+        self,
+        tmp_path: Path,
+    ) -> None:
+        subprocess.run(['git', 'init', '-q'], cwd=tmp_path, check=True)
+        write(tmp_path, '.gitignore', '.astro/\ncoverage/\n')
+        write(tmp_path, '.astro/content.js', 'export function go() {}\n')
+        write(tmp_path, 'coverage/lcov-report/sorter.js', 'function s() {}\n')
+        write(tmp_path, 'src/real.ts', 'export function go() {}\n')
+        assert untested_modules(tmp_path) == ['src/real.ts']
+
 
 class TestCheckTests:
     def test_na_without_a_runner(self, tmp_path: Path) -> None:
@@ -661,6 +845,59 @@ class TestCheckWorkflows:
             '.github/workflows/zizmor.yml',
             'on: push\njobs:\n  audit:\n'
             '    steps:\n      - run: uvx zizmor .\n',
+        )
+        result = check_workflows(tmp_path, run=False)
+        assert result.status is Status.MANUAL
+
+    @pytest.mark.parametrize(
+        'ref',
+        [
+            '$/.github/workflows/missing.yml',
+            './.github/workflows/missing.yml',
+            '.github/workflows/reuse.yml',
+            'actions/checkout',
+        ],
+    )
+    def test_broken_uses_ref_fails_even_with_zizmor_wired(
+        self,
+        tmp_path: Path,
+        ref: str,
+    ) -> None:
+        write(tmp_path, '.github/workflows/reuse.yml', 'on: workflow_call\n')
+        write(
+            tmp_path,
+            '.github/workflows/ci.yml',
+            f'on: push\njobs:\n  call:\n    uses: {ref}\n'
+            '  audit:\n    steps:\n      - run: uvx zizmor .\n',
+        )
+        result = check_workflows(tmp_path, run=False)
+        assert result.status is Status.FAIL
+        assert ref in result.detail
+
+    @pytest.mark.parametrize(
+        'ref',
+        [
+            './.github/workflows/reuse.yml',
+            '$/.github/workflows/reuse.yml',
+            '"./.github/workflows/reuse.yml"',
+            './actions/setup',
+            'actions/checkout@v5  # pinned',
+            'octo/repo/.github/workflows/x.yml@main',
+            'docker://alpine:3.20',
+        ],
+    )
+    def test_valid_uses_refs_pass_through(
+        self,
+        tmp_path: Path,
+        ref: str,
+    ) -> None:
+        write(tmp_path, '.github/workflows/reuse.yml', 'on: workflow_call\n')
+        write(tmp_path, 'actions/setup/action.yml', 'runs: {using: node20}\n')
+        write(
+            tmp_path,
+            '.github/workflows/ci.yml',
+            f'on: push\njobs:\n  call:\n    steps:\n      - uses: {ref}\n'
+            '      - run: uvx zizmor .\n',
         )
         result = check_workflows(tmp_path, run=False)
         assert result.status is Status.MANUAL
