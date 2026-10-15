@@ -1,0 +1,28 @@
+schema_version: "1.0"
+name: dynamodb-cost-audit/02-no-trigger-write-template
+description: >-
+  Negative trigger: editing the table's template is not a cost audit. The
+  skill is manual-only (expensive by design) and must not fire; the edit
+  should just happen.
+tags: [dynamodb-cost-audit]
+context:
+  scaffold_script: scaffold.sh
+execution:
+  prompt: >-
+    Add a TTL on an attribute named expires_at to the Orders table in
+    infra/template.yaml.
+  max_turns: 10
+  timeout_seconds: 180
+  allowed_tools: [Read, Glob, Grep, Edit, Write, Skill]
+runs: 1
+graders:
+  - type: tool_used
+    name: skill-not-fired
+    tool: Skill
+    input_match: dynamodb-cost-audit
+    min: 0
+    max: 0
+  - type: regex
+    name: ttl-added
+    target: { source: file, path: infra/template.yaml }
+    pattern: 'TimeToLiveSpecification:[\s\S]*AttributeName:\s*expires_at[\s\S]*Enabled:\s*true|TimeToLiveSpecification:[\s\S]*Enabled:\s*true[\s\S]*expires_at'

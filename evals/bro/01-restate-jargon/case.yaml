@@ -1,0 +1,40 @@
+schema_version: "1.0"
+name: bro/01-restate-jargon
+description: >-
+  A dense, jargon-heavy diagnosis passed as the argument (an eval has no
+  earlier assistant turn to restate). The restatement keeps every fact,
+  drops or explains the jargon, and stays short.
+tags: [bro]
+execution:
+  prompt: >-
+    /skill-tree:bro The flake is a TOCTOU race: under pytest-xdist two
+    workers both stat() the lockfile, both see ENOENT, both open() it with
+    O_CREAT but no O_EXCL, so the second truncates the first's PID and the
+    reaper SIGKILLs a live worker. Fix is O_CREAT|O_EXCL plus an EEXIST
+    retry with jittered backoff.
+  max_turns: 4
+  timeout_seconds: 120
+  allowed_tools: [Read, Glob, Grep, Edit, Write, Skill]
+runs: 1
+graders:
+  - type: tool_used
+    name: no-write
+    tool: Write
+    min: 0
+    max: 0
+  - type: llm
+    name: keeps-the-facts
+    criteria: >-
+      Pass only if the final message conveys all of: (1) tests running in
+      parallel both try to create the same lock file at the same moment,
+      (2) one overwrites the other's process ID, (3) so a worker that is
+      still running gets killed, and (4) the fix is to create the file only
+      if it does not already exist and retry after a short random wait.
+      Fail if it says there is no earlier message to restate.
+  - type: llm
+    name: plain-language
+    criteria: >-
+      Pass only if the final message is plainer than the input: every one
+      of TOCTOU, ENOENT, O_EXCL, EEXIST, and SIGKILL is either absent or
+      explained in everyday words where it appears, and the message is no
+      longer than about 150 words.

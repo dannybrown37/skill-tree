@@ -1,0 +1,45 @@
+schema_version: "1.0"
+name: dynamodb-migrations/01-new-attribute-gsi
+description: >-
+  A new index on an attribute existing items lack, on a live table: the one
+  evolution with a mandatory order. Writing the attribute must come before
+  the backfill, and the index after it. The backfill must not flood the
+  table's stream consumer. Modeling should not fire: the table exists.
+tags: [dynamodb-migrations]
+execution:
+  prompt: >-
+    Our Orders table in DynamoDB is live in prod with about 40 million items
+    and a stream that feeds a Lambda. I need to query orders by a new
+    "fulfillment_status" attribute that existing items don't have yet. What's
+    the order of operations?
+  max_turns: 12
+  timeout_seconds: 300
+  allowed_tools: [Read, Glob, Grep, Edit, Write, Skill]
+runs: 1
+graders:
+  - type: tool_used
+    name: skill-fired
+    tool: Skill
+    input_match: dynamodb-migrations
+  - type: tool_used
+    name: modeling-not-fired
+    tool: Skill
+    input_match: dynamodb-modeling
+    min: 0
+    max: 0
+  - type: llm
+    name: mandatory-order
+    criteria: >-
+      Pass only if the final message orders the steps as: (1) ship
+      application code that writes fulfillment_status on new and updated
+      items first, (2) then backfill existing items (Scan plus UpdateItem
+      or a bulk job), (3) then add the GSI and switch reads to it. Fail if
+      the GSI is created, or the backfill run, before the application
+      starts writing the attribute.
+  - type: llm
+    name: backfill-hazards
+    criteria: >-
+      Pass only if the final message says the backfill writes will hit the
+      stream and the Lambda, and gives a way to keep the consumer from
+      reacting to them (stream event filtering, or stamping migration
+      writes and ignoring them), and says to rate-limit the backfill.

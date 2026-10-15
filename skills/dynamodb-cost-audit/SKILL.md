@@ -1,6 +1,6 @@
 ---
 name: dynamodb-cost-audit
-description: "Help a DynamoDB bill come down or a table needs an efficiency review. Ordered audit from biggest lever to smallest, with the thresholds that decide each call. Expensive so not invocable by agents."
+description: "A DynamoDB bill needs to come down, or a table needs an efficiency review — \"why is Dynamo so expensive\", \"audit this table for cost\". Ordered audit from biggest lever to smallest, with the thresholds that decide each call. Manual-only because it is expensive."
 user-invocable: true
 disable-model-invocation: true
 ---

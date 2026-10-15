@@ -64,9 +64,9 @@ If no `.pre-commit-config.yaml` exists, flag it and skip to the next section.
 
 ### 2. Type checking
 
-- **Python:** mypy config must exist (`mypy.ini`, `pyproject.toml [tool.mypy]`, or
-  `setup.cfg`). Run `uv run --with mypy mypy` (bare, no targets) and report errors.
-- **TypeScript:** `tsconfig.json` must exist with `strict: true`. Run `npx tsc --noEmit`.
+- **Python:** mypy config (`mypy.ini`, `[tool.mypy]`, or `setup.cfg`) at the root or in each
+  subproject's own dir. Run `uv run --with mypy mypy` (bare, no targets) and report errors.
+- **TypeScript:** `tsconfig.json` reaches `strict: true`, directly or via `extends`. Run `npx tsc --noEmit`.
 - **Neither:** skip.
 
 ### 3. Linting and formatting
@@ -83,8 +83,8 @@ If no `.pre-commit-config.yaml` exists, flag it and skip to the next section.
 
 - Identify the test runner (`pytest`, `jest`, `vitest`, `go test`, etc.).
 - Run the suite. Report pass/fail count and coverage if a coverage config exists.
-- Flag any source file with logic (not config, not `__init__.py`) that has zero corresponding
-  test file.
+- Flag any source file with logic (not config, `__init__.py`, `.d.ts`, or gitignored generated
+  output) that has zero corresponding test file. `templates/` and `fixtures/` don't count.
 
 ### 5. CLI ergonomics
 
@@ -157,6 +157,8 @@ Only applicable if the repo has `.github/workflows/*.yml`. If it doesn't, this i
   `zizmor` pre-commit hook, or a CI step that runs it (`uvx zizmor .`). If neither exists,
   flag it: workflow injection, missing permissions pins, and unpinned third-party actions
   go unreviewed.
+- Every `uses:` ref must resolve: `./<path>` to a file in the repo, else `owner/repo@ref`.
+  zizmor offline passed `uses: $/.github/workflows/x.yml`; the checker catches it.
 - Run `uvx zizmor .` (or `--run` on the checker below) and report findings — untrusted
   input flowing into `run:` blocks, overly broad `permissions:`, actions pinned to a
   mutable tag instead of a commit SHA.

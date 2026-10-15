@@ -63,10 +63,12 @@ version answers the wrong question; print both, clearly labeled, if both are use
 
 Derive the string from one source of truth — the package metadata (`importlib.metadata.version`,
 `package.json`, `Cargo.toml`, a build-stamped variable) — never a hand-maintained constant that
-drifts from the release it claims to be.
+drifts from the release it claims to be. The lookup itself fails on an uninstalled checkout
+(`PackageNotFoundError` in Python): catch it and fall back to `pyproject.toml` or `unknown`.
+Uncaught at parser setup, it crashes every command, not just `--version`.
 
-**Check:** run `<cli> --version` from a directory with no config present and, if the tool
-authenticates, with credentials unset. It must still print and exit 0. Then compare the output
+**Check:** run `<cli> --version` from a directory with no config present, from an uninstalled
+checkout, and, if the tool authenticates, with credentials unset. It must still print and exit 0. Then compare the output
 against the packaging metadata; equal strings, or the constant has drifted.
 
 ## The argument ladder

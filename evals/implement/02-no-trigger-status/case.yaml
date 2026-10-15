@@ -1,0 +1,36 @@
+schema_version: "1.0"
+name: implement/02-no-trigger-status
+description: >-
+  Negative trigger: asking what work is left is a read, not a build. The
+  skill is manual-only and must not fire; nothing should be edited.
+tags: [implement]
+context:
+  scaffold_script: scaffold.sh
+execution:
+  prompt: What tickets are in docs/tickets, and which one can be started first?
+  max_turns: 10
+  timeout_seconds: 180
+  allowed_tools: [Read, Glob, Grep, Bash, Edit, Write, Skill]
+runs: 1
+graders:
+  - type: tool_used
+    name: skill-not-fired
+    tool: Skill
+    input_match: 'implement|to-tickets'
+    min: 0
+    max: 0
+  - type: tool_used
+    name: no-edit
+    tool: Edit
+    min: 0
+    max: 0
+  - type: tool_used
+    name: no-write
+    tool: Write
+    min: 0
+    max: 0
+  - type: llm
+    name: answers
+    criteria: >-
+      Pass only if the final message lists both tickets (01 word_count and
+      02 top_words) and says 01 comes first because 02 is blocked by it.

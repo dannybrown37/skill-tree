@@ -1,0 +1,25 @@
+schema_version: "1.0"
+name: bro/02-no-trigger-define
+description: >-
+  Negative trigger: asking for a plain definition is not "restate your last
+  message". The skill is manual-only and must not fire.
+tags: [bro]
+execution:
+  prompt: In plain English, what's a TOCTOU race?
+  max_turns: 3
+  timeout_seconds: 90
+  allowed_tools: [Read, Glob, Grep, Edit, Write, Skill]
+runs: 1
+graders:
+  - type: tool_used
+    name: skill-not-fired
+    tool: Skill
+    input_match: bro
+    min: 0
+    max: 0
+  - type: llm
+    name: answers
+    criteria: >-
+      Pass only if the final message explains that a check (e.g. "does
+      this file exist?") and the later action that relies on it are
+      separate steps, and something can change in between.

@@ -1,0 +1,54 @@
+schema_version: "1.0"
+name: adversarial-review/01-dropped-tail
+description: >-
+  The branch adds batched(), whose range() stops at len - size + 1, so a
+  trailing partial batch is silently dropped: send() loses records whenever
+  the count isn't a multiple of the batch size. The committed test only
+  covers an even split and passes. Only constructing an uneven input and
+  running it shows the bug. The README line is docs and should be skipped.
+tags: [adversarial-review]
+context:
+  scaffold_script: scaffold.sh
+execution:
+  prompt: /skill-tree:adversarial-review
+  max_turns: 30
+  timeout_seconds: 480
+  allowed_tools: [Read, Glob, Grep, Bash, Edit, Write, Skill]
+runs: 1
+graders:
+  - type: tool_used
+    name: diffed-against-upstream
+    tool: Bash
+    input_match: 'git\s+(diff|log)\b[^\n]*(@\{u\}|origin/main|\.\.\.?)|merge-base'
+  - type: tool_used
+    name: ran-a-reproduction
+    tool: Bash
+    input_match: 'python3?\b'
+  - type: tool_used
+    name: source-untouched
+    tool: Edit
+    input_match: '/(batching|send)\.py'
+    min: 0
+    max: 0
+  - type: tool_used
+    name: no-git-writes
+    tool: Bash
+    input_match: '\bgit\s+(add|commit|push|reset|checkout|restore|stash)\b'
+    min: 0
+    max: 0
+  - type: llm
+    name: finds-dropped-tail
+    criteria: >-
+      Pass only if the final message reports that batched() drops the
+      trailing partial batch (so records are lost when the count is not a
+      multiple of the batch size), AND gives a concrete input with the
+      wrong output it observed, e.g. batched([1, 2, 3, 4, 5], 2) returning
+      [[1, 2], [3, 4]] or send() of 5 records returning 4.
+  - type: llm
+    name: no-checklist-noise
+    criteria: >-
+      Fail only if the final message reports a finding about style, naming,
+      comments, docstrings, or type hints, or a "could be cleaner" or
+      best-practice remark. Proposing a fix for the confirmed bug, adding
+      failing tests for it, and noting which files were skipped are not
+      findings. Otherwise pass.

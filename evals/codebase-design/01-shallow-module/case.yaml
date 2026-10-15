@@ -1,0 +1,50 @@
+schema_version: "1.0"
+name: codebase-design/01-shallow-module
+description: >-
+  UserStore's interface is as big as its implementation: five methods that
+  each wrap one sqlite3 call, and every caller repeats the same sequence.
+  The skill should name it shallow using its own glossary, show the cost
+  across callers, and propose a smaller, deeper interface, without editing.
+tags: [codebase-design]
+context:
+  scaffold_script: scaffold.sh
+execution:
+  prompt: >-
+    /skill-tree:codebase-design Why does userstore.py feel so shallow, and
+    what should its interface look like instead?
+  max_turns: 15
+  timeout_seconds: 300
+  allowed_tools: [Read, Glob, Grep, Bash, Edit, Write, Skill]
+runs: 1
+graders:
+  - type: tool_used
+    name: no-edit
+    tool: Edit
+    min: 0
+    max: 0
+  - type: tool_used
+    name: no-write
+    tool: Write
+    min: 0
+    max: 0
+  - type: regex
+    name: uses-glossary
+    target: last_message
+    pattern: '\b(seam|leverage|locality|deletion test)\b'
+    flags: i
+  - type: regex
+    name: avoids-rejected-terms
+    target: last_message
+    pattern: '\bboundar(y|ies)\b'
+    flags: i
+    match: not_contains
+  - type: llm
+    name: diagnosis
+    criteria: >-
+      Pass only if the final message (1) says UserStore's methods are
+      pass-throughs, so its interface is about as large as its
+      implementation, (2) points at the connect/execute/parse/close
+      sequence repeated in signup.py, admin.py, and login.py (at least two
+      of them named), and (3) proposes a smaller interface of
+      intention-level operations (e.g. find_by_email, active_users) that
+      hides the connection, SQL, and row parsing.

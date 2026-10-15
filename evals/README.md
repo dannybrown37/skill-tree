@@ -13,6 +13,15 @@ just eval two-axis-review                      # 1 case
 just eval verify                               # 4 cases (3 traps, 1 negative trigger)
 just eval cli-ergonomics                       # 4 cases (2 traps, 2 negative triggers)
 just eval site-launch                          # 4 cases (audit, fix, control, negative trigger)
+just eval adversarial-review                    # 3 cases (real bug, sound control, negative trigger)
+just eval implement                             # 2 cases (one ticket HITL, negative trigger)
+just eval domain-modeling                       # 3 cases (term conflict, record a term, negative trigger)
+just eval codebase-design                       # 2 cases (shallow module, negative trigger)
+just eval dynamodb-modeling                     # 2 cases (new table, Postgres negative trigger)
+just eval dynamodb-migrations                   # 3 cases (ordered GSI backfill, TTL drift, negative trigger)
+just eval dynamodb-cost-audit                   # 2 cases (template audit, negative trigger)
+just eval bro                                   # 2 cases, ~$0.20
+just eval wait-what                             # 2 cases, ~$0.20
 just eval debug-ci --runs 3                    # more samples per case
 just eval ui-designer --ablation with-without  # also run without the plugin, report the delta
 ```
@@ -26,6 +35,14 @@ just eval ui-designer --ablation with-without  # also run without the plugin, re
 | `verify` | `claude plugin eval` | runs a check that could fail before answering: dynamic `getattr` use, a fix that misses its own case, a suite failing outside the changed module; plus a negative-trigger case |
 | `cli-ergonomics` | `claude plugin eval` | a new CLI gets `--version` from metadata and a bare run prints help; a review runs the linter, read-only, and finds what it can't; no trigger on an edit or a CI-only script |
 | `site-launch` | `claude plugin eval` | runs the checker read-only and finds the seeded gaps, incl. a feed the checker can only call N/A; fixes a blank share card using the domain from `CNAME`; no invented failures on a clean site; no trigger on a CSS change |
+| `adversarial-review` | `claude plugin eval` | diffs against the upstream, reproduces a dropped-tail bug with a real run, no checklist noise; reports nothing invented on a sound diff; manual-only |
+| `implement` | `claude plugin eval` | test first and red, one ticket then stop, invokes verify and two-axis-review, no commit; manual-only |
+| `domain-modeling` | `claude plugin eval` | challenges a term against `CONTEXT.md` and the code; records a settled term in the reference format, no ADR; manual-only |
+| `codebase-design` | `claude plugin eval` | names a pass-through module shallow in the skill's vocabulary and proposes a deeper interface, read-only; manual-only |
+| `dynamodb-modeling` | `claude plugin eval` | access-pattern table, PK/SK design, GSI not Scan; neither Dynamo skill on a Postgres question |
+| `dynamodb-migrations` | `claude plugin eval` | write-then-backfill-then-index order, stream and rate-limit hazards, TTL drift; modeling (not migrations) on a new-table GSI question |
+| `dynamodb-cost-audit` | `claude plugin eval` | runs the checker on a CDK template, read-only, says what needs metrics; manual-only |
+| `bro`, `wait-what` | `claude plugin eval` | the restatement keeps every fact in plainer words (wait-what: in order, structured); manual-only |
 | `handoff` | `handoff/run.py` | write a handoff, resume it in a fresh session, judge what survived |
 
 For `claude plugin eval` suites, the recipe defaults to one run per case, no baseline arm,
@@ -73,6 +90,14 @@ Its scores have no pass bar. It exits 1 only if a run didn't complete.
   `~/.docker.eval-bak` for the run and restores it on exit, Ctrl-C, or termination. If a
   run is killed hard, the next run refuses to start until you move the backup back. Docker
   commands in other terminals see no config while a run is in progress.
+- A slash-command prompt's skill expansion never appears in the trace (only system, assistant,
+  and result events do), so "the skill loaded" can't be grepped from SKILL.md text. Grade
+  what the skill makes happen instead.
+- Regex graders are JavaScript regexes: no inline flags like `(?m)` (the grader throws).
+  Use `flags: m`.
+- The sandbox has no network. A CLI that fetches a dependency at run time (`uv run --with`)
+  fails there; give it inputs that need only the stdlib (dynamodb-cost-audit/01 uses a
+  JSON template for this reason).
 - Skills with `disable-model-invocation: true` (repo-audit) can't trigger themselves.
   Their cases use the slash command as the prompt and check that the skill's first step
   ran, not that the skill fired.

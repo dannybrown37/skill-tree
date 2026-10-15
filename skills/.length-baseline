@@ -10,9 +10,12 @@
 # warns again, so raising one of these is a deliberate edit with a
 # reason, not a drift. A skill that shrinks under 150 can be deleted
 # from this file.
-cli-ergonomics: 178
+# +2 (2026-10-14): the uninstalled-checkout --version fallback, which an eval
+# showed agents skip when the rule only says "works on a broken install".
+cli-ergonomics: 180
 dynamodb-cost-audit: 182
-repo-audit: 177
+# +2 (2026-10-14): section 11's `uses:` ref check, which the checker now runs.
+repo-audit: 179
 # No CLI, but the same shape: twelve numbered lessons, each ending in its
 # own Check. Moving lessons into references/ splits the list.
 ui-designer: 195

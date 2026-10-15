@@ -1,0 +1,28 @@
+schema_version: "1.0"
+name: dynamodb-modeling/02-no-trigger-postgres
+description: >-
+  Negative trigger: the same "partition key / index" vocabulary about a
+  Postgres table. Neither DynamoDB skill should fire. Catches a description
+  that has grown to "any data modeling".
+tags: [dynamodb-modeling]
+execution:
+  prompt: >-
+    I'm designing a Postgres orders table that we'll partition by month.
+    Which indexes do I need to list one customer's orders newest first?
+  max_turns: 6
+  timeout_seconds: 180
+  allowed_tools: [Read, Glob, Grep, Edit, Write, Skill]
+runs: 1
+graders:
+  - type: tool_used
+    name: no-dynamodb-skill
+    tool: Skill
+    input_match: dynamodb
+    min: 0
+    max: 0
+  - type: llm
+    name: answers
+    criteria: >-
+      Pass only if the final message recommends a composite index on the
+      customer column plus the order date or timestamp (descending, or
+      noting Postgres can scan it backward).

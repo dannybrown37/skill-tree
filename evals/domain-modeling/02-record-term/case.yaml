@@ -1,0 +1,46 @@
+schema_version: "1.0"
+name: domain-modeling/02-record-term
+description: >-
+  A term the user has already settled. The skill writes it into CONTEXT.md
+  right away in the reference format (definition, Examples, a mandatory
+  Not line, In code), says there is no code yet, and offers no ADR: a
+  definition is not a hard-to-reverse trade-off.
+tags: [domain-modeling]
+context:
+  scaffold_script: scaffold.sh
+execution:
+  prompt: >-
+    /skill-tree:domain-modeling We've settled it: a "Hold" is stock reserved
+    for one Cart for up to 15 minutes, after which it expires and the stock
+    is released. It is not an Order. Add it to our glossary.
+  max_turns: 15
+  timeout_seconds: 300
+  allowed_tools: [Read, Glob, Grep, Bash, Edit, Write, Skill]
+runs: 1
+graders:
+  - type: regex
+    name: hold-heading
+    target: { source: file, path: CONTEXT.md }
+    pattern: '###\s+Hold\b'
+  - type: regex
+    name: hold-has-not-line
+    target: { source: file, path: CONTEXT.md }
+    pattern: '###\s+Hold\b[\s\S]*?\*\*Not\*\*'
+  - type: regex
+    name: hold-has-in-code-line
+    target: { source: file, path: CONTEXT.md }
+    pattern: '###\s+Hold\b[\s\S]*?\*\*In code\*\*'
+  - type: regex
+    name: existing-terms-kept
+    target: { source: file, path: CONTEXT.md }
+    pattern: '###\s+Order\b[\s\S]*###\s+Cancellation\b'
+  - type: regex
+    name: no-adr
+    target: files
+    pattern: 'adr/'
+    match: not_contains
+  - type: regex
+    name: no-code-yet-flagged
+    target: { source: file, path: CONTEXT.md }
+    pattern: '###\s+Hold\b[\s\S]*?\*\*In code\*\*[^\n]*\b(no|not|none|nothing|yet)\b'
+    flags: i
