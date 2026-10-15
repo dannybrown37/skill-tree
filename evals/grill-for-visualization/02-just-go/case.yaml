@@ -1,0 +1,55 @@
+schema_version: "1.0"
+name: grill-for-visualization/02-just-go
+description: >-
+  The user opts out of the interview. The skill stops asking, makes the
+  remaining calls itself, and presents a storyboard table with every
+  assumption listed beside it, then waits for approval. It still creates no
+  files: the storyboard gate holds even when the grill is skipped.
+tags: [grill-for-visualization]
+context:
+  scaffold_script: scaffold.sh
+execution:
+  prompt: >-
+    /skill-tree:grill-for-visualization A 30-second explainer of the token
+    bucket in ratelimit.py, 16:9, for a demo at work. Don't ask me anything,
+    just go.
+  max_turns: 15
+  timeout_seconds: 300
+  allowed_tools: [Read, Glob, Grep, Bash, Edit, Write, Skill, Agent]
+runs: 1
+graders:
+  - type: tool_used
+    name: no-write
+    tool: Write
+    min: 0
+    max: 0
+  - type: tool_used
+    name: nothing-installed
+    tool: Bash
+    input_match: '\bnpm\b|\bnpx\b|\bcp -r\b'
+    min: 0
+    max: 0
+  - type: regex
+    name: storyboard-table
+    target: last_message
+    pattern: '\|[^\n]*\|\n\|[\s:|-]+\|\n(\|[^\n]*\|\n?){3,}'
+  - type: llm
+    name: true-to-the-code
+    criteria: >-
+      Pass only if the storyboard shows the limiter's real behaviour: a
+      bucket holding up to 10 tokens, refilling at 2 per second, each
+      request taking one, and a rejected request getting a 429 with a
+      Retry-After. Fail if it shows different numbers or invents behaviour
+      the code does not have (such as queueing rejected requests).
+  - type: llm
+    name: assumptions-listed
+    criteria: >-
+      Pass only if the message lists the assumptions it made in place of
+      asking (for example audience, tone, colors, or that work use means
+      the license-free stack) as a separate list near the storyboard.
+  - type: llm
+    name: waits-for-approval
+    criteria: >-
+      Pass only if the message ends by asking the user to approve or
+      change the storyboard before anything is built, rather than saying
+      the project was created or rendered.

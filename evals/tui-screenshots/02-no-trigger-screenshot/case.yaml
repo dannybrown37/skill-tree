@@ -1,0 +1,22 @@
+schema_version: "1.0"
+name: tui-screenshots/02-no-trigger-screenshot
+description: >-
+  Negative trigger: "look at the screenshot I just took" is about reading
+  the user's screen, which the description hands to `screenshot`, not
+  about generating docs images.
+tags: [tui-screenshots]
+context:
+  scaffold_script: scaffold.sh
+execution:
+  prompt: Look at the screenshot I just took. What does the error say?
+  max_turns: 6
+  timeout_seconds: 120
+  allowed_tools: [Read, Glob, Grep, Edit, Write, Skill]
+runs: 1
+graders:
+  - type: tool_used
+    name: skill-not-fired
+    tool: Skill
+    input_match: tui-screenshots
+    min: 0
+    max: 0

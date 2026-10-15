@@ -1,0 +1,31 @@
+schema_version: "1.0"
+name: debug-hooks/02-no-trigger-git-hook
+description: >-
+  Negative trigger: a pre-commit hook that never runs is a git hook, which
+  the skill's description excludes. The usual cause here is that
+  `pre-commit install` (or `prek install`) was never run, so .git/hooks has
+  no pre-commit script.
+tags: [debug-hooks]
+context:
+  scaffold_script: scaffold.sh
+execution:
+  prompt: >-
+    I set up a pre-commit hook in .pre-commit-config.yaml to block TODOs but
+    it never runs when I git commit. Why isn't my hook firing?
+  max_turns: 10
+  timeout_seconds: 180
+  allowed_tools: [Read, Glob, Grep, Bash, Edit, Write, Skill]
+runs: 1
+graders:
+  - type: tool_used
+    name: skill-not-fired
+    tool: Skill
+    input_match: debug-hooks
+    min: 0
+    max: 0
+  - type: llm
+    name: diagnoses-install
+    criteria: >-
+      Pass only if the final message says the git hook was never installed
+      into .git/hooks and tells the user to run `pre-commit install` (or
+      `prek install`).

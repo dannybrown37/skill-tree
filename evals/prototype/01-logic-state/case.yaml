@@ -1,0 +1,57 @@
+schema_version: "1.0"
+name: prototype/01-logic-state
+description: >-
+  A "does this state model feel right" question about a backend module
+  takes the logic branch: one self-contained HTML file next to orders/,
+  named as a prototype, with the question stated on the page, the model as
+  a pure module, free-play buttons, and guided scenarios including the
+  cancel-after-ship case the user is worried about. No tests, no framework,
+  and the real module is left alone.
+tags: [prototype]
+context:
+  scaffold_script: scaffold.sh
+execution:
+  prompt: >-
+    /skill-tree:prototype Does the order state model in orders/state.py
+    feel right? I'm worried about what happens when someone cancels an
+    order that has already shipped.
+  max_turns: 25
+  timeout_seconds: 480
+  allowed_tools: [Read, Glob, Grep, Bash, Edit, Write, Skill]
+runs: 1
+graders:
+  - type: regex
+    name: one-html-file-in-orders
+    target: files
+    pattern: '^orders/[^/\n]*proto[^/\n]*\.html$'
+    flags: mi
+  - type: regex
+    name: no-tests-added
+    target: files
+    pattern: 'test_|\.test\.|\.spec\.'
+    match: not_contains
+  - type: regex
+    name: no-framework
+    target: files
+    pattern: 'package\.json|\.jsx$|\.tsx$|\.vue$'
+    flags: m
+    match: not_contains
+  - type: regex
+    name: real-module-untouched
+    target: { source: file, path: orders/state.py }
+    pattern: 'OrderState.SHIPPED: \{OrderState.DELIVERED, OrderState.CANCELLED\},'
+  - type: tool_used
+    name: no-git-writes
+    tool: Bash
+    input_match: '\bgit\s+(add|commit|push|checkout|switch|branch)\b'
+    min: 0
+    max: 0
+  - type: llm
+    name: hands-it-over
+    criteria: >-
+      Pass only if the final message (1) says how to open the prototype
+      (open or double-click the HTML file), (2) points at the
+      cancel-after-shipped case, for example a scenario that walks it or a
+      note that the current model allows cancelling a shipped order, and
+      (3) says the prototype is throwaway and should be kept on a separate
+      branch rather than merged to main, or that the user commits it there.

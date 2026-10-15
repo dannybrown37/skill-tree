@@ -1,0 +1,27 @@
+schema_version: "1.0"
+name: node-style/02-no-trigger-python
+description: >-
+  Negative trigger: writing Python in a Python repo. node-style must not
+  fire; python-style is the one that should.
+tags: [node-style]
+context:
+  scaffold_script: scaffold.sh
+execution:
+  prompt: >-
+    Add a function shout(message) to relay.py that returns the message in
+    upper case with an exclamation mark on the end.
+  max_turns: 10
+  timeout_seconds: 180
+  allowed_tools: [Read, Glob, Grep, Bash, Edit, Write, Skill]
+runs: 1
+graders:
+  - type: tool_used
+    name: node-style-not-fired
+    tool: Skill
+    input_match: node-style
+    min: 0
+    max: 0
+  - type: regex
+    name: function-added
+    target: { source: file, path: relay.py }
+    pattern: 'def shout\('

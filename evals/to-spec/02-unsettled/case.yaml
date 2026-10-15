@@ -1,0 +1,33 @@
+schema_version: "1.0"
+name: to-spec/02-unsettled
+description: >-
+  The "decisions" are still hedged and contradictory. The skill says the
+  conversation isn't settled, names what's open, and points at
+  grill-for-planning instead of writing a spec that looks more decided
+  than it is.
+tags: [to-spec]
+context:
+  scaffold_script: scaffold.sh
+execution:
+  prompt: >-
+    /skill-tree:to-spec So we were thinking some kind of export. Maybe CSV,
+    or maybe XLSX, or maybe both? Not sure if it's for approvers or for
+    everyone. It might need to be emailed if it's big, or maybe just a
+    download. Let's spec it.
+  max_turns: 10
+  timeout_seconds: 240
+  allowed_tools: [Read, Glob, Grep, Bash, Edit, Write, Skill]
+runs: 1
+graders:
+  - type: tool_used
+    name: no-spec-written
+    tool: Write
+    min: 0
+    max: 0
+  - type: llm
+    name: calls-it-unsettled
+    criteria: >-
+      Pass only if the final message says the decisions are not settled
+      enough to spec, names at least two of the open questions (format,
+      who can export, delivery by download or email), and suggests
+      settling them first with grill-for-planning (by name).

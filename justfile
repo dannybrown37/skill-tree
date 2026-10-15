@@ -98,7 +98,8 @@ eval skill="" *flags:
     fi
     status=0
     PATH="${PWD}/scripts/eval-bin:${PATH}" claude plugin eval . --tag "${skill}" --scaffold \
-        --ablation none --no-publish --allow-tools "${tools[@]}" "$@" || status=$?
+        --ablation none --no-publish --judge-model claude-sonnet-5-5 \
+        --allow-tools "${tools[@]}" "$@" || status=$?
     echo "Run again with:"
     printf '  just eval'
     printf ' %q' "${skill}" "$@"

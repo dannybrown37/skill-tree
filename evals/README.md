@@ -22,6 +22,17 @@ just eval dynamodb-migrations                   # 3 cases (ordered GSI backfill,
 just eval dynamodb-cost-audit                   # 2 cases (template audit, negative trigger)
 just eval bro                                   # 2 cases, ~$0.20
 just eval wait-what                             # 2 cases, ~$0.20
+just eval debug-hooks                           # 2 cases (duplicate hook, git-hook negative trigger)
+just eval grill-for-planning                    # 1 case (first round)
+just eval grill-for-quality                     # 1 case (one sharp question on an RFC)
+just eval grill-for-visualization               # 2 cases (first round, "just go" storyboard)
+just eval node-style                            # 2 cases (new TS function, Python negative trigger)
+just eval python-style                          # 2 cases (new function, explain-only negative trigger)
+just eval prototype                             # 2 cases (logic HTML demo, UI variants)
+just eval skill-audit                           # 1 case (checker plus judgement findings)
+just eval to-spec                               # 2 cases (settled, unsettled)
+just eval to-tickets                            # 2 cases (vertical slices, expand-contract)
+just eval tui-screenshots                       # 2 cases (plan, negative trigger)
 just eval debug-ci --runs 3                    # more samples per case
 just eval ui-designer --ablation with-without  # also run without the plugin, report the delta
 ```
@@ -43,11 +54,26 @@ just eval ui-designer --ablation with-without  # also run without the plugin, re
 | `dynamodb-migrations` | `claude plugin eval` | write-then-backfill-then-index order, stream and rate-limit hazards, TTL drift; modeling (not migrations) on a new-table GSI question |
 | `dynamodb-cost-audit` | `claude plugin eval` | runs the checker on a CDK template, read-only, says what needs metrics; manual-only |
 | `bro`, `wait-what` | `claude plugin eval` | the restatement keeps every fact in plainer words (wait-what: in order, structured); manual-only |
+| `debug-hooks` | `claude plugin eval` | runs the checker, names both settings files that register a duplicate hook, never runs the hook; no trigger on a git pre-commit hook |
+| `grill-for-planning` | `claude plugin eval` | numbered frontier round with recommended answers, repo facts looked up not asked, waits; manual-only |
+| `grill-for-quality` | `claude plugin eval` | reads the RFC, asks one question on a real weak point, waits; manual-only |
+| `grill-for-visualization` | `claude plugin eval` | first round asks the stack question and reads the limiter's numbers from code; "just go" gives a storyboard plus assumptions and still creates no files; manual-only |
+| `node-style`, `python-style` | `claude plugin eval` | the skill's rules show up in a new function (return types, no `any`, specific errors, `msg =`, ruff); no trigger on the other language or an explain-only question |
+| `prototype` | `claude plugin eval` | logic question gives one HTML file beside the module, no tests; UI question gives `?variant=` variants on the existing route; manual-only |
+| `skill-audit` | `claude plugin eval` | runs the checker, then finds inventory drift, a background-not-playbook skill, and a duplicated template; read-only; manual-only |
+| `to-spec` | `claude plugin eval` | template, glossary vocabulary, no code; refuses to spec an unsettled conversation and points at grill-for-planning; manual-only |
+| `to-tickets` | `claude plugin eval` | vertical slices with blocking edges, approval before publishing; expand–migrate–contract for a wide rename; manual-only |
+| `tui-screenshots` | `claude plugin eval` | plan covers a separate demo store, headless fixed-size run, SVG, and a drift guard; no trigger on "look at my screenshot" |
 | `handoff` | `handoff/run.py` | write a handoff, resume it in a fresh session, judge what survived |
 
 For `claude plugin eval` suites, the recipe defaults to one run per case, no baseline arm,
-and a local-only report. Flags you pass override those. A case scoring below 1.0 makes the
-command exit 1.
+a Sonnet judge for `llm` graders, and a local-only report. Flags you pass override those.
+A case scoring below 1.0 makes the command exit 1.
+
+The judge is Sonnet because Haiku (the CLI's default) failed correct answers: in a full
+pass on 2026-10-15, seven cases failed on a Haiku `llm` verdict against an answer that met
+the criteria, and all seven passed when rerun with Sonnet. Judge cost is about $0.001 a grader either way, next to
+$0.15–0.60 for the run it grades.
 
 `handoff` needs three sessions (writer, resumer, judge), which `claude plugin eval` can't
 express, so it has its own runner. The recipe's quick default is the skill arm, 1 run, and
@@ -73,6 +99,11 @@ Its scores have no pass bar. It exits 1 only if a run didn't complete.
 - `file_exists` only sees files *created* during the run. Edits to existing files are
   invisible to it. To assert "not edited", check that the original content is still there
   with a regex on `{ source: file, path: ... }`.
+- `file_exists` with `path: '**'` and `exists: false` fails in any scaffold that runs
+  `git init`. A read-only `git status` rewrites `.git/index` through a lock file, so it
+  counts as a new file. Assert "wrote nothing" with `tool_used` `Write`/`Edit` `max: 0`.
+- Grade "it looked at X" by X's content in `target: trace`, not by `tool_used: Read`.
+  Agents read with `cat`, `Grep`, or a subagent as often as with `Read`.
 - Regex `target: files` matches the list of new paths, not their contents. To grep content,
   pin the filename in the prompt and use `target: { source: file, path: ... }`.
 - `tool_used` defaults to `min: 1`. A "never call this" grader needs `min: 0` and `max: 0`.
@@ -110,3 +141,6 @@ Its scores have no pass bar. It exits 1 only if a run didn't complete.
   (cli-ergonomics/02). And remove fixture bait: if a "clean" control file has any real
   wart, the agent will rightly flag it and a no-false-positives grader fails. Stub binaries
   count: an 8-byte `og.png` got flagged as a broken share image (site-launch/04).
+- `screenshot` has no suite. `latest` reads the user's real screenshots folder, and `take`
+  captures their real desktop through WSL. Neither is safe or repeatable in a sandbox, and
+  `SCREENSHOT_DIR` can't be set through `execution.env`, which only allows `EVAL_*` keys.

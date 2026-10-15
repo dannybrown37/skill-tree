@@ -1,0 +1,46 @@
+schema_version: "1.0"
+name: python-style/01-load-settings
+description: >-
+  A new Python function with an error path, where the skill's rules show:
+  full type hints, a specific built-in exception rather than a custom
+  class, the message assigned to `msg` before the raise, a try body that
+  wraps only the line that can raise, and a ruff run before calling it done.
+tags: [python-style]
+context:
+  scaffold_script: scaffold.sh
+execution:
+  prompt: >-
+    Add load_settings(path) to settings.py. It reads the TOML file and
+    returns the server host and port. Raise if the [server] table or its
+    port is missing. No tests needed.
+  max_turns: 15
+  timeout_seconds: 300
+  allowed_tools: [Read, Glob, Grep, Bash, Edit, Write, Skill]
+runs: 1
+graders:
+  - type: tool_used
+    name: skill-fired
+    tool: Skill
+    input_match: python-style
+  - type: regex
+    name: type-hints
+    target: { source: file, path: settings.py }
+    pattern: 'def load_settings\(\s*path\s*:\s*[^)]+\)\s*->\s*\S'
+  - type: regex
+    name: msg-variable
+    target: { source: file, path: settings.py }
+    pattern: 'msg\s*=\s*[^\n]+\n\s*raise \w+\(msg\)'
+  - type: regex
+    name: no-custom-exception
+    target: { source: file, path: settings.py }
+    pattern: 'class \w+\((\w*Error|\w*Exception)\)'
+    match: not_contains
+  - type: regex
+    name: no-raise-with-literal
+    target: { source: file, path: settings.py }
+    pattern: 'raise \w+\(\s*f?["'']'
+    match: not_contains
+  - type: tool_used
+    name: ran-ruff
+    tool: Bash
+    input_match: '\bruff\b'

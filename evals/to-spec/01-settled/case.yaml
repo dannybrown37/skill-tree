@@ -1,0 +1,67 @@
+schema_version: "1.0"
+name: to-spec/01-settled
+description: >-
+  The decisions are settled in the prompt (an eval has no earlier
+  conversation), the test seam is agreed, and docs/specs/README.md sets
+  where specs live. The skill writes the spec in the template, in
+  CONTEXT.md's vocabulary ("workspace", though the prompt says "team"),
+  with no file paths or code, and does not interview.
+tags: [to-spec]
+context:
+  scaffold_script: scaffold.sh
+execution:
+  prompt: >-
+    /skill-tree:to-spec Here's what we settled: approvers on a team can
+    download that team's expenses as a CSV for a date range they pick.
+    Columns are date, submitter, category, amount, status. Only approved
+    expenses are included by default, with a checkbox to include pending
+    ones. Synchronous download, no emailing, capped at 10,000 rows with a
+    clear error past that. Non-approvers get a 403. We agreed the test seam
+    is the HTTP API, same as tests/test_api.py. XLSX and scheduled exports
+    are out of scope. Call the file expense-csv-export.md.
+  max_turns: 20
+  timeout_seconds: 420
+  allowed_tools: [Read, Glob, Grep, Bash, Edit, Write, Skill]
+runs: 1
+graders:
+  - type: file_exists
+    name: spec-in-docs-specs
+    path: docs/specs/expense-csv-export.md
+  # By content, not by tool: the lookup may be Read, cat, or a subagent.
+  - type: regex
+    name: read-the-glossary
+    target: trace
+    pattern: 'the billing unit that owns expenses'
+  - type: regex
+    name: template-headings
+    target: { source: file, path: docs/specs/expense-csv-export.md }
+    pattern: '## Problem Statement[\s\S]*## Solution[\s\S]*## User Stories[\s\S]*## Implementation Decisions[\s\S]*## Testing Decisions[\s\S]*## Out of Scope'
+  - type: regex
+    name: eight-user-stories
+    target: { source: file, path: docs/specs/expense-csv-export.md }
+    pattern: '^\s*8\.\s+As an? [^\n]*so that'
+    flags: mi
+  - type: regex
+    name: glossary-term
+    target: { source: file, path: docs/specs/expense-csv-export.md }
+    pattern: '\bworkspace\b'
+    flags: i
+  # Stories only: a note elsewhere explaining the team-to-workspace rename is fine.
+  - type: regex
+    name: stories-avoid-team
+    target: { source: file, path: docs/specs/expense-csv-export.md }
+    pattern: '## User Stories[^#]*\bteams?\b'
+    flags: i
+    match: not_contains
+  - type: regex
+    name: no-code-snippets
+    target: { source: file, path: docs/specs/expense-csv-export.md }
+    pattern: '```'
+    match: not_contains
+  - type: llm
+    name: no-interview
+    criteria: >-
+      Pass only if the final message reports that the spec was written.
+      Listing gaps or open questions that it recorded in the spec is fine,
+      as is offering to update it. Fail only if it stopped to interview the
+      user instead of writing the spec.

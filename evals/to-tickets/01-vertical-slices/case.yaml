@@ -1,0 +1,48 @@
+schema_version: "1.0"
+name: to-tickets/01-vertical-slices
+description: >-
+  A spec that touches the data (expense dates, approver roles), the API,
+  and the UI. The breakdown is vertical slices, each a working path
+  through every layer it needs, with blocking edges, presented for the
+  user's approval before any ticket file is written.
+tags: [to-tickets]
+context:
+  scaffold_script: scaffold.sh
+execution:
+  prompt: /skill-tree:to-tickets docs/specs/expense-csv-export.md
+  max_turns: 20
+  timeout_seconds: 420
+  allowed_tools: [Read, Glob, Grep, Bash, Edit, Write, Skill]
+runs: 1
+graders:
+  # By content, not by tool: the lookup may be Read, cat, or a subagent.
+  - type: regex
+    name: read-the-spec
+    target: trace
+    pattern: 'them out of the app by hand'
+  - type: tool_used
+    name: nothing-written-yet
+    tool: Write
+    min: 0
+    max: 0
+  - type: regex
+    name: blocked-by-edges
+    target: last_message
+    pattern: '[Bb]locked by'
+  - type: llm
+    name: vertical-not-horizontal
+    criteria: >-
+      Pass only if the export itself is delivered by tickets that each make
+      a behaviour work end to end through the endpoint and its test (for
+      example "approver downloads approved expenses as CSV"). Prefactor
+      tickets that come first (such as giving expenses a date, or adding
+      approver roles), each tested on its own, are allowed and are not
+      horizontal slices. Fail if the export is split by layer, such as one
+      ticket for the query, one for the CSV formatting, and one for the
+      route.
+  - type: llm
+    name: asks-for-approval
+    criteria: >-
+      Pass only if the final message asks the user to confirm or adjust
+      the breakdown (granularity, blocking edges, merges or splits) before
+      publishing, and does not say ticket files or issues were created.

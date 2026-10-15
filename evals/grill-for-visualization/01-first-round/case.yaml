@@ -1,0 +1,56 @@
+schema_version: "1.0"
+name: grill-for-visualization/01-first-round
+description: >-
+  A one-line request to animate the gateway's rate limiter. The first
+  round asks the frontier with recommended answers, including the
+  personal-or-work question that picks the stack, and reads the limiter's
+  numbers from ratelimit.py instead of asking for them. No project is
+  scaffolded and nothing is installed before a storyboard is approved.
+tags: [grill-for-visualization]
+context:
+  scaffold_script: scaffold.sh
+execution:
+  prompt: >-
+    /skill-tree:grill-for-visualization make an animation of how our rate
+    limiter works
+  max_turns: 15
+  timeout_seconds: 300
+  allowed_tools: [Read, Glob, Grep, Bash, Edit, Write, Skill, Agent]
+runs: 1
+graders:
+  - type: tool_used
+    name: read-the-brief
+    tool: Read
+    input_match: BRIEF\.md
+  - type: tool_used
+    name: read-the-limiter
+    tool: Read
+    input_match: ratelimit\.py
+  - type: tool_used
+    name: no-write
+    tool: Write
+    min: 0
+    max: 0
+  - type: tool_used
+    name: nothing-installed
+    tool: Bash
+    input_match: '\bnpm\b|\bnpx\b|\bcp -r\b'
+    min: 0
+    max: 0
+  - type: regex
+    name: numbered-round
+    target: last_message
+    pattern: 'Q1\b[\s\S]*Q2\b'
+  - type: llm
+    name: asks-stack-question
+    criteria: >-
+      Pass only if one of the questions asks whether the video is for
+      personal use or for work at a company (the answer that decides the
+      rendering stack or licensing).
+  - type: llm
+    name: facts-from-code
+    criteria: >-
+      Fail if any question asks the user for the bucket size, refill rate,
+      or what happens when a request is rejected. Pass if the message
+      instead states them from the code (a capacity of 10, refilling 2 per
+      second, a 429 with Retry-After) or simply does not ask about them.
