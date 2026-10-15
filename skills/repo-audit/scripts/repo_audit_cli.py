@@ -1043,10 +1043,10 @@ REMOTE_USES_RE = re.compile(r'^[\w.-]+/[\w.-]+(?:/[^@\s]+)?@[^@\s]+$')
 def broken_uses(root: Path, workflows: Iterable[Path]) -> list[str]:
     """`uses:` refs GitHub can't resolve, as `<workflow>: <ref>`.
 
-    A local ref must start with `./` and point at a file (or an action
-    directory). Anything else needs `owner/repo[/path]@ref`. zizmor run
-    offline let `uses: $/.github/workflows/x.yml` through, so this is
-    checked here, without the network.
+    A local ref starts with `./` or `$/` (this repo at the triggering
+    commit) and must point at a file or an action directory. Anything else
+    needs `owner/repo[/path]@ref`. Checked offline, so a typo'd path fails
+    without the network.
     """
     broken: list[str] = []
     for workflow in workflows:
@@ -1056,8 +1056,8 @@ def broken_uses(root: Path, workflows: Iterable[Path]) -> list[str]:
             )
             if ref.startswith('docker://') or REMOTE_USES_RE.match(ref):
                 continue
-            target = root / ref
-            if ref.startswith('./') and (
+            target = root / ref[2:]
+            if ref.startswith(('./', '$/')) and (
                 target.is_file()
                 or any(
                     (target / name).is_file()
@@ -1088,7 +1088,7 @@ def check_workflows(root: Path, *, run: bool) -> CheckResult:
             Status.FAIL,
             f'{len(broken)} `uses:` ref(s) that cannot resolve: '
             f'{"; ".join(broken[:MAX_LISTED])}. A local ref starts with '
-            f'`./` and names a file in this repo; a remote one is '
+            f'`./` or `$/` and names a file in this repo; a remote one is '
             f'`owner/repo[/path]@ref`.',
         )
 
