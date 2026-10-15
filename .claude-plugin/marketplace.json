@@ -10,6 +10,45 @@
       "name": "skill-tree",
       "source": "./",
       "description": "Reusable Claude Code skills with their own CLI implementations behind them."
+    },
+    {
+      "name": "savvy-progress",
+      "source": {
+        "source": "git-subdir",
+        "url": "https://github.com/JohnnyVizz/claude-kit.git",
+        "path": "plugins/savvy-progress",
+        "sha": "c871c153ead54ad9547cc717d0f3e5a676c73986"
+      },
+      "description": "Third-party mod (johnnyvizz, MIT): progress bar above the prompt and a live subagents panel."
+    },
+    {
+      "name": "filetree",
+      "source": {
+        "source": "github",
+        "repo": "data-goblin/claude-code-filetree",
+        "sha": "d4685b707be21a8147ab7be289df86c2344e4238"
+      },
+      "description": "Third-party mod (data-goblin, MIT): file tree pane with git status, highlighting files Claude touches."
+    },
+    {
+      "name": "blast-radius",
+      "source": {
+        "source": "git-subdir",
+        "url": "https://github.com/anthropics/claude-code-playground.git",
+        "path": "claude-code/mods/blast-radius",
+        "sha": "569c5283d9a0a7ee7938df85bb32e4f48cbb8c86"
+      },
+      "description": "Anthropic sample mod: holds risky shell commands and shows what they would change before you proceed."
+    },
+    {
+      "name": "replay-theater",
+      "source": {
+        "source": "git-subdir",
+        "url": "https://github.com/anthropics/claude-code-playground.git",
+        "path": "claude-code/mods/replay-theater",
+        "sha": "569c5283d9a0a7ee7938df85bb32e4f48cbb8c86"
+      },
+      "description": "Anthropic sample mod: step through the last turn's file edits one diff at a time."
     }
   ]
 }

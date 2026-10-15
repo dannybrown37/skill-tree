@@ -46,6 +46,23 @@ Every skill is then `skill-tree:<name>`. A `SessionStart` hook runs `scripts/ins
 putting `skill-tree` and `handoff` on `PATH` (`~/.local/bin/`). Manual clone: run
 `scripts/install.sh` yourself — it's idempotent and never overwrites files it didn't create.
 
+**Mods (Claude Code only):** third-party mods listed in this marketplace, each pinned to a
+reviewed commit — bumping a `sha` in `.claude-plugin/marketplace.json` is the upgrade path.
+
+```
+/plugin install savvy-progress@skill-tree
+/plugin install filetree@skill-tree
+/plugin install blast-radius@skill-tree
+/plugin install replay-theater@skill-tree
+```
+
+| Mod | Upstream | What it does |
+| --- | --- | --- |
+| `savvy-progress` | [JohnnyVizz/claude-kit](https://github.com/JohnnyVizz/claude-kit/tree/main/plugins/savvy-progress) | Progress bar above the prompt, live subagents panel (`/agents-info`) |
+| `filetree` | [data-goblin/claude-code-filetree](https://github.com/data-goblin/claude-code-filetree) | File tree pane with git status; highlights files Claude touches |
+| `blast-radius` | [anthropics/claude-code-playground](https://github.com/anthropics/claude-code-playground/tree/main/claude-code/mods/blast-radius) | Holds `rm -rf`, `reset --hard`, force push, migrations; Proceed/Cancel |
+| `replay-theater` | [anthropics/claude-code-playground](https://github.com/anthropics/claude-code-playground/tree/main/claude-code/mods/replay-theater) | Step through the last turn's edits one diff at a time |
+
 **Copilot CLI:**
 
 ```bash
