@@ -1,0 +1,48 @@
+schema_version: "1.0"
+name: prototype/02-ui-variants
+description: >-
+  "Try a few layouts" for a page that already exists takes the UI branch,
+  sub-shape A: several structurally different variants on the existing
+  /pricing route, picked by a ?variant= search param, with a floating
+  switcher bar, using the real PLANS data. No new top-level route, no
+  tests, no git writes.
+tags: [prototype]
+context:
+  scaffold_script: scaffold.sh
+execution:
+  prompt: >-
+    /skill-tree:prototype Try a few different layouts for the pricing page.
+    The card grid feels generic.
+  max_turns: 30
+  timeout_seconds: 600
+  allowed_tools: [Read, Glob, Grep, Bash, Edit, Write, Skill]
+runs: 1
+graders:
+  - type: regex
+    name: variant-param
+    target: last_message
+    pattern: '\?variant='
+  - type: regex
+    name: no-new-route
+    target: { source: file, path: app.py }
+    pattern: '@app\.get\("/(?!pricing"|")'
+    match: not_contains
+  - type: regex
+    name: no-tests-added
+    target: files
+    pattern: 'test_|\.test\.|\.spec\.'
+    match: not_contains
+  - type: tool_used
+    name: no-git-writes
+    tool: Bash
+    input_match: '\bgit\s+(add|commit|push|checkout|switch|branch)\b'
+    min: 0
+    max: 0
+  - type: llm
+    name: hands-it-over
+    criteria: >-
+      Pass only if the final message (1) gives the URL to open with the
+      ?variant= keys (for example /pricing?variant=B), (2) describes at
+      least three variants that differ in layout or structure, not just
+      color, and (3) mentions the floating switcher or arrow keys for
+      flipping between them.

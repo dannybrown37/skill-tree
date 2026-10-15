@@ -1,0 +1,46 @@
+schema_version: "1.0"
+name: node-style/01-parse-config
+description: >-
+  A new TypeScript function that parses untrusted JSON is where the skill's
+  rules bite: an explicit return type, no `any` (JSON.parse returns any, so
+  it has to be narrowed from unknown), a specific built-in error rather
+  than a bare Error, and a typed catch.
+tags: [node-style]
+context:
+  scaffold_script: scaffold.sh
+execution:
+  prompt: >-
+    Add src/config.ts exporting a function loadConfig(path) that reads a
+    JSON file and returns { port, host }. Throw if port isn't an integer
+    between 1 and 65535 or host isn't a non-empty string. Just the
+    function, no tests needed.
+  max_turns: 15
+  timeout_seconds: 300
+  allowed_tools: [Read, Glob, Grep, Bash, Edit, Write, Skill]
+runs: 1
+graders:
+  - type: tool_used
+    name: skill-fired
+    tool: Skill
+    input_match: node-style
+  - type: file_exists
+    name: file-written
+    path: src/config.ts
+  - type: regex
+    name: explicit-return-type
+    target: { source: file, path: src/config.ts }
+    pattern: 'function loadConfig\([^)]*\)\s*:\s*\S'
+  - type: regex
+    name: no-any
+    target: { source: file, path: src/config.ts }
+    pattern: '(:|\bas)\s*any\b|<any>'
+    match: not_contains
+  - type: regex
+    name: specific-error
+    target: { source: file, path: src/config.ts }
+    pattern: 'new (TypeError|RangeError|SyntaxError)\('
+  - type: regex
+    name: no-bare-error
+    target: { source: file, path: src/config.ts }
+    pattern: 'new Error\('
+    match: not_contains

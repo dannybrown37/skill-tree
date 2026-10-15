@@ -1,0 +1,65 @@
+schema_version: "1.0"
+name: skill-audit/01-seeded-drift
+description: >-
+  Runs the checker first, then does the judgement half the checker can't:
+  inventory sync against CLAUDE.md, a skill that is background rather than
+  playbook, and a bundled template duplicating a real file. Reports with
+  one recommendation per finding and changes nothing.
+tags: [skill-audit]
+context:
+  scaffold_script: scaffold.sh
+execution:
+  prompt: /skill-tree:skill-audit
+  max_turns: 30
+  timeout_seconds: 480
+  allowed_tools: [Read, Glob, Grep, Bash, Edit, Write, Skill, Agent]
+runs: 1
+graders:
+  - type: regex
+    name: checker-ran
+    arm: with-only
+    target: trace
+    pattern: '\d+ error\(s\), \d+ warning\(s\)'
+  - type: tool_used
+    name: no-edit
+    tool: Edit
+    min: 0
+    max: 0
+  - type: tool_used
+    name: no-write
+    tool: Write
+    min: 0
+    max: 0
+  - type: tool_used
+    name: no-chmod
+    tool: Bash
+    input_match: '\bchmod\b|\bmv\b|\brm\b'
+    min: 0
+    max: 0
+  - type: llm
+    name: checker-errors
+    criteria: >-
+      PASS if the message says changelog's SKILL.md has no description and
+      that scripts/bump.py is not executable. FAIL otherwise. Ignore
+      everything else in the message.
+  - type: llm
+    name: inventory-sync
+    criteria: >-
+      PASS if the message says CLAUDE.md lists release-checklist, which
+      does not exist on disk, or that deploy-notes is on disk but missing
+      from CLAUDE.md's list (both is better). FAIL otherwise. Ignore
+      everything else in the message.
+  - type: llm
+    name: background-not-playbook
+    criteria: >-
+      PASS if the message says git-internals is background or reference
+      material rather than a playbook of steps, and recommends demoting it
+      to a reference (or similar). FAIL otherwise. Ignore everything else
+      in the message.
+  - type: llm
+    name: duplicate-template
+    criteria: >-
+      PASS if the message says deploy-notes' release-template.md is a copy
+      of docs/RELEASE_TEMPLATE.md and the skill should point at the real
+      file instead. Saying only that it should move into references/ is a
+      FAIL. Ignore everything else in the message.

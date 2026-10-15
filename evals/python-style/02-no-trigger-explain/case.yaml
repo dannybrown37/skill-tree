@@ -1,0 +1,33 @@
+schema_version: "1.0"
+name: python-style/02-no-trigger-explain
+description: >-
+  Negative trigger: explaining existing Python writes no code, so a skill
+  that says "read before writing Python" should not load.
+tags: [python-style]
+context:
+  scaffold_script: scaffold.sh
+execution:
+  prompt: How long does retry in retry.py wait between attempts?
+  max_turns: 6
+  timeout_seconds: 120
+  allowed_tools: [Read, Glob, Grep, Bash, Edit, Write, Skill]
+runs: 1
+graders:
+  - type: tool_used
+    name: skill-not-fired
+    tool: Skill
+    input_match: python-style
+    min: 0
+    max: 0
+  - type: tool_used
+    name: no-edit
+    tool: Edit
+    min: 0
+    max: 0
+  - type: llm
+    name: explains-backoff
+    criteria: >-
+      Pass only if the final message says the wait doubles each time from
+      0.5 seconds (0.5 s, then 1 s with the default 3 attempts), that it
+      retries only on ConnectionError, and that there is no wait after the
+      last attempt.

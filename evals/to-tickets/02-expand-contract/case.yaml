@@ -1,0 +1,48 @@
+schema_version: "1.0"
+name: to-tickets/02-expand-contract
+description: >-
+  A wide mechanical rename is the skill's named exception to vertical
+  slices: expand (add account_id beside customer_id), migrate call sites in
+  batches that each keep things working, then contract (drop customer_id),
+  blocked by every migrate batch.
+tags: [to-tickets]
+context:
+  scaffold_script: scaffold.sh
+execution:
+  prompt: >-
+    /skill-tree:to-tickets We're renaming customer_id to account_id
+    everywhere: the database columns, the API field, and all the code.
+    Break it down.
+  max_turns: 20
+  timeout_seconds: 420
+  allowed_tools: [Read, Glob, Grep, Bash, Edit, Write, Skill]
+runs: 1
+graders:
+  - type: tool_used
+    name: nothing-written-yet
+    tool: Write
+    min: 0
+    max: 0
+  - type: tool_used
+    name: no-edit
+    tool: Edit
+    min: 0
+    max: 0
+  - type: llm
+    name: expand-migrate-contract
+    criteria: >-
+      Pass only if the breakdown (1) starts by adding account_id alongside
+      customer_id without removing anything, (2) moves callers over in more
+      than one ticket (for example by service or area), each of which
+      leaves the system working, and (3) ends with a ticket that finally
+      removes customer_id and is blocked by every migration ticket.
+      Splitting expand or contract into more than one ticket is fine, and
+      an earlier contract ticket (for example, dropping the old API field)
+      need not wait for every migration. Fail if one ticket renames
+      everything at once.
+  - type: llm
+    name: asks-for-approval
+    criteria: >-
+      Pass only if the final message asks the user to confirm or adjust the
+      breakdown before publishing, and does not say ticket files or issues
+      were created.

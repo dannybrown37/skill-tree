@@ -36,5 +36,10 @@ graders:
     criteria: >-
       Pass only if the final message is plainer than the input: every one
       of TOCTOU, ENOENT, O_EXCL, EEXIST, and SIGKILL is either absent or
-      explained in everyday words where it appears, and the message is no
-      longer than about 150 words.
+      explained in everyday words where it appears.
+  # Counted, not judged: a Haiku judge failed a 142-word, jargon-free answer
+  # against "about 150 words" 2 votes to 1.
+  - type: regex
+    name: short
+    target: last_message
+    pattern: '^\s*(\S+\s+){0,180}\S*\s*$'

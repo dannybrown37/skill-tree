@@ -45,8 +45,10 @@ graders:
     name: focus-visible
     target: { source: file, path: styles.css }
     pattern: ':focus-visible'
+  # Controls and :focus-visible only: `outline: none` on a skip link's
+  # tabindex=-1 target (e.g. `.page:focus`) is correct and was flagged.
   - type: regex
     name: no-outline-none
     target: { source: file, path: styles.css }
-    pattern: 'outline\s*:\s*(none|0)\b'
+    pattern: '(\bbutton|\ba\b|\binput|\bselect|\btextarea|\[role=|:focus-visible)[^{}]*\{[^}]*outline\s*:\s*(none|0)\b'
     match: not_contains

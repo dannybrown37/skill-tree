@@ -1,0 +1,56 @@
+schema_version: "1.0"
+name: tui-screenshots/01-stale-readme
+description: >-
+  README screenshots are missing the Calendar tab. The plan is the skill's
+  four pieces: a seeded demo database pointed at with TASKER_DB (never the
+  real ~/.tasker.db), Textual's run_test at a fixed size with a pause for
+  the threaded load, SVG export, and a screen list taken from the app so
+  the next tab can't be missed. No desktop capture.
+tags: [tui-screenshots]
+context:
+  scaffold_script: scaffold.sh
+execution:
+  prompt: >-
+    The screenshots in my README are stale; there's a Calendar tab now and
+    no picture of it. How should I set up regenerating them? Plan only,
+    don't write anything yet.
+  max_turns: 15
+  timeout_seconds: 300
+  allowed_tools: [Read, Glob, Grep, Bash, Edit, Write, Skill]
+runs: 1
+graders:
+  - type: tool_used
+    name: skill-fired
+    tool: Skill
+    input_match: tui-screenshots
+  - type: tool_used
+    name: no-write
+    tool: Write
+    min: 0
+    max: 0
+  - type: tool_used
+    name: no-edit
+    tool: Edit
+    min: 0
+    max: 0
+  - type: llm
+    name: fake-data-separate-store
+    criteria: >-
+      PASS if the message says to seed fictional demo data into a separate
+      database and point the app at it with TASKER_DB, without touching
+      the real ~/.tasker.db. FAIL if it suggests mocking the store instead
+      or screenshotting real data. Ignore everything else in the message.
+  - type: llm
+    name: headless-fixed-size
+    criteria: >-
+      PASS if the message says to drive the app with Textual's run_test (or
+      its pilot) at a fixed terminal size and to wait for the threaded data
+      load before capturing. FAIL otherwise. Ignore everything else in the
+      message.
+  - type: llm
+    name: svg-and-drift-guard
+    criteria: >-
+      PASS if the message says to export SVG (export_screenshot or similar)
+      and to take the list of tabs from the app itself, or test that a
+      hardcoded list matches the app, so a new tab like Calendar can't be
+      missed again. FAIL otherwise. Ignore everything else in the message.

@@ -1,0 +1,51 @@
+schema_version: "1.0"
+name: grill-for-quality/01-rfc-weak-point
+description: >-
+  The RFC has three real weak points: writes don't invalidate, so a profile
+  edit stays stale for up to 24 hours; 30M profiles at 6 KB is ~180 GB,
+  which doesn't fit one 13 GB node; and there is no flag or rollback. The
+  scope and format are already given, so the skill reads the RFC and opens
+  with one sharp question on a real weak point, then waits.
+tags: [grill-for-quality]
+context:
+  scaffold_script: scaffold.sh
+execution:
+  prompt: >-
+    /skill-tree:grill-for-quality docs/rfc-profile-cache.md, I'm presenting
+    it at our team's design review on Thursday.
+  max_turns: 12
+  timeout_seconds: 240
+  allowed_tools: [Read, Glob, Grep, Bash, Edit, Write, Skill]
+runs: 1
+graders:
+  - type: tool_used
+    name: read-the-rfc
+    tool: Read
+    input_match: rfc-profile-cache
+  - type: tool_used
+    name: no-edit
+    tool: Edit
+    min: 0
+    max: 0
+  - type: tool_used
+    name: no-write
+    tool: Write
+    min: 0
+    max: 0
+  - type: llm
+    name: one-question
+    criteria: >-
+      Pass only if the final message puts one interview question to the
+      user and stops for the answer. Several sentences probing the same
+      point count as one question, and a label like "Question 1" is fine.
+      Fail if it asks about two or more different weak points at once, or
+      delivers a full written review.
+  - type: llm
+    name: real-weak-point
+    criteria: >-
+      Pass only if the question targets one of: (a) profile updates not
+      invalidating the cache, so users see stale data for up to a day,
+      (b) the memory math, since 30 million profiles at 6 KB is far more
+      than one 13 GB node holds, or (c) the rollout having no flag or
+      rollback. Fail if it is a generic question (such as "why Redis?" or
+      "what is a cache stampede?") that ignores what the RFC says.

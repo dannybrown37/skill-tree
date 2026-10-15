@@ -1,0 +1,67 @@
+schema_version: "1.0"
+name: grill-for-planning/01-first-round
+description: >-
+  A vague idea about a small hand-written static blog. The first round asks
+  the whole frontier as numbered questions, each with a recommended answer,
+  then stops for answers. The site's facts (plain HTML, colors already in
+  CSS custom properties on :root, no build step, no JS) are in the repo, so
+  the skill looks them up rather than asking. Nothing gets built.
+tags: [grill-for-planning]
+context:
+  scaffold_script: scaffold.sh
+execution:
+  prompt: /skill-tree:grill-for-planning I want to add dark mode to my blog.
+  max_turns: 15
+  timeout_seconds: 300
+  allowed_tools: [Read, Glob, Grep, Bash, Edit, Write, Skill, Agent]
+runs: 1
+graders:
+  - type: tool_used
+    name: no-edit
+    tool: Edit
+    min: 0
+    max: 0
+  - type: tool_used
+    name: no-write
+    tool: Write
+    min: 0
+    max: 0
+  # By content, not by tool: the lookup may be Read, cat, or a subagent.
+  - type: regex
+    name: looked-at-the-site
+    target: trace
+    pattern: '--bg:\s*#fdfcf8'
+  - type: regex
+    name: numbered-questions
+    target: last_message
+    pattern: 'Q1\b[\s\S]*Q2\b'
+  - type: regex
+    name: recommended-answers
+    target: last_message
+    pattern: '➡️|[Rr]ecommend'
+  - type: llm
+    name: no-fact-questions
+    criteria: >-
+      Fail if any question asks the user something the repo already
+      answers: what the site is built with, whether it uses a framework or
+      static site generator, how the CSS is organized, or whether colors are
+      already in variables. Pass if the message instead states such facts
+      (for example that colors live in CSS custom properties on :root) and
+      asks only about decisions.
+  - type: llm
+    name: waits-for-answers
+    criteria: >-
+      Pass only if the final message ends by waiting for the user's answers
+      to the questions, and does not claim to have implemented dark mode or
+      present finished CSS for it.
+  - type: llm
+    name: frontier-only
+    criteria: >-
+      Fail only if a question in the round presupposes a particular answer
+      to another question still open in the same round: for example, it
+      asks where a toggle's choice is stored, or where the toggle button
+      goes, while whether to have a toggle at all is also being asked.
+      Questions on independent topics (such as how dark mode is switched
+      on, and what the dark colors are) pass even if the message calls one
+      of them the main question. Questions the message explicitly defers
+      to a later round do not count. Otherwise pass.
