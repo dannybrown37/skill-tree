@@ -18,6 +18,7 @@ skill-tree dev --on           # dev mode (see below)
 skill-tree check              # validate every skill's frontmatter and bundled scripts
 skill-tree stats              # how often each skill is invoked (--days N, --json)
 skill-tree test               # the test suite
+skill-tree run "idea"         # run a flow of skills via Copilot or Claude (see run.md)
 ```
 
 ## `stats`: is a skill earning its place?

@@ -17,6 +17,10 @@ lint:
 test:
     uv run --with pytest --with pytest-xdist pytest scripts/ skills/ -q
 
+# Calls the real Copilot and Claude CLIs and spends tokens; not part of `qa`.
+e2e:
+    uv run --with pytest --with pytest-xdist pytest scripts/ -m e2e -n0 -q
+
 skill name:
     @./scripts/new-skill.sh {{name}}
 
