@@ -33,6 +33,10 @@ Rounded nodes are optional but usually worth it.
 Alongside: `handoff` (carry state across sessions), `verify` (back done-claims with
 evidence). `domain-modeling` stays live after step 2 — revisit it whenever a term drifts.
 
+To run the loop step by step instead of by hand, use `skill-tree run "idea"`. It drives the
+steps through the Copilot or Claude Code CLI and pauses for your approval. Flows are TOML files you can
+extend and patch per machine or per repo. See [docs/run.md](docs/run.md).
+
 ## Installing
 
 **Claude Code:**
@@ -113,6 +117,7 @@ Each lives at `skills/<name>/` with its own `SKILL.md`, `scripts/`, and `referen
 ## More
 
 - [`skill-tree` CLI](docs/cli.md) — one shell entry point for every skill and script
+- [`skill-tree run`](docs/run.md) — run a flow of skills via Copilot or Claude, with gates and layered flows
 - [Handoffs and the backlog](docs/handoff.md)
 - [Dev mode](docs/dev-mode.md) — point the installed plugin at this checkout while authoring
 - [Copilot CLI](docs/copilot.md)

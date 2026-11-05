@@ -324,7 +324,13 @@ def cmd_test(root: Path, args: list[str]) -> int:
     ).returncode
 
 
-BUILTIN_COMMANDS = ('list', 'show', 'doctor', 'test', 'help')
+def cmd_run(_root: Path, args: list[str]) -> int:
+    import flow_run  # type: ignore[import-not-found]
+
+    return int(flow_run.main(args))
+
+
+BUILTIN_COMMANDS = ('list', 'show', 'doctor', 'test', 'run', 'help')
 TOP_LEVEL_FLAGS = ('--help', '--version')
 
 
@@ -446,6 +452,7 @@ def cmd_help(root: Path, _args: list[str]) -> int:
         tag = _dev_mode_flag(root) if name == 'dev' else ''
         print(f'  {name.ljust(16)}  {blurb}{tag}')
     print('  test [args]       Run the test suite')
+    print('  run [idea]        Run a flow of skills, Copilot/Claude (--help)')
     print('  help              This screen (also the bare `skill-tree`)')
     print("  --version         This checkout's plugin version")
 
@@ -546,6 +553,7 @@ def main(argv: list[str] | None = None, root: Path | None = None) -> int:
         'show': cmd_show,
         'doctor': cmd_doctor,
         'test': cmd_test,
+        'run': cmd_run,
         'help': cmd_help,
         '__complete': cmd_complete,
     }

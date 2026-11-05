@@ -1,0 +1,42 @@
+# Built-in flow for `skill-tree run`: the idea -> ship loop from the README.
+# Override by writing ~/.config/skill-tree/flows/default.toml or a repo's
+# .skill-tree/flow.toml; patch it with `extends = "default"` + [patch].
+name = "default"
+host = "copilot"
+allow_tools = ["write"]
+
+[[steps]]
+id = "grill"
+skill = "grill-for-planning"
+gate = "interactive"
+out = "decisions.md"
+
+[[steps]]
+id = "spec"
+skill = "to-spec"
+in = ["decisions.md"]
+out = "spec.md"
+gate = "approve"
+
+[[steps]]
+id = "tickets"
+skill = "to-tickets"
+in = ["spec.md"]
+out = "tickets.md"
+gate = "approve"
+
+# Interactive: implementing edits code and runs tests, so tool approvals
+# stay with the human rather than a blanket --allow-all-tools.
+[[steps]]
+id = "implement"
+skill = "implement"
+in = ["spec.md", "tickets.md"]
+out = "implementation.md"
+gate = "interactive"
+
+[[steps]]
+id = "review"
+skill = "two-axis-review"
+in = ["spec.md"]
+out = "review.md"
+allow_tools = ["shell(git:*)"]
