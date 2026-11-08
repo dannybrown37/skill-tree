@@ -30,15 +30,6 @@
         "sha": "c871c153ead54ad9547cc717d0f3e5a676c73986"
       },
       "description": "Third-party skill (johnnyvizz, MIT): /savvy-flow orchestrator with tiered savvy-* worker subagents; drives the savvy-progress bar."
-    },
-    {
-      "name": "filetree",
-      "source": {
-        "source": "github",
-        "repo": "data-goblin/claude-code-filetree",
-        "sha": "d4685b707be21a8147ab7be289df86c2344e4238"
-      },
-      "description": "Third-party mod (data-goblin, MIT): file tree pane with git status, highlighting files Claude touches."
     }
   ]
 }

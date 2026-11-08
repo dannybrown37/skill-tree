@@ -56,14 +56,12 @@ reviewed commit — bumping a `sha` in `.claude-plugin/marketplace.json` is the 
 ```
 /plugin install savvy-progress@skill-tree
 /plugin install savvy-flow@skill-tree
-/plugin install filetree@skill-tree
 ```
 
 | Mod | Upstream | What it does |
 | --- | --- | --- |
 | `savvy-progress` | [JohnnyVizz/claude-kit](https://github.com/JohnnyVizz/claude-kit/tree/main/plugins/savvy-progress) | Progress bar above the prompt, live subagents panel (`/agents-info`) |
 | `savvy-flow` | [JohnnyVizz/claude-kit](https://github.com/JohnnyVizz/claude-kit/tree/main/plugins/savvy-flow) | `/savvy-flow <task>`: plans, delegates to tiered `savvy-*` workers, reviews; feeds `savvy-progress` |
-| `filetree` | [data-goblin/claude-code-filetree](https://github.com/data-goblin/claude-code-filetree) | File tree pane with git status; highlights files Claude touches |
 
 **Copilot CLI:**
 
