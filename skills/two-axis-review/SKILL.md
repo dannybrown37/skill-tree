@@ -88,7 +88,8 @@ Each entry: what it is -> how to fix.
 
 ### 4. Spawn both sub-agents in parallel
 
-Use the `Agent` tool to launch both at the same time.
+**Claude:** use the `Agent` tool to launch both at the same time. **No subagents:** run the
+Standards axis to a finished report, then the Spec axis, without revising the first.
 
 **Standards sub-agent** prompt must include:
 - The full diff (command and output, or the output directly if small enough).

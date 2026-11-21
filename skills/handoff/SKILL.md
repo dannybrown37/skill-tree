@@ -56,8 +56,8 @@ in the narrative, the next step in `CURRENT.md`.
 Near the top: `**Status:** <keyword>`, read by the session-start hook and `handoff status`:
 
 - `in-progress` — mid-flight (`pop` sets this)
-- `awaiting-review` — done and green, user's turn. Committing past the anchor auto-promotes it
-  to between-tasks.
+- `awaiting-review` — done and green, user's turn. Committing past the anchor reads as `reviewed`
+  (derived, never written), and the hook offers the next backlog item.
 - `between-tasks` — settled. With an empty backlog, suggest `handoff close`.
 
 ## NARRATIVE.md

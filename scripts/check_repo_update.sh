@@ -21,12 +21,12 @@ git -C "${_repo_root}" rev-parse --git-dir >/dev/null 2>&1 || exit 0
 
 # One network round-trip per hour at most, so opening a dozen sessions in a
 # row doesn't mean a dozen fetches.
-mkdir -p "$(dirname "${_stamp}")"
+mkdir -p "$(dirname "${_stamp}")" 2>/dev/null || exit 0
 if [[ -f "${_stamp}" ]]; then
 	_age=$(($(date +%s) - $(stat -c %Y "${_stamp}" 2>/dev/null || echo 0)))
 	((_age < 3600)) && exit 0
 fi
-touch "${_stamp}"
+touch "${_stamp}" 2>/dev/null || exit 0
 
 _branch="$(git -C "${_repo_root}" rev-parse --abbrev-ref HEAD 2>/dev/null || echo '')"
 [[ -n "${_branch}" && "${_branch}" != "HEAD" ]] || exit 0
@@ -37,7 +37,15 @@ _remote="${_upstream%%/*}"
 
 # A real fetch rather than ls-remote: telling "behind" from "diverged" needs
 # the remote's commits locally, and that distinction is what gates the pull.
-git -C "${_repo_root}" fetch --quiet "${_remote}" "${_branch}" 2>/dev/null || exit 0
+# Bounded where `timeout` exists, so a dead network can't stall session start.
+_bounded() {
+	if command -v timeout >/dev/null 2>&1; then
+		timeout 10 "$@"
+	else
+		"$@"
+	fi
+}
+GIT_TERMINAL_PROMPT=0 _bounded git -C "${_repo_root}" fetch --quiet "${_remote}" "${_branch}" 2>/dev/null || exit 0
 
 _local_sha="$(git -C "${_repo_root}" rev-parse HEAD 2>/dev/null || echo '')"
 _remote_sha="$(git -C "${_repo_root}" rev-parse FETCH_HEAD 2>/dev/null || echo '')"

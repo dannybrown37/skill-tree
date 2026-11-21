@@ -12,27 +12,38 @@ _repo="https://github.com/dannybrown37/skill-tree.git"
 _state="${HOME}/.claude/plugins/installed_plugins.json"
 _stamp="${HOME}/.cache/skill-tree/last_update_check"
 
+# Every failure below exits 0 without a word: this runs on every session
+# start, and a broken dependency or an offline laptop isn't news.
 command -v git >/dev/null 2>&1 || exit 0
 command -v jq >/dev/null 2>&1 || exit 0
+command -v claude >/dev/null 2>&1 || exit 0
 [[ -r "${_state}" ]] || exit 0
 
 # One network round-trip per hour at most, so opening a dozen sessions in a
 # row doesn't mean a dozen ls-remotes.
-mkdir -p "$(dirname "${_stamp}")"
+mkdir -p "$(dirname "${_stamp}")" 2>/dev/null || exit 0
 if [[ -f "${_stamp}" ]]; then
     _age=$(($(date +%s) - $(stat -c %Y "${_stamp}" 2>/dev/null || echo 0)))
     ((_age < 3600)) && exit 0
 fi
-touch "${_stamp}"
+touch "${_stamp}" 2>/dev/null || exit 0
 
-_installed="$(jq -r '.plugins["skill-tree@skill-tree"][0].gitCommitSha // empty' "${_state}")"
+_installed="$(jq -r '.plugins["skill-tree@skill-tree"][0].gitCommitSha // empty' "${_state}" 2>/dev/null)" || exit 0
 [[ -n "${_installed}" ]] || exit 0
 
-_remote="$(git ls-remote "${_repo}" main 2>/dev/null | cut -f1)"
+# Bounded, so a captive portal or dead DNS can't stall session start.
+# macOS ships no `timeout`; there the check just runs unbounded.
+_bounded() {
+    if command -v timeout >/dev/null 2>&1; then
+        timeout 5 "$@"
+    else
+        "$@"
+    fi
+}
+_remote="$(GIT_TERMINAL_PROMPT=0 _bounded git ls-remote "${_repo}" main 2>/dev/null | cut -f1)" || exit 0
 [[ -n "${_remote}" ]] || exit 0
 [[ "${_remote}" == "${_installed}" ]] && exit 0
 
-echo "skill-tree: ${_installed:0:7} -> ${_remote:0:7} available, updating..."
 claude plugin marketplace update skill-tree >/dev/null 2>&1 || exit 0
 claude plugin update skill-tree@skill-tree >/dev/null 2>&1 || exit 0
-echo "skill-tree: updated. Restart Claude Code to pick it up."
+echo "skill-tree: updated ${_installed:0:7} -> ${_remote:0:7}. Restart Claude Code to pick it up."
