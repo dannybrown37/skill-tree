@@ -132,11 +132,22 @@ SEOF
 		return 0
 	fi
 
-	# Merge statusLine into existing settings
+	_merge_statusline "${settings}" "${cmd}"
+}
+
+# Set `.statusLine` in an existing settings file. Quietly does nothing when
+# jq is missing or can't parse the file: this runs on every session start,
+# and a skipped status line beats an error (or a false "Added") each time.
+_merge_statusline() {
+	local settings="$1" cmd="$2"
+	command -v jq >/dev/null 2>&1 || return 0
 	local tmp="${settings}.tmp.$$"
-	jq --arg cmd "${cmd}" '.statusLine = {"type": "command", "command": $cmd}' "${settings}" >"${tmp}" &&
+	if jq --arg cmd "${cmd}" '.statusLine = {"type": "command", "command": $cmd}' "${settings}" >"${tmp}" 2>/dev/null; then
 		mv "${tmp}" "${settings}"
-	echo "Added statusLine config to ${settings}"
+		echo "Added statusLine config to ${settings}"
+	else
+		rm -f "${tmp}"
+	fi
 }
 
 # Bare ~/.claude/skills symlinks are retired: the harness collapses them
@@ -311,10 +322,7 @@ SEOF
 		return 0
 	fi
 
-	local tmp="${settings}.tmp.$$"
-	jq --arg cmd "${cmd}" '.statusLine = {"type": "command", "command": $cmd}' "${settings}" >"${tmp}" &&
-		mv "${tmp}" "${settings}"
-	echo "Added statusLine config to ${settings}"
+	_merge_statusline "${settings}" "${cmd}"
 }
 
 # Copilot has no commands/ equivalent, so repo-level commands/*.md are

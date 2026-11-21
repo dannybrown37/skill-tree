@@ -73,7 +73,7 @@ If no `.pre-commit-config.yaml` exists, flag it and skip to the next section.
 
 - **Python:** `.ruff.toml` or `[tool.ruff]` in `pyproject.toml`. Run
   `uv run --with ruff ruff check .` and `uv run --with ruff ruff format --check .`.
-- **Node/TS:** biome config must exist. Run `npx biome .`.
+- **Node/TS:** biome config must exist. Run `npx biome check .`.
   - eslint + prettier are okay in Legacy apps but should be upgraded if reasonable.
 - **Shell:** shellcheck and shfmt should be in pre-commit (checked above). Also spot-check:
   `find . -name '*.sh' -not -path './.git/*' | head -5 | xargs shellcheck` to confirm
@@ -153,13 +153,13 @@ future-you-who-already-knows-everything.
 
 Only applicable if the repo has `.github/workflows/*.yml`. If it doesn't, this is `n/a`.
 
-- [zizmor](https://github.com/woodruffw/zizmor) should be wired in somewhere -- a
+- [zizmor](https://github.com/zizmorcore/zizmor) should be wired in somewhere -- a
   `zizmor` pre-commit hook, or a CI step that runs it (`uvx zizmor .`). If neither exists,
   flag it: workflow injection, missing permissions pins, and unpinned third-party actions
   go unreviewed.
 - Every `uses:` ref must resolve: `./<path>` to a file in the repo, else `owner/repo@ref`.
   zizmor offline passed `uses: $/.github/workflows/x.yml`; the checker catches it.
-- Run `uvx zizmor .` (or `--run` on the checker below) and report findings — untrusted
+- Run `uvx zizmor .` (or `--run` on the checker above) and report findings — untrusted
   input flowing into `run:` blocks, overly broad `permissions:`, actions pinned to a
   mutable tag instead of a commit SHA.
 

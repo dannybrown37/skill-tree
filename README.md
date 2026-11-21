@@ -39,6 +39,10 @@ extend and patch per machine or per repo. See [docs/run.md](docs/run.md).
 
 ## Installing
 
+**Requirements:** bash, [uv](https://docs.astral.sh/uv/) (every bundled CLI runs through it).
+Optional: `gh` (`debug-ci`, `repo-audit`), `jq` (status line), `fzf` (pickers). A missing
+optional tool disables that one feature; hooks stay silent rather than erroring.
+
 **Claude Code:**
 
 ```
@@ -46,9 +50,31 @@ extend and patch per machine or per repo. See [docs/run.md](docs/run.md).
 /plugin install skill-tree@skill-tree
 ```
 
-Every skill is then `skill-tree:<name>`. A `SessionStart` hook runs `scripts/install.sh`,
-putting `skill-tree` and `handoff` on `PATH` (`~/.local/bin/`). Manual clone: run
-`scripts/install.sh` yourself — it's idempotent and never overwrites files it didn't create.
+Every skill is then `skill-tree:<name>`. Manual clone: run `scripts/install.sh` yourself.
+
+**What it changes on your machine.** The plugin's hooks ([hooks/hooks.json](hooks/hooks.json))
+run on every session start:
+
+- `scripts/install.sh` symlinks `skill-tree` and `handoff` into `~/.local/bin/`, adds bash
+  completion, links `~/.claude/statusline-command.sh`, and **sets `statusLine` in
+  `~/.claude/settings.json`** (replacing any status line you had). Idempotent; never
+  overwrites a file or symlink it didn't create.
+- `scripts/check_plugin_update.sh` checks GitHub at most hourly and runs
+  `claude plugin update` when a newer commit is on `main`.
+- `handoff_session_start.sh` prints the current repo's `docs/handoffs/<branch>/CURRENT.md`
+  into context, if one exists.
+- A `PreToolUse` hook pre-approves reading images in your screenshots folder (below).
+
+**Try it (5 minutes):**
+
+```bash
+skill-tree doctor         # where it's installed and what it wired up
+skill-tree list           # every skill, one line each
+skill-tree show verify    # read a playbook without starting a session
+```
+
+Then in a Claude session: `/skill-tree:grill-for-planning <an idea>` to start the loop above,
+or ask "did that actually work?" after a change to see `verify` trigger on its own.
 
 **Mods (Claude Code only):** third-party mods listed in this marketplace, each pinned to a
 reviewed commit — bumping a `sha` in `.claude-plugin/marketplace.json` is the upgrade path.
@@ -123,10 +149,13 @@ Each lives at `skills/<name>/` with its own `SKILL.md`, `scripts/`, and `referen
 ## Testing
 
 ```bash
-skill-tree test   # or: uv run pytest scripts/ skills/ -q
+just qa           # lint + tests, the same checks CI runs
+skill-tree test   # tests only
+just eval <skill> # behavioral evals in evals/<skill>/ (calls Claude, spends tokens)
 ```
 
-Pre-commit runs ruff and `scripts/check_skill_structure.py`; the test suite runs at pre-push.
+Pre-commit runs ruff, mypy, shellcheck, and `scripts/check_skill_structure.py`; the test suite
+runs at pre-push.
 
 ## License
 

@@ -9,7 +9,13 @@ shopt -s nocasematch
 
 case "${payload}" in
 *screenshot* | *.png* | *.jpg* | *.jpeg* | *.gif* | *.webp* | *.bmp*)
-	exec python3 "$(dirname "${BASH_SOURCE[0]}")/screenshot_hook.py" <<<"${payload}"
+	# A missing or crashing python3 must not become an error on every image
+	# read; fall through to "no opinion" instead.
+	if command -v python3 >/dev/null 2>&1 &&
+		decision="$(python3 "$(dirname "${BASH_SOURCE[0]}")/screenshot_hook.py" <<<"${payload}" 2>/dev/null)"; then
+		printf '%s' "${decision}"
+		exit 0
+	fi
 	;;
 esac
 
