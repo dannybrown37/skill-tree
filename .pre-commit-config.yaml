@@ -5,7 +5,7 @@ repos:
   # These live in git-a-grip so every repo shares one copy. Releasing is no
   # longer a hook: run `git-release` (aliased to gp) to bump, tag and push.
   - repo: https://github.com/dannybrown37/git-a-grip
-    rev: v0.15.1
+    rev: v0.16.2
     hooks:
       - id: commitizen-early
         fail_fast: true
@@ -18,6 +18,7 @@ repos:
         args: ['--runner=uv run pytest', scripts/, skills/, -q]
         files: ^(scripts|skills)/.*\.py$
       - id: block-private-terms
+      - id: protect-branch
       - id: regen-file
         args: ['--command=python3 scripts/gen_readme_skills_table.py', '--file=README.md']
         files: ^(skills/.*/SKILL\.md|README\.md)$
