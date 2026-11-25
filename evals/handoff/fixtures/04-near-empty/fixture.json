@@ -1,5 +1,6 @@
 {
   "cwd": "weatherbot",
+  "expected_status": "in-progress",
   "summary": "Almost nothing happened: options were discussed, no decision, no edits. Tests restraint.",
   "facts": [
     {"id": "goal", "weight": 3, "fact": "Goal: make commits faster; the pytest pre-commit hook takes ~38s."},

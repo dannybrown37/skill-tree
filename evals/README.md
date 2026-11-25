@@ -5,6 +5,7 @@ does with the playbook.
 
 ```bash
 just eval                                      # pick a suite (fzf), or lists them off a TTY
+just eval all                                  # every suite but handoff, -j 4, ~7 min, ~$14, capped at $25
 just eval ui-designer                          # 3 cases, ~3 min, ~$0.75–0.90
 just eval debug-ci                             # 3 cases, ~1.5 min, ~$0.60
 just eval repo-audit                           # 5 cases
@@ -13,15 +14,15 @@ just eval two-axis-review                      # 1 case
 just eval verify                               # 4 cases (3 traps, 1 negative trigger)
 just eval cli-ergonomics                       # 4 cases (2 traps, 2 negative triggers)
 just eval site-launch                          # 4 cases (audit, fix, control, negative trigger)
-just eval adversarial-review                    # 3 cases (real bug, sound control, negative trigger)
-just eval implement                             # 2 cases (one ticket HITL, negative trigger)
-just eval domain-modeling                       # 3 cases (term conflict, record a term, negative trigger)
-just eval codebase-design                       # 2 cases (shallow module, negative trigger)
+just eval adversarial-review                    # 2 cases (real bug, sound control)
+just eval implement                             # 1 case (one ticket HITL)
+just eval domain-modeling                       # 2 cases (term conflict, record a term)
+just eval codebase-design                       # 1 case (shallow module)
 just eval dynamodb-modeling                     # 2 cases (new table, Postgres negative trigger)
 just eval dynamodb-migrations                   # 3 cases (ordered GSI backfill, TTL drift, negative trigger)
-just eval dynamodb-cost-audit                   # 2 cases (template audit, negative trigger)
-just eval bro                                   # 2 cases, ~$0.20
-just eval wait-what                             # 2 cases, ~$0.20
+just eval dynamodb-cost-audit                   # 1 case (template audit)
+just eval bro                                   # 1 case, ~$0.10
+just eval wait-what                             # 1 case, ~$0.10
 just eval debug-hooks                           # 2 cases (duplicate hook, git-hook negative trigger)
 just eval grill-for-planning                    # 1 case (first round)
 just eval grill-for-quality                     # 1 case (one sharp question on an RFC)
@@ -112,6 +113,19 @@ Its scores have no pass bar. It exits 1 only if a run didn't complete.
   against the no-plugin arm and reports "the plugin exists" as lift. It changes nothing under
   the default `--ablation none`.
 - Only `EVAL_*` keys are allowed in `execution.env`, which is why `PATH` comes from the recipe.
+  Nothing else in the recipe's environment reaches the agent's Bash either.
+- Inside the sandbox, HOME, TMPDIR, and (for read-only cases) the workspace are read-only;
+  only `/tmp` is writable. The plugin's SessionStart hook links `skill-tree` and `handoff`
+  into the sandbox's `~/.local/bin`, which is not on PATH. So `scripts/eval-bin/` carries
+  `skill-tree` and `handoff` links and a `uv` stand-in that points `UV_CACHE_DIR` at `/tmp`.
+  Without them every checker dies before printing, and each "checker ran" grader fails
+  (7 cases on 2026-11-24).
+- Negative-trigger cases only mean something for skills the model can invoke. A skill with
+  `disable-model-invocation: true` can't fire from the Skill tool at all, so a
+  `skill-not-fired` case on it always passes and proves nothing.
+- A run that hits the usage limit scores 0 with an `error`, which looks like a failure in
+  the summary table. Check the error before you read it as a skill regression. A full
+  `just eval all` costs about one 5-hour window, so don't start it alongside other heavy work.
 - The sandbox hides all of `evals/` from the agent's Bash, so it can't read graders. Anything
   the agent has to execute or read (the stand-in `gh`, its fixtures) must live elsewhere
   under the plugin root, or be copied into the workspace by the scaffold.

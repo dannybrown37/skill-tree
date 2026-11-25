@@ -30,7 +30,7 @@ graders:
   - type: regex
     name: summary-line
     target: last_message
-    pattern: '\d+\s+pass(ed)?\b[\s\S]{0,60}?\d+\s+fail(ed)?\b'
+    pattern: '\d+\s+pass(ed)?\b[\s\S]{0,60}?\d+\s+fail(ed)?\b|\d+\s+fail(ed)?\b[\s\S]{0,60}?\d+\s+pass(ed)?\b'
     flags: i
   # Deterministic on purpose: an llm judge with the same intent said FAIL
   # on a report that never claimed a configured item was missing, and PASS
