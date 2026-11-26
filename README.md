@@ -76,13 +76,19 @@ skill-tree show verify    # read a playbook without starting a session
 Then in a Claude session: `/skill-tree:grill-for-planning <an idea>` to start the loop above,
 or ask "did that actually work?" after a change to see `verify` trigger on its own.
 
-**Mods (Claude Code only):** third-party mods listed in this marketplace, each pinned to a
-reviewed commit — bumping a `sha` in `.claude-plugin/marketplace.json` is the upgrade path.
+**Mods (Claude Code only):** our own mods live in `mods/<name>/`; third-party mods are listed
+in this marketplace, each pinned to a reviewed commit — bumping a `sha` in
+`.claude-plugin/marketplace.json` is the upgrade path.
 
 ```
+/plugin install fleet-crew@skill-tree
 /plugin install savvy-progress@skill-tree
 /plugin install savvy-flow@skill-tree
 ```
+
+`fleet-crew` ([mods/fleet-crew](mods/fleet-crew/README.md)): `/crew` opens a panel where each
+[fleet](https://github.com/dannybrown37/dotfiles/blob/main/docs/fleet.md) agent is a little
+animated character picked by its repo, with a step bar when the agent reports `fleet step`.
 
 | Mod | Upstream | What it does |
 | --- | --- | --- |

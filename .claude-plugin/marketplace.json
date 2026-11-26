@@ -12,6 +12,11 @@
       "description": "Reusable Claude Code skills with their own CLI implementations behind them."
     },
     {
+      "name": "fleet-crew",
+      "source": "./mods/fleet-crew",
+      "description": "Mod: your fleet agents as animated characters in a panel (/crew), with step bars from `fleet step`."
+    },
+    {
       "name": "savvy-progress",
       "source": {
         "source": "git-subdir",

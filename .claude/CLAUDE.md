@@ -11,6 +11,11 @@ directly (e.g. `dotfiles`, historically) and invoke the CLI via an absolute path
 (`$SKILL_TREE_DIR`-qualified), so nothing here should assume it's being run from inside another
 repo, or that another repo is even cloned.
 
+Our own Claude Code mods (hooks-module plugins) live at `mods/<name>/`, each its own plugin
+listed in `.claude-plugin/marketplace.json` with a `./mods/<name>` source. Check one with
+`claude plugin validate mods/<name>` and `claude plugin test mods/<name>`. Mods are
+Claude-only; Copilot has no equivalent.
+
 ### Two hosts
 
 Skills here target **Claude Code and GitHub Copilot CLI**. Both read the same `SKILL.md` spec
