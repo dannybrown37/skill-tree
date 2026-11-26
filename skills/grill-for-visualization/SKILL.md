@@ -40,7 +40,9 @@ the answers start to feel sufficient.
 
 Never invent functionality, customer claims, or metrics to fill a gap: ask. If the user says
 to just go, stop asking, make the remaining calls yourself, and list every assumption beside
-the storyboard so each one can be corrected.
+the storyboard so each one can be corrected. "Just go" skips the interview, not the
+storyboard approval: still stop after step 2 and wait. A wrong assumption caught in a table
+costs a sentence; caught in a rendered MP4 it costs the whole build.
 
 ## 2. Storyboard
 
@@ -48,7 +50,8 @@ Present one table, one row per scene: what the viewer sees, what they should und
 on-screen copy, approximate duration, and how it hands off to the next scene. Under it, list
 assumptions and anything illustrative rather than factual.
 
-Do not create files until the user approves the storyboard. Changes loop back here.
+Do not create files until the user approves the storyboard, even after "just go". Changes loop
+back here.
 
 ## 3. Scaffold
 

@@ -1,0 +1,23 @@
+#!/usr/bin/env bash
+# Stand-in for `uv` during evals; `just eval` puts this directory first on
+# PATH. The eval sandbox makes HOME and TMPDIR read-only and passes only PATH
+# through from the recipe, so uv can't create its cache and every bundled CLI
+# (they all run under `uv run`) dies before printing anything. /tmp is the
+# one writable place.
+set -euo pipefail
+
+self_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+real_uv=''
+IFS=: read -ra path_dirs <<<"${PATH}"
+for dir in "${path_dirs[@]}"; do
+	[[ -n "${dir}" && "$(cd "${dir}" 2>/dev/null && pwd)" != "${self_dir}" && -x "${dir}/uv" ]] || continue
+	real_uv="${dir}/uv"
+	break
+done
+if [[ -z "${real_uv}" ]]; then
+	echo 'eval-bin/uv: no real uv found on PATH' >&2
+	exit 127
+fi
+
+export UV_CACHE_DIR="${UV_CACHE_DIR:-/tmp/skill-tree-eval-uv-cache}"
+exec "${real_uv}" "$@"

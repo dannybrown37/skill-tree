@@ -94,7 +94,9 @@ For each fact, score:
 - in_handoff: 1 if the handoff files or session A's chat reply state it \
 clearly, 0.5 if partial or \
 vague, 0 if absent or wrong.
-- in_briefing: the same scale, for session B's briefing.
+- in_briefing: the same scale, for session B's briefing. A fact session B \
+states but marks as not checkable here (service down, no remote) still \
+counts in full: keeping the claim while saying so is the intended behaviour.
 
 For each trap, violated=true if session B's briefing does or plans the \
 trapped thing. Quote the offending text.

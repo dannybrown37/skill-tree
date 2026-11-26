@@ -3,7 +3,7 @@ default:
     @echo "  just skill <name>            Scaffold a new skill in skills/<name>/"
     @echo "  just output-style <name>     Create an output style in output-styles/<name>.md"
     @echo "  just install                 Symlink skills, CLIs, and output styles into ~/"
-    @echo "  just eval <skill> [flags]    Run the evals in evals/<skill>/"
+    @echo "  just eval <skill|all> [flags] Run the evals in evals/<skill>/, or every suite"
     @echo "  just qa                      Lint and test, the same checks CI runs"
     @echo ""
     @echo "skill and output-style open the new file in VS Code or \$EDITOR."
@@ -39,8 +39,9 @@ eval skill="" *flags:
     set -euo pipefail
     mapfile -t suites < <({ find evals -mindepth 3 -maxdepth 3 -name case.yaml; find evals -mindepth 2 -maxdepth 2 -name run.py; } | cut -d/ -f2 | sort -u)
     usage() {
-        echo "usage: just eval <skill> [flags...]  (flags go to claude plugin eval, or to evals/<skill>/run.py)" >&2
+        echo "usage: just eval <skill|all> [flags...]  (flags go to claude plugin eval, or to evals/<skill>/run.py)" >&2
         echo "suites: ${suites[*]}" >&2
+        echo "all: every claude plugin eval suite in one run (not handoff), -j 4, capped at \$25" >&2
         exit 2
     }
     skill="${1:-}"
@@ -52,7 +53,7 @@ eval skill="" *flags:
             usage
         fi
     fi
-    if [[ ! " ${suites[*]} " == *" ${skill} "* ]]; then
+    if [[ "${skill}" != all && ! " ${suites[*]} " == *" ${skill} "* ]]; then
         echo "no eval suite named '${skill}'" >&2
         usage
     fi
@@ -69,8 +70,17 @@ eval skill="" *flags:
         [[ "${status}" -eq 0 ]] || echo "exit ${status}: at least one run did not complete; see above" >&2
         exit "${status}"
     fi
+    # `all` runs every case in one process so -j can overlap suites; the cost
+    # cap is there because a full pass is ~$15 and one usage-limit window.
+    if [[ "${skill}" == all ]]; then
+        scope=(-j 4 --max-cost-usd 25)
+        suite_dir=evals
+    else
+        scope=(--tag "${skill}")
+        suite_dir="evals/${skill}"
+    fi
     tools=(Edit Write)
-    if grep -rqs --include=case.yaml -E 'allowed_tools:.*\bBash\b' "evals/${skill}"; then
+    if grep -rqs --include=case.yaml -E 'allowed_tools:.*\bBash\b' "${suite_dir}"; then
         tools+=(Bash)
     fi
     # The eval sandbox refuses to grant Bash while ~/.docker holds symlinks
@@ -101,7 +111,7 @@ eval skill="" *flags:
         echo "moved ${docker_dir} aside (the eval sandbox refuses its symlinks); restoring on exit" >&2
     fi
     status=0
-    PATH="${PWD}/scripts/eval-bin:${PATH}" claude plugin eval . --tag "${skill}" --scaffold \
+    PATH="${PWD}/scripts/eval-bin:${PATH}" claude plugin eval . "${scope[@]}" --scaffold \
         --ablation none --no-publish --judge-model claude-sonnet-5-5 \
         --allow-tools "${tools[@]}" "$@" || status=$?
     echo "Run again with:"
@@ -110,7 +120,7 @@ eval skill="" *flags:
     echo
     case "${status}" in
     0) ;;
-    1) echo "exit 1: a case scored below --threshold (default 1.0), or the run could not start; see above" >&2 ;;
+    1) echo "exit 1: a case scored below --threshold (default 1.0), a run hit an API or usage-limit error (score 0, not a skill failure), or the run could not start; see above" >&2 ;;
     2) echo "exit 2: stopped early at the --max-cost-usd ceiling; results above are partial" >&2 ;;
     *) echo "exit ${status}: claude plugin eval failed" >&2 ;;
     esac

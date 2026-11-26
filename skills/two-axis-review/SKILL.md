@@ -88,8 +88,10 @@ Each entry: what it is -> how to fix.
 
 ### 4. Spawn both sub-agents in parallel
 
-**Claude:** use the `Agent` tool to launch both at the same time. **No subagents:** run the
-Standards axis to a finished report, then the Spec axis, without revising the first.
+**Claude:** use the `Agent` tool to launch both at the same time, even for a tiny diff. The
+point is that neither axis sees the other's findings, not speed. **No subagents** (the host
+has no agent tool at all): run the Standards axis to a finished report, then the Spec axis,
+without revising the first.
 
 **Standards sub-agent** prompt must include:
 - The full diff (command and output, or the output directly if small enough).
@@ -114,8 +116,8 @@ If no spec was found, skip the Spec sub-agent and note it in the final report.
 
 ### 5. Aggregate
 
-Present the two reports under `## Standards` and `## Spec` headings, verbatim or lightly
-cleaned. **Do not merge or rerank** — the axes are deliberately separate.
+Present the two reports under exactly `## Standards` and `## Spec` (not "Conventions" or
+"Requirements"), verbatim or lightly cleaned. **Do not merge or rerank** — the axes are deliberately separate.
 
 End with a one-line summary: total findings per axis and the worst issue within each.
 Don't pick a single winner across axes.
