@@ -1,0 +1,23 @@
+{
+  "name": "fleet-crew",
+  "version": "0.1.0",
+  "description": "Your fleet agents as a crew of animated characters in a panel (/crew): who's busy, who's napping, who needs you.",
+  "author": { "name": "Danny Brown" },
+  "types": "./types/index.d.ts",
+  "userConfig": {
+    "include": {
+      "type": "string",
+      "title": "Who joins the crew",
+      "description": "managed: agents started by `fleet new`; all: every Claude/Copilot session fleet sees",
+      "default": "managed",
+      "options": ["managed", "all"]
+    },
+    "fleetCommand": {
+      "type": "string",
+      "title": "fleet script",
+      "description": "Path to fleet.sh; empty uses $DOTFILES_DIR/scripts/fleet.sh, then ~/projects/dotfiles/scripts/fleet.sh",
+      "default": ""
+    }
+  },
+  "license": "MIT"
+}
