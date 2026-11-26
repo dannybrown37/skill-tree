@@ -90,7 +90,8 @@ When the work is complete (one ticket in default mode, the frontier in autonomou
 3. **Run `pre-commit`** (or `prek`) if the project has it. Fix what it reports.
 4. **Invoke [[verify]]** (`skill-tree:verify`) on each done-claim; step 1's green suite is not
    this step. Run the thing, not just its tests — every claim in the summary ships with the
-   check that could have refuted it and its output.
+   check that could have refuted it and its output. Invoke the skill even if you already
+   ran the code by hand: a hand run doesn't replace it.
 5. **Invoke [[two-axis-review]]** (`skill-tree:two-axis-review`) on the diff. Fix anything it
    finds before presenting to the user.
 6. **Present the work.** Summary of what changed, the proof from step 4, the verification

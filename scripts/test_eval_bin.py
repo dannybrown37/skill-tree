@@ -70,3 +70,32 @@ def test_uv_stand_in_reports_missing_real_uv(tmp_path: Path) -> None:
     )
     assert result.returncode == 127
     assert 'no real uv' in result.stderr
+
+
+@pytest.mark.parametrize(
+    ('args', 'expected'),
+    [
+        ('repo view', 'eval/slugger'),
+        (
+            'repo view --json defaultBranchRef -q .defaultBranchRef.name',
+            'main',
+        ),
+    ],
+)
+def test_gh_stand_in_repo_view(
+    args: str,
+    expected: str,
+    tmp_path: Path,
+) -> None:
+    subprocess.run(['git', 'init', '-q'], cwd=tmp_path, check=True)
+    (tmp_path / '.git' / 'eval-gh').mkdir()
+    result = subprocess.run(
+        [str(EVAL_BIN / 'gh'), *args.split()],
+        cwd=tmp_path,
+        capture_output=True,
+        text=True,
+        check=False,
+        timeout=30,
+    )
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.strip() == expected

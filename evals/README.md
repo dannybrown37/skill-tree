@@ -34,6 +34,7 @@ just eval skill-audit                           # 1 case (checker plus judgement
 just eval to-spec                               # 2 cases (settled, unsettled)
 just eval to-tickets                            # 2 cases (vertical slices, expand-contract)
 just eval tui-screenshots                       # 2 cases (plan, negative trigger)
+just eval split-pr                              # 3 cases (model-invoked plan, tickets, negative trigger)
 just eval debug-ci --runs 3                    # more samples per case
 just eval ui-designer --ablation with-without  # also run without the plugin, report the delta
 ```
@@ -65,6 +66,7 @@ just eval ui-designer --ablation with-without  # also run without the plugin, re
 | `to-spec` | `claude plugin eval` | template, glossary vocabulary, no code; refuses to spec an unsettled conversation and points at grill-for-planning; manual-only |
 | `to-tickets` | `claude plugin eval` | vertical slices with blocking edges, approval before publishing; expand–migrate–contract for a wide rename; manual-only |
 | `tui-screenshots` | `claude plugin eval` | plan covers a separate demo store, headless fixed-size run, SVG, and a drift guard; no trigger on "look at my screenshot" |
+| `split-pr` | `claude plugin eval` | fires without a slash command; plan cuts by concern (rename alone, tests with code) and slices along ticket files with the Jira key in branch names; waits for approval with no branch, commit, or push; no trigger on splitting a function |
 | `handoff` | `handoff/run.py` | write a handoff, resume it in a fresh session, judge what survived |
 
 For `claude plugin eval` suites, the recipe defaults to one run per case, no baseline arm,
@@ -155,6 +157,12 @@ Its scores have no pass bar. It exits 1 only if a run didn't complete.
   (cli-ergonomics/02). And remove fixture bait: if a "clean" control file has any real
   wart, the agent will rightly flag it and a no-false-positives grader fails. Stub binaries
   count: an 8-byte `og.png` got flagged as a broken share image (site-launch/04).
+- A judge that sees an optional alternative in the reply ("or a 3-PR version…") may grade
+  the alternative. Start the rubric with "Judge only the main proposed plan" (split-pr/01).
+- The agent can't write to `.git` in the sandbox (`git fetch` fails on `FETCH_HEAD`), so
+  split-pr's build-and-push steps can't run there. Its cases stop at the plan.
+- `--case` takes one glob, without braces. `--max-cost-usd` doesn't stop runs already in
+  flight: a $0.01 cap on one case at `--runs 3` still spent $2.
 - `screenshot` has no suite. `latest` reads the user's real screenshots folder, and `take`
   captures their real desktop through WSL. Neither is safe or repeatable in a sandbox, and
   `SCREENSHOT_DIR` can't be set through `execution.env`, which only allows `EVAL_*` keys.

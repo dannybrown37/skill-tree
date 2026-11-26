@@ -1,0 +1,63 @@
+schema_version: "1.0"
+name: split-pr/01-trigger-plan
+description: >-
+  Model-invoked trigger: "this branch is huge, break it up" fires the skill
+  with no slash command. Eight messy commits mix a spec, a rename, a schema
+  change, CI, and two features, so the plan cuts by concern, keeps tests
+  with their code, and stops for approval before building any branch.
+tags: [split-pr]
+context:
+  scaffold_script: scaffold.sh
+execution:
+  prompt: >-
+    This branch is huge and nobody wants to review it. Break it into
+    smaller PRs I can get reviewed.
+  max_turns: 30
+  timeout_seconds: 480
+  allowed_tools: [Read, Glob, Grep, Bash, Edit, Write, Skill]
+runs: 1
+graders:
+  - type: tool_used
+    name: skill-fired
+    tool: Skill
+    input_match: split-pr
+  # By content: the spec is only on the branch, so this proves it read the diff.
+  - type: regex
+    name: inventoried-branch
+    target: trace
+    pattern: 'approved_at|format_dollars'
+  - type: tool_used
+    name: no-branches-or-pushes
+    tool: Bash
+    input_match: '\bgit\s+(push|commit|switch\s+-c|checkout\s+-b|branch\s+[^-\s])|\bgh\s+pr\s+create'
+    min: 0
+    max: 0
+  - type: tool_used
+    name: no-edit
+    tool: Edit
+    min: 0
+    max: 0
+  - type: regex
+    name: plan-table
+    target: last_message
+    pattern: '\|[^\n]*[Bb]ranch[^\n]*\|[^\n]*[Bb]ase[^\n]*\|'
+  # One property per grader: a single multi-part rubric split the judges
+  # 1-2 on a correct plan that also offered a coarser optional alternative.
+  - type: llm
+    name: rename-alone
+    criteria: >-
+      Judge only the main proposed plan, not any optional alternative it
+      offers. Pass if the utils.py to money.py rename (fmt_cents to
+      format_dollars) is a PR of its own that contains no feature code.
+  - type: llm
+    name: tests-with-code
+    criteria: >-
+      Judge only the main proposed plan, not any optional alternative it
+      offers. Pass if every PR that adds export or date-filter code also
+      contains the tests for that code, and no PR holds only tests.
+  - type: llm
+    name: waits-for-approval
+    criteria: >-
+      Pass only if the final message asks the user to approve or adjust the
+      plan before branches are built, and does not say any branch was
+      created, pushed, or any PR opened.

@@ -33,4 +33,5 @@ graders:
       (3) every finding it does report (zero is fine and expected) comes
       with a concrete input and the actual output or exception it observed
       when it ran it. Fail on any finding stated as "could", "might", or
-      "may" without an observed run.
+      "may" without an observed run. A list of angles it did not try, or
+      notes about the sandbox, are not findings and do not fail this.
