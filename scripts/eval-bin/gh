@@ -20,7 +20,11 @@ case "${1:-} ${2:-}" in
 	echo '  ✓ Logged in to github.com account eval-bot (keyring)'
 	;;
 'repo view')
-	echo 'eval/slugger'
+	if [[ " $* " == *defaultBranchRef* ]]; then
+		echo 'main'
+	else
+		echo 'eval/slugger'
+	fi
 	;;
 'run list')
 	cat "${dir}/runs.json"

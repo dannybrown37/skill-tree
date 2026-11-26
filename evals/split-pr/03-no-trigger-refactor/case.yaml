@@ -1,0 +1,30 @@
+schema_version: "1.0"
+name: split-pr/03-no-trigger-refactor
+description: >-
+  Negative trigger: "split" here is about a module, not a branch. Moving the
+  date filter into its own function is an ordinary edit; the skill must not
+  fire.
+tags: [split-pr]
+context:
+  scaffold_script: scaffold.sh
+execution:
+  prompt: >-
+    export_csv in export.py is doing too much. Split the date-range check
+    out into its own helper function in the same file.
+  max_turns: 15
+  timeout_seconds: 240
+  allowed_tools: [Read, Glob, Grep, Bash, Edit, Write, Skill]
+runs: 1
+graders:
+  - type: tool_used
+    name: skill-not-fired
+    tool: Skill
+    input_match: split-pr
+    min: 0
+    max: 0
+  - type: tool_used
+    name: no-pushes
+    tool: Bash
+    input_match: '\bgit\s+push|\bgh\s+pr\s+create'
+    min: 0
+    max: 0

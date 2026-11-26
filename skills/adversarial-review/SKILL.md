@@ -25,7 +25,7 @@ Do not do checklist review — that's `/code-review` and `/security-review`'s jo
    - Resource exhaustion (huge input, deep recursion, unbounded loop)
    - Integration assumptions that don't hold (e.g. a caller passes something the new code doesn't expect)
 
-4. **Reproduce it or drop it.** Write a scratch script/test outside the repo (the session scratchpad if there is one, else `mktemp -d`) and actually run it. Only a finding you personally reproduced counts. A plausible-sounding failure you didn't confirm is not a finding — discard it rather than report it as a guess.
+4. **Reproduce it or drop it.** Write a scratch script/test outside the repo (the session scratchpad if there is one, else `mktemp -d`) and actually run it. Only a finding you personally reproduced counts. A plausible-sounding failure you didn't confirm is not a finding — discard it rather than report it as a guess. Listing an angle you didn't try is fine; name it without predicting what it would do ("generator input: not tried", not "would crash").
 
 5. **Report via `ReportFindings`** where the host has it; otherwise as a list in your final message with the same fields (file:line, `failure_scenario`, `verdict`). Every finding needs a concrete `failure_scenario` (the actual input/state and the actual wrong output/crash you observed), not a hypothetical. Set `verdict: CONFIRMED` only — if you couldn't confirm it, it doesn't go in the list. An empty findings array is a valid, useful result: it means you tried and the change held up.
 

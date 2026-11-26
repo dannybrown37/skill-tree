@@ -1,0 +1,51 @@
+schema_version: "1.0"
+name: split-pr/02-tickets-slash
+description: >-
+  Ticket files EXP-101..103 already define the cut. The skill slices along
+  them (one PR per ticket, Jira key in branch name and title), stacks 102
+  on 101 and 103 on 102 per their "Blocked by" lines, and presents the plan
+  without building anything.
+tags: [split-pr]
+context:
+  scaffold_script: scaffold.sh
+execution:
+  prompt: /skill-tree:split-pr
+  max_turns: 30
+  timeout_seconds: 480
+  allowed_tools: [Read, Glob, Grep, Bash, Edit, Write, Skill]
+runs: 1
+graders:
+  - type: regex
+    name: read-the-tickets
+    target: trace
+    pattern: 'record approved_at on expenses'
+  - type: tool_used
+    name: no-branches-or-pushes
+    tool: Bash
+    input_match: '\bgit\s+(push|commit|switch\s+-c|checkout\s+-b|branch\s+[^-\s])|\bgh\s+pr\s+create'
+    min: 0
+    max: 0
+  - type: tool_used
+    name: no-edit
+    tool: Edit
+    min: 0
+    max: 0
+  - type: regex
+    name: jira-key-in-branch
+    target: last_message
+    pattern: '(?:exp|EXP)-10[123][^\s|`]*/|/[^\s|`]*(?:exp|EXP)-10[123]'
+  - type: llm
+    name: slices-along-tickets
+    criteria: >-
+      Pass only if the plan has a PR for each of EXP-101 (approved_at field
+      and migration), EXP-102 (export_csv with test_export.py's first test),
+      and EXP-103 (the date filter and its test), and stacks EXP-102 on
+      EXP-101 and EXP-103 on EXP-102. Extra PRs for the docs or the
+      utils.py to money.py rename are fine. Fail if tests are planned as a
+      separate PR from the code they test.
+  - type: llm
+    name: waits-for-approval
+    criteria: >-
+      Pass only if the final message asks the user to approve or adjust the
+      plan before branches are built, and does not say any branch was
+      created, pushed, or any PR opened.
